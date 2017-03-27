@@ -6,4 +6,4 @@ First, clone the Soot git repository (https://github.com/Sable/soot.git). The di
 
 Next, run the following line (in the directory of this repository, if updating):
 
-`javadoc -classpath <soot-dir>/src -linksource -subpackages soot`
+`javadoc -classpath <soot-dir>/src -linksource -private -subpackages soot`

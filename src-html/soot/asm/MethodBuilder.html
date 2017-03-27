@@ -1,0 +1,265 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1997-2014 Raja Vallee-Rai and others<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span>package soot.asm;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import org.objectweb.asm.AnnotationVisitor;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import org.objectweb.asm.Attribute;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import org.objectweb.asm.Label;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import org.objectweb.asm.Opcodes;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import org.objectweb.asm.commons.JSRInlinerAdapter;<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>import soot.*;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.tagkit.AnnotationConstants;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import soot.tagkit.AnnotationDefaultTag;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.tagkit.AnnotationTag;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import soot.tagkit.VisibilityAnnotationTag;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.tagkit.VisibilityParameterAnnotationTag;<a name="line.32"></a>
+<span class="sourceLineNo">033</span><a name="line.33"></a>
+<span class="sourceLineNo">034</span>/**<a name="line.34"></a>
+<span class="sourceLineNo">035</span> * Soot method builder.<a name="line.35"></a>
+<span class="sourceLineNo">036</span> * <a name="line.36"></a>
+<span class="sourceLineNo">037</span> * @author Aaloan Miftah<a name="line.37"></a>
+<span class="sourceLineNo">038</span> */<a name="line.38"></a>
+<span class="sourceLineNo">039</span>class MethodBuilder extends JSRInlinerAdapter {<a name="line.39"></a>
+<span class="sourceLineNo">040</span><a name="line.40"></a>
+<span class="sourceLineNo">041</span>        private TagBuilder tb;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>        private VisibilityAnnotationTag[] visibleParamAnnotations;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>        private VisibilityAnnotationTag[] invisibleParamAnnotations;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        private final SootMethod method;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>        private final SootClassBuilder scb;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>        <a name="line.46"></a>
+<span class="sourceLineNo">047</span>        MethodBuilder(SootMethod method, SootClassBuilder scb,<a name="line.47"></a>
+<span class="sourceLineNo">048</span>                        String desc, String[] ex) {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>                super(Opcodes.ASM5, null, method.getModifiers(),<a name="line.49"></a>
+<span class="sourceLineNo">050</span>                                method.getName(), desc, null, ex);<a name="line.50"></a>
+<span class="sourceLineNo">051</span>                this.method = method;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>                this.scb = scb;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>        }<a name="line.53"></a>
+<span class="sourceLineNo">054</span>        <a name="line.54"></a>
+<span class="sourceLineNo">055</span>        private TagBuilder getTagBuilder() {<a name="line.55"></a>
+<span class="sourceLineNo">056</span>                TagBuilder t = tb;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>                if (t == null)<a name="line.57"></a>
+<span class="sourceLineNo">058</span>                        t = tb = new TagBuilder(method, scb);<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                return t;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        }<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        <a name="line.61"></a>
+<span class="sourceLineNo">062</span>        @Override<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        public AnnotationVisitor visitAnnotation(String desc, boolean visible) {<a name="line.63"></a>
+<span class="sourceLineNo">064</span>                return getTagBuilder().visitAnnotation(desc, visible);<a name="line.64"></a>
+<span class="sourceLineNo">065</span>        }<a name="line.65"></a>
+<span class="sourceLineNo">066</span>        <a name="line.66"></a>
+<span class="sourceLineNo">067</span>        @Override<a name="line.67"></a>
+<span class="sourceLineNo">068</span>        public AnnotationVisitor visitAnnotationDefault() {<a name="line.68"></a>
+<span class="sourceLineNo">069</span>                return new AnnotationElemBuilder(1) {<a name="line.69"></a>
+<span class="sourceLineNo">070</span>                        @Override<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                        public void visitEnd() {<a name="line.71"></a>
+<span class="sourceLineNo">072</span>                                method.addTag(new AnnotationDefaultTag(elems.get(0)));<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                        }<a name="line.73"></a>
+<span class="sourceLineNo">074</span>                };<a name="line.74"></a>
+<span class="sourceLineNo">075</span>        }<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        <a name="line.76"></a>
+<span class="sourceLineNo">077</span>        @Override<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        public void visitAttribute(Attribute attr) {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>                getTagBuilder().visitAttribute(attr);<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        }<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        <a name="line.81"></a>
+<span class="sourceLineNo">082</span>        @Override<a name="line.82"></a>
+<span class="sourceLineNo">083</span>        public AnnotationVisitor visitParameterAnnotation(int parameter,<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                        final String desc, boolean visible) {<a name="line.84"></a>
+<span class="sourceLineNo">085</span>                VisibilityAnnotationTag vat, vats[];<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                if (visible) {<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                        vats = visibleParamAnnotations;<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                        if (vats == null) {<a name="line.88"></a>
+<span class="sourceLineNo">089</span>                                vats = new VisibilityAnnotationTag[method.getParameterCount()];<a name="line.89"></a>
+<span class="sourceLineNo">090</span>                                visibleParamAnnotations = vats;<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                        }<a name="line.91"></a>
+<span class="sourceLineNo">092</span>                        vat = vats[parameter];<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                        if (vat == null) {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                                vat = new VisibilityAnnotationTag(AnnotationConstants.RUNTIME_VISIBLE);<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                                vats[parameter] = vat;<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                        }<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                } else {<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                        vats = invisibleParamAnnotations;<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                        if (vats == null) {<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                                vats = new VisibilityAnnotationTag[method.getParameterCount()];<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                                invisibleParamAnnotations = vats;<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                        }<a name="line.102"></a>
+<span class="sourceLineNo">103</span>                        vat = vats[parameter];<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                        if (vat == null) {<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                                vat = new VisibilityAnnotationTag(AnnotationConstants.RUNTIME_INVISIBLE);<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                                vats[parameter] = vat;<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                        }<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                }<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                final VisibilityAnnotationTag _vat = vat;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                return new AnnotationElemBuilder() {<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                        @Override<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                        public void visitEnd() {<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                                AnnotationTag annotTag = new AnnotationTag(desc, elems);<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                                _vat.addAnnotation(annotTag);<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                        }<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                };<a name="line.116"></a>
+<span class="sourceLineNo">117</span>        }<a name="line.117"></a>
+<span class="sourceLineNo">118</span>        <a name="line.118"></a>
+<span class="sourceLineNo">119</span>        @Override<a name="line.119"></a>
+<span class="sourceLineNo">120</span>        public void visitTypeInsn(int op, String t) {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                super.visitTypeInsn(op, t);<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                Type rt = AsmUtil.toJimpleRefType(t);<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                if (rt instanceof ArrayType)<a name="line.123"></a>
+<span class="sourceLineNo">124</span>                        scb.addDep(((ArrayType) rt).baseType);<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                else<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                        scb.addDep(rt);<a name="line.126"></a>
+<span class="sourceLineNo">127</span>        }<a name="line.127"></a>
+<span class="sourceLineNo">128</span>        <a name="line.128"></a>
+<span class="sourceLineNo">129</span>        @Override<a name="line.129"></a>
+<span class="sourceLineNo">130</span>        public void visitFieldInsn(int opcode, String owner, String name, String desc) {<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                super.visitFieldInsn(opcode, owner, name, desc);<a name="line.131"></a>
+<span class="sourceLineNo">132</span>                for (Type t : AsmUtil.toJimpleDesc(desc)) {<a name="line.132"></a>
+<span class="sourceLineNo">133</span>                        if (t instanceof RefType)<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                                scb.addDep(t);<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                }<a name="line.135"></a>
+<span class="sourceLineNo">136</span><a name="line.136"></a>
+<span class="sourceLineNo">137</span>                scb.addDep(AsmUtil.toQualifiedName(owner));<a name="line.137"></a>
+<span class="sourceLineNo">138</span>        }<a name="line.138"></a>
+<span class="sourceLineNo">139</span>        <a name="line.139"></a>
+<span class="sourceLineNo">140</span>        @Override<a name="line.140"></a>
+<span class="sourceLineNo">141</span>        public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean isInterf) {<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                super.visitMethodInsn(opcode, owner, name, desc, isInterf);<a name="line.142"></a>
+<span class="sourceLineNo">143</span>                for (Type t : AsmUtil.toJimpleDesc(desc)) {<a name="line.143"></a>
+<span class="sourceLineNo">144</span>                        addDeps(t);<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                }<a name="line.145"></a>
+<span class="sourceLineNo">146</span>                <a name="line.146"></a>
+<span class="sourceLineNo">147</span>                scb.addDep(AsmUtil.toBaseType(owner));<a name="line.147"></a>
+<span class="sourceLineNo">148</span>        }<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        <a name="line.149"></a>
+<span class="sourceLineNo">150</span>        private void addDeps(Type t) {<a name="line.150"></a>
+<span class="sourceLineNo">151</span>                if (t instanceof RefType)<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                        scb.addDep(t);<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                else if (t instanceof ArrayType) {<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                        ArrayType at = (ArrayType) t;<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                        addDeps(at.getElementType());<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                }<a name="line.156"></a>
+<span class="sourceLineNo">157</span>        }<a name="line.157"></a>
+<span class="sourceLineNo">158</span><a name="line.158"></a>
+<span class="sourceLineNo">159</span>        @Override<a name="line.159"></a>
+<span class="sourceLineNo">160</span>        public void visitTryCatchBlock(Label start, Label end,<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                        Label handler, String type) {<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                super.visitTryCatchBlock(start, end, handler, type);<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                if (type != null)<a name="line.163"></a>
+<span class="sourceLineNo">164</span>                        scb.addDep(AsmUtil.toQualifiedName(type));<a name="line.164"></a>
+<span class="sourceLineNo">165</span>        }<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        <a name="line.166"></a>
+<span class="sourceLineNo">167</span>        @Override<a name="line.167"></a>
+<span class="sourceLineNo">168</span>        public void visitEnd() {<a name="line.168"></a>
+<span class="sourceLineNo">169</span>                super.visitEnd();<a name="line.169"></a>
+<span class="sourceLineNo">170</span>                if (visibleParamAnnotations != null) {<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                        VisibilityParameterAnnotationTag tag =<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                                        new VisibilityParameterAnnotationTag(visibleParamAnnotations.length,<a name="line.172"></a>
+<span class="sourceLineNo">173</span>                                                        AnnotationConstants.RUNTIME_VISIBLE);<a name="line.173"></a>
+<span class="sourceLineNo">174</span>                        for (VisibilityAnnotationTag vat : visibleParamAnnotations) {<a name="line.174"></a>
+<span class="sourceLineNo">175</span>                                tag.addVisibilityAnnotation(vat);<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                        }<a name="line.176"></a>
+<span class="sourceLineNo">177</span>                        method.addTag(tag);<a name="line.177"></a>
+<span class="sourceLineNo">178</span>                }<a name="line.178"></a>
+<span class="sourceLineNo">179</span>                if (invisibleParamAnnotations != null) {<a name="line.179"></a>
+<span class="sourceLineNo">180</span>                        VisibilityParameterAnnotationTag tag =<a name="line.180"></a>
+<span class="sourceLineNo">181</span>                                        new VisibilityParameterAnnotationTag(invisibleParamAnnotations.length,<a name="line.181"></a>
+<span class="sourceLineNo">182</span>                                                        AnnotationConstants.RUNTIME_INVISIBLE);<a name="line.182"></a>
+<span class="sourceLineNo">183</span>                        for (VisibilityAnnotationTag vat : invisibleParamAnnotations){<a name="line.183"></a>
+<span class="sourceLineNo">184</span>                                tag.addVisibilityAnnotation(vat);<a name="line.184"></a>
+<span class="sourceLineNo">185</span>                        }<a name="line.185"></a>
+<span class="sourceLineNo">186</span>                        method.addTag(tag);<a name="line.186"></a>
+<span class="sourceLineNo">187</span>                }<a name="line.187"></a>
+<span class="sourceLineNo">188</span>                if (method.isConcrete()) {<a name="line.188"></a>
+<span class="sourceLineNo">189</span>                        method.setSource(new AsmMethodSource(maxLocals, instructions,<a name="line.189"></a>
+<span class="sourceLineNo">190</span>                                        localVariables, tryCatchBlocks));<a name="line.190"></a>
+<span class="sourceLineNo">191</span>                }<a name="line.191"></a>
+<span class="sourceLineNo">192</span>        }<a name="line.192"></a>
+<span class="sourceLineNo">193</span>}<a name="line.193"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

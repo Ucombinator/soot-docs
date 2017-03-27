@@ -1,0 +1,1656 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>package soot.toDex;<a name="line.1"></a>
+<span class="sourceLineNo">002</span><a name="line.2"></a>
+<span class="sourceLineNo">003</span>import java.io.File;<a name="line.3"></a>
+<span class="sourceLineNo">004</span>import java.io.FileInputStream;<a name="line.4"></a>
+<span class="sourceLineNo">005</span>import java.io.FileOutputStream;<a name="line.5"></a>
+<span class="sourceLineNo">006</span>import java.io.IOException;<a name="line.6"></a>
+<span class="sourceLineNo">007</span>import java.io.InputStream;<a name="line.7"></a>
+<span class="sourceLineNo">008</span>import java.util.ArrayList;<a name="line.8"></a>
+<span class="sourceLineNo">009</span>import java.util.Collection;<a name="line.9"></a>
+<span class="sourceLineNo">010</span>import java.util.Collections;<a name="line.10"></a>
+<span class="sourceLineNo">011</span>import java.util.Enumeration;<a name="line.11"></a>
+<span class="sourceLineNo">012</span>import java.util.HashMap;<a name="line.12"></a>
+<span class="sourceLineNo">013</span>import java.util.HashSet;<a name="line.13"></a>
+<span class="sourceLineNo">014</span>import java.util.LinkedHashMap;<a name="line.14"></a>
+<span class="sourceLineNo">015</span>import java.util.List;<a name="line.15"></a>
+<span class="sourceLineNo">016</span>import java.util.Map;<a name="line.16"></a>
+<span class="sourceLineNo">017</span>import java.util.Set;<a name="line.17"></a>
+<span class="sourceLineNo">018</span>import java.util.zip.ZipEntry;<a name="line.18"></a>
+<span class="sourceLineNo">019</span>import java.util.zip.ZipFile;<a name="line.19"></a>
+<span class="sourceLineNo">020</span>import java.util.zip.ZipOutputStream;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import org.jf.dexlib2.AnnotationVisibility;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import org.jf.dexlib2.Opcode;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import org.jf.dexlib2.Opcodes;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import org.jf.dexlib2.builder.BuilderInstruction;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.jf.dexlib2.builder.BuilderOffsetInstruction;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.jf.dexlib2.builder.Label;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.jf.dexlib2.builder.MethodImplementationBuilder;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.jf.dexlib2.iface.Annotation;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.jf.dexlib2.iface.AnnotationElement;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.jf.dexlib2.iface.ExceptionHandler;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.jf.dexlib2.iface.MethodImplementation;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.jf.dexlib2.iface.MethodParameter;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.jf.dexlib2.iface.instruction.Instruction;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.jf.dexlib2.iface.reference.FieldReference;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.jf.dexlib2.iface.reference.MethodReference;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import org.jf.dexlib2.iface.reference.StringReference;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import org.jf.dexlib2.iface.value.EncodedValue;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import org.jf.dexlib2.immutable.ImmutableAnnotation;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import org.jf.dexlib2.immutable.ImmutableAnnotationElement;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import org.jf.dexlib2.immutable.ImmutableExceptionHandler;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import org.jf.dexlib2.immutable.ImmutableMethodParameter;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import org.jf.dexlib2.immutable.reference.ImmutableFieldReference;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import org.jf.dexlib2.immutable.reference.ImmutableMethodReference;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import org.jf.dexlib2.immutable.value.ImmutableAnnotationEncodedValue;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import org.jf.dexlib2.immutable.value.ImmutableArrayEncodedValue;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import org.jf.dexlib2.immutable.value.ImmutableBooleanEncodedValue;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import org.jf.dexlib2.immutable.value.ImmutableByteEncodedValue;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import org.jf.dexlib2.immutable.value.ImmutableCharEncodedValue;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>import org.jf.dexlib2.immutable.value.ImmutableDoubleEncodedValue;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>import org.jf.dexlib2.immutable.value.ImmutableEncodedValue;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>import org.jf.dexlib2.immutable.value.ImmutableEnumEncodedValue;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>import org.jf.dexlib2.immutable.value.ImmutableFieldEncodedValue;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>import org.jf.dexlib2.immutable.value.ImmutableFloatEncodedValue;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>import org.jf.dexlib2.immutable.value.ImmutableIntEncodedValue;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>import org.jf.dexlib2.immutable.value.ImmutableLongEncodedValue;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>import org.jf.dexlib2.immutable.value.ImmutableMethodEncodedValue;<a name="line.57"></a>
+<span class="sourceLineNo">058</span>import org.jf.dexlib2.immutable.value.ImmutableNullEncodedValue;<a name="line.58"></a>
+<span class="sourceLineNo">059</span>import org.jf.dexlib2.immutable.value.ImmutableShortEncodedValue;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>import org.jf.dexlib2.immutable.value.ImmutableStringEncodedValue;<a name="line.60"></a>
+<span class="sourceLineNo">061</span>import org.jf.dexlib2.immutable.value.ImmutableTypeEncodedValue;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>import org.jf.dexlib2.writer.builder.BuilderEncodedValues;<a name="line.62"></a>
+<span class="sourceLineNo">063</span>import org.jf.dexlib2.writer.builder.BuilderField;<a name="line.63"></a>
+<span class="sourceLineNo">064</span>import org.jf.dexlib2.writer.builder.BuilderFieldReference;<a name="line.64"></a>
+<span class="sourceLineNo">065</span>import org.jf.dexlib2.writer.builder.BuilderMethod;<a name="line.65"></a>
+<span class="sourceLineNo">066</span>import org.jf.dexlib2.writer.builder.BuilderMethodReference;<a name="line.66"></a>
+<span class="sourceLineNo">067</span>import org.jf.dexlib2.writer.builder.BuilderTypeReference;<a name="line.67"></a>
+<span class="sourceLineNo">068</span>import org.jf.dexlib2.writer.builder.DexBuilder;<a name="line.68"></a>
+<span class="sourceLineNo">069</span>import org.jf.dexlib2.writer.io.FileDataStore;<a name="line.69"></a>
+<span class="sourceLineNo">070</span><a name="line.70"></a>
+<span class="sourceLineNo">071</span>import soot.Body;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>import soot.BooleanType;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>import soot.ByteType;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>import soot.CharType;<a name="line.74"></a>
+<span class="sourceLineNo">075</span>import soot.CompilationDeathException;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>import soot.G;<a name="line.76"></a>
+<span class="sourceLineNo">077</span>import soot.IntType;<a name="line.77"></a>
+<span class="sourceLineNo">078</span>import soot.Local;<a name="line.78"></a>
+<span class="sourceLineNo">079</span>import soot.PackManager;<a name="line.79"></a>
+<span class="sourceLineNo">080</span>import soot.Scene;<a name="line.80"></a>
+<span class="sourceLineNo">081</span>import soot.ShortType;<a name="line.81"></a>
+<span class="sourceLineNo">082</span>import soot.SootClass;<a name="line.82"></a>
+<span class="sourceLineNo">083</span>import soot.SootField;<a name="line.83"></a>
+<span class="sourceLineNo">084</span>import soot.SootMethod;<a name="line.84"></a>
+<span class="sourceLineNo">085</span>import soot.SootMethodRef;<a name="line.85"></a>
+<span class="sourceLineNo">086</span>import soot.SourceLocator;<a name="line.86"></a>
+<span class="sourceLineNo">087</span>import soot.Trap;<a name="line.87"></a>
+<span class="sourceLineNo">088</span>import soot.Type;<a name="line.88"></a>
+<span class="sourceLineNo">089</span>import soot.Unit;<a name="line.89"></a>
+<span class="sourceLineNo">090</span>import soot.dexpler.DexType;<a name="line.90"></a>
+<span class="sourceLineNo">091</span>import soot.dexpler.Util;<a name="line.91"></a>
+<span class="sourceLineNo">092</span>import soot.jimple.ClassConstant;<a name="line.92"></a>
+<span class="sourceLineNo">093</span>import soot.jimple.IdentityStmt;<a name="line.93"></a>
+<span class="sourceLineNo">094</span>import soot.jimple.Jimple;<a name="line.94"></a>
+<span class="sourceLineNo">095</span>import soot.jimple.MonitorStmt;<a name="line.95"></a>
+<span class="sourceLineNo">096</span>import soot.jimple.NopStmt;<a name="line.96"></a>
+<span class="sourceLineNo">097</span>import soot.jimple.Stmt;<a name="line.97"></a>
+<span class="sourceLineNo">098</span>import soot.jimple.toolkits.scalar.EmptySwitchEliminator;<a name="line.98"></a>
+<span class="sourceLineNo">099</span>import soot.options.Options;<a name="line.99"></a>
+<span class="sourceLineNo">100</span>import soot.tagkit.AbstractHost;<a name="line.100"></a>
+<span class="sourceLineNo">101</span>import soot.tagkit.AnnotationAnnotationElem;<a name="line.101"></a>
+<span class="sourceLineNo">102</span>import soot.tagkit.AnnotationArrayElem;<a name="line.102"></a>
+<span class="sourceLineNo">103</span>import soot.tagkit.AnnotationBooleanElem;<a name="line.103"></a>
+<span class="sourceLineNo">104</span>import soot.tagkit.AnnotationClassElem;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>import soot.tagkit.AnnotationConstants;<a name="line.105"></a>
+<span class="sourceLineNo">106</span>import soot.tagkit.AnnotationDefaultTag;<a name="line.106"></a>
+<span class="sourceLineNo">107</span>import soot.tagkit.AnnotationDoubleElem;<a name="line.107"></a>
+<span class="sourceLineNo">108</span>import soot.tagkit.AnnotationElem;<a name="line.108"></a>
+<span class="sourceLineNo">109</span>import soot.tagkit.AnnotationEnumElem;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>import soot.tagkit.AnnotationFloatElem;<a name="line.110"></a>
+<span class="sourceLineNo">111</span>import soot.tagkit.AnnotationIntElem;<a name="line.111"></a>
+<span class="sourceLineNo">112</span>import soot.tagkit.AnnotationLongElem;<a name="line.112"></a>
+<span class="sourceLineNo">113</span>import soot.tagkit.AnnotationStringElem;<a name="line.113"></a>
+<span class="sourceLineNo">114</span>import soot.tagkit.AnnotationTag;<a name="line.114"></a>
+<span class="sourceLineNo">115</span>import soot.tagkit.ConstantValueTag;<a name="line.115"></a>
+<span class="sourceLineNo">116</span>import soot.tagkit.DoubleConstantValueTag;<a name="line.116"></a>
+<span class="sourceLineNo">117</span>import soot.tagkit.EnclosingMethodTag;<a name="line.117"></a>
+<span class="sourceLineNo">118</span>import soot.tagkit.FloatConstantValueTag;<a name="line.118"></a>
+<span class="sourceLineNo">119</span>import soot.tagkit.InnerClassAttribute;<a name="line.119"></a>
+<span class="sourceLineNo">120</span>import soot.tagkit.InnerClassTag;<a name="line.120"></a>
+<span class="sourceLineNo">121</span>import soot.tagkit.IntegerConstantValueTag;<a name="line.121"></a>
+<span class="sourceLineNo">122</span>import soot.tagkit.LineNumberTag;<a name="line.122"></a>
+<span class="sourceLineNo">123</span>import soot.tagkit.LongConstantValueTag;<a name="line.123"></a>
+<span class="sourceLineNo">124</span>import soot.tagkit.ParamNamesTag;<a name="line.124"></a>
+<span class="sourceLineNo">125</span>import soot.tagkit.SignatureTag;<a name="line.125"></a>
+<span class="sourceLineNo">126</span>import soot.tagkit.SourceFileTag;<a name="line.126"></a>
+<span class="sourceLineNo">127</span>import soot.tagkit.StringConstantValueTag;<a name="line.127"></a>
+<span class="sourceLineNo">128</span>import soot.tagkit.Tag;<a name="line.128"></a>
+<span class="sourceLineNo">129</span>import soot.tagkit.VisibilityAnnotationTag;<a name="line.129"></a>
+<span class="sourceLineNo">130</span>import soot.tagkit.VisibilityParameterAnnotationTag;<a name="line.130"></a>
+<span class="sourceLineNo">131</span>import soot.toDex.instructions.Insn;<a name="line.131"></a>
+<span class="sourceLineNo">132</span>import soot.toDex.instructions.Insn10t;<a name="line.132"></a>
+<span class="sourceLineNo">133</span>import soot.toDex.instructions.Insn30t;<a name="line.133"></a>
+<span class="sourceLineNo">134</span>import soot.toDex.instructions.InsnWithOffset;<a name="line.134"></a>
+<span class="sourceLineNo">135</span><a name="line.135"></a>
+<span class="sourceLineNo">136</span>/**<a name="line.136"></a>
+<span class="sourceLineNo">137</span> * Main entry point for the "dex" output format.&lt;br&gt;<a name="line.137"></a>
+<span class="sourceLineNo">138</span> * &lt;br&gt;<a name="line.138"></a>
+<span class="sourceLineNo">139</span> * Use {@link #add(SootClass)} to add classes that should be printed as dex output and {@link #print()} to finally print the classes.&lt;br&gt;<a name="line.139"></a>
+<span class="sourceLineNo">140</span> * If the printer has found the original APK of an added class (via {@link SourceLocator#dexClassIndex()}),<a name="line.140"></a>
+<span class="sourceLineNo">141</span> * the files in the APK are copied to a new one, replacing it's classes.dex and excluding the signature files.<a name="line.141"></a>
+<span class="sourceLineNo">142</span> * Note that you have to sign and align the APK yourself, with jarsigner and zipalign, respectively.&lt;br&gt;<a name="line.142"></a>
+<span class="sourceLineNo">143</span> * If there is no original APK, the printer just emits a classes.dex.<a name="line.143"></a>
+<span class="sourceLineNo">144</span> * <a name="line.144"></a>
+<span class="sourceLineNo">145</span> * @see &lt;a href="http://docs.oracle.com/javase/7/docs/technotes/tools/windows/jarsigner.html"&gt;jarsigner documentation&lt;/a&gt;<a name="line.145"></a>
+<span class="sourceLineNo">146</span> * @see &lt;a href="http://developer.android.com/tools/help/zipalign.html"&gt;zipalign documentation&lt;/a&gt;<a name="line.146"></a>
+<span class="sourceLineNo">147</span> */<a name="line.147"></a>
+<span class="sourceLineNo">148</span>public class DexPrinter {<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        <a name="line.149"></a>
+<span class="sourceLineNo">150</span>        private static final String CLASSES_DEX = "classes.dex";<a name="line.150"></a>
+<span class="sourceLineNo">151</span>        <a name="line.151"></a>
+<span class="sourceLineNo">152</span>        private DexBuilder dexFile;<a name="line.152"></a>
+<span class="sourceLineNo">153</span>        <a name="line.153"></a>
+<span class="sourceLineNo">154</span>        private File originalApk;<a name="line.154"></a>
+<span class="sourceLineNo">155</span>        <a name="line.155"></a>
+<span class="sourceLineNo">156</span>        public DexPrinter() {<a name="line.156"></a>
+<span class="sourceLineNo">157</span>                int api = Scene.v().getAndroidAPIVersion();<a name="line.157"></a>
+<span class="sourceLineNo">158</span>                dexFile = DexBuilder.makeDexBuilder(Opcodes.forApi(api));<a name="line.158"></a>
+<span class="sourceLineNo">159</span>        }<a name="line.159"></a>
+<span class="sourceLineNo">160</span>        <a name="line.160"></a>
+<span class="sourceLineNo">161</span>        private void printApk(String outputDir, File originalApk) throws IOException {<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                ZipOutputStream outputApk = null;<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                if(Options.v().output_jar()) {<a name="line.163"></a>
+<span class="sourceLineNo">164</span>                        outputApk = PackManager.v().getJarFile();<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                        G.v().out.println("Writing APK to: " + Options.v().output_dir());<a name="line.165"></a>
+<span class="sourceLineNo">166</span>                } else {<a name="line.166"></a>
+<span class="sourceLineNo">167</span>                        String outputFileName = outputDir + File.separatorChar + originalApk.getName();<a name="line.167"></a>
+<span class="sourceLineNo">168</span>                <a name="line.168"></a>
+<span class="sourceLineNo">169</span>                        File outputFile = new File(outputFileName);<a name="line.169"></a>
+<span class="sourceLineNo">170</span>                        if(outputFile.exists() &amp;&amp; !Options.v().force_overwrite()) {<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                                throw new CompilationDeathException("Output file "+outputFile+" exists. Not overwriting.");<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                        } <a name="line.172"></a>
+<span class="sourceLineNo">173</span>                        outputApk = new ZipOutputStream(new FileOutputStream(outputFile));<a name="line.173"></a>
+<span class="sourceLineNo">174</span>                        G.v().out.println("Writing APK to: " + outputFileName);<a name="line.174"></a>
+<span class="sourceLineNo">175</span>                }<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                G.v().out.println("do not forget to sign the .apk file with jarsigner and to align it with zipalign");<a name="line.176"></a>
+<span class="sourceLineNo">177</span>                <a name="line.177"></a>
+<span class="sourceLineNo">178</span>                // Copy over additional resources from original APK<a name="line.178"></a>
+<span class="sourceLineNo">179</span>                ZipFile original = null;<a name="line.179"></a>
+<span class="sourceLineNo">180</span>                try {<a name="line.180"></a>
+<span class="sourceLineNo">181</span>                        original = new ZipFile(originalApk);<a name="line.181"></a>
+<span class="sourceLineNo">182</span>                        copyAllButClassesDexAndSigFiles(original, outputApk);<a name="line.182"></a>
+<span class="sourceLineNo">183</span>                }<a name="line.183"></a>
+<span class="sourceLineNo">184</span>                finally {<a name="line.184"></a>
+<span class="sourceLineNo">185</span>                        if (original != null)<a name="line.185"></a>
+<span class="sourceLineNo">186</span>                                original.close();<a name="line.186"></a>
+<span class="sourceLineNo">187</span>                }<a name="line.187"></a>
+<span class="sourceLineNo">188</span>                <a name="line.188"></a>
+<span class="sourceLineNo">189</span>                // put our classes.dex into the zip archive<a name="line.189"></a>
+<span class="sourceLineNo">190</span>                File tmpFile = File.createTempFile("toDex", null);<a name="line.190"></a>
+<span class="sourceLineNo">191</span>                FileInputStream fis = new FileInputStream(tmpFile);<a name="line.191"></a>
+<span class="sourceLineNo">192</span>                try {<a name="line.192"></a>
+<span class="sourceLineNo">193</span>                        outputApk.putNextEntry(new ZipEntry(CLASSES_DEX));<a name="line.193"></a>
+<span class="sourceLineNo">194</span>                        writeTo(tmpFile.getAbsolutePath());<a name="line.194"></a>
+<span class="sourceLineNo">195</span>                        while (fis.available() &gt; 0) {<a name="line.195"></a>
+<span class="sourceLineNo">196</span>                                byte[] data = new byte[fis.available()];<a name="line.196"></a>
+<span class="sourceLineNo">197</span>                                fis.read(data);<a name="line.197"></a>
+<span class="sourceLineNo">198</span>                                outputApk.write(data);<a name="line.198"></a>
+<span class="sourceLineNo">199</span>                        }<a name="line.199"></a>
+<span class="sourceLineNo">200</span>                        outputApk.closeEntry();<a name="line.200"></a>
+<span class="sourceLineNo">201</span>                }<a name="line.201"></a>
+<span class="sourceLineNo">202</span>                finally {<a name="line.202"></a>
+<span class="sourceLineNo">203</span>                        fis.close();<a name="line.203"></a>
+<span class="sourceLineNo">204</span>                        tmpFile.delete();<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                        if (outputApk != null)<a name="line.205"></a>
+<span class="sourceLineNo">206</span>                                outputApk.close();<a name="line.206"></a>
+<span class="sourceLineNo">207</span>                }<a name="line.207"></a>
+<span class="sourceLineNo">208</span>        }<a name="line.208"></a>
+<span class="sourceLineNo">209</span><a name="line.209"></a>
+<span class="sourceLineNo">210</span>        private void copyAllButClassesDexAndSigFiles(ZipFile source, ZipOutputStream destination) throws IOException {<a name="line.210"></a>
+<span class="sourceLineNo">211</span>                Enumeration&lt;? extends ZipEntry&gt; sourceEntries = source.entries();<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                while (sourceEntries.hasMoreElements()) {<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                        ZipEntry sourceEntry = sourceEntries.nextElement();<a name="line.213"></a>
+<span class="sourceLineNo">214</span>                        String sourceEntryName = sourceEntry.getName();<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                        if (sourceEntryName.equals(CLASSES_DEX) || isSignatureFile(sourceEntryName)) {<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                                continue;<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                        }<a name="line.217"></a>
+<span class="sourceLineNo">218</span>                        // separate ZipEntry avoids compression problems due to encodings<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                        ZipEntry destinationEntry = new ZipEntry(sourceEntryName);<a name="line.219"></a>
+<span class="sourceLineNo">220</span>                        // use the same compression method as the original (certain files are stored, not compressed)<a name="line.220"></a>
+<span class="sourceLineNo">221</span>                        destinationEntry.setMethod(sourceEntry.getMethod());<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                        // copy other necessary fields for STORE method<a name="line.222"></a>
+<span class="sourceLineNo">223</span>                        destinationEntry.setSize(sourceEntry.getSize());<a name="line.223"></a>
+<span class="sourceLineNo">224</span>                        destinationEntry.setCrc(sourceEntry.getCrc());<a name="line.224"></a>
+<span class="sourceLineNo">225</span>                        // finally craft new entry<a name="line.225"></a>
+<span class="sourceLineNo">226</span>                        destination.putNextEntry(destinationEntry);<a name="line.226"></a>
+<span class="sourceLineNo">227</span>                        InputStream zipEntryInput = source.getInputStream(sourceEntry);<a name="line.227"></a>
+<span class="sourceLineNo">228</span>                        byte[] buffer = new byte[2048];<a name="line.228"></a>
+<span class="sourceLineNo">229</span>                        int bytesRead = zipEntryInput.read(buffer);<a name="line.229"></a>
+<span class="sourceLineNo">230</span>                        while (bytesRead &gt; 0) {<a name="line.230"></a>
+<span class="sourceLineNo">231</span>                                destination.write(buffer, 0, bytesRead);<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                                bytesRead = zipEntryInput.read(buffer);<a name="line.232"></a>
+<span class="sourceLineNo">233</span>                        }<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                        zipEntryInput.close();<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                }<a name="line.235"></a>
+<span class="sourceLineNo">236</span>        }<a name="line.236"></a>
+<span class="sourceLineNo">237</span><a name="line.237"></a>
+<span class="sourceLineNo">238</span>        private static boolean isSignatureFile(String fileName) {<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                StringBuilder sigFileRegex = new StringBuilder();<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                // file name must start with META-INF...<a name="line.240"></a>
+<span class="sourceLineNo">241</span>                sigFileRegex.append("META\\-INF");<a name="line.241"></a>
+<span class="sourceLineNo">242</span>                // ...followed by a zip file separator...<a name="line.242"></a>
+<span class="sourceLineNo">243</span>                sigFileRegex.append('/');<a name="line.243"></a>
+<span class="sourceLineNo">244</span>                // ...followed by anything but a zip file separator...<a name="line.244"></a>
+<span class="sourceLineNo">245</span>                sigFileRegex.append("[^/]+");<a name="line.245"></a>
+<span class="sourceLineNo">246</span>                // ...ending with .SF, .DSA, .RSA or .EC<a name="line.246"></a>
+<span class="sourceLineNo">247</span>                sigFileRegex.append("(\\.SF|\\.DSA|\\.RSA|\\.EC)$");<a name="line.247"></a>
+<span class="sourceLineNo">248</span>                return fileName.matches(sigFileRegex.toString());<a name="line.248"></a>
+<span class="sourceLineNo">249</span>        }<a name="line.249"></a>
+<span class="sourceLineNo">250</span><a name="line.250"></a>
+<span class="sourceLineNo">251</span>        private void writeTo(String fileName) throws IOException {<a name="line.251"></a>
+<span class="sourceLineNo">252</span>                FileDataStore fds = new FileDataStore(new File(fileName));<a name="line.252"></a>
+<span class="sourceLineNo">253</span>                dexFile.writeTo(fds);<a name="line.253"></a>
+<span class="sourceLineNo">254</span>                fds.close();<a name="line.254"></a>
+<span class="sourceLineNo">255</span>        }<a name="line.255"></a>
+<span class="sourceLineNo">256</span>        <a name="line.256"></a>
+<span class="sourceLineNo">257</span>    /**<a name="line.257"></a>
+<span class="sourceLineNo">258</span>     * Encodes Annotations Elements from Jimple to Dexlib<a name="line.258"></a>
+<span class="sourceLineNo">259</span>     * @param elem Jimple Element<a name="line.259"></a>
+<span class="sourceLineNo">260</span>     * @return Dexlib encoded element<a name="line.260"></a>
+<span class="sourceLineNo">261</span>     */<a name="line.261"></a>
+<span class="sourceLineNo">262</span>    private EncodedValue buildEncodedValueForAnnotation(AnnotationElem elem){<a name="line.262"></a>
+<span class="sourceLineNo">263</span>        switch (elem.getKind()) {<a name="line.263"></a>
+<span class="sourceLineNo">264</span>        case 'Z': {<a name="line.264"></a>
+<span class="sourceLineNo">265</span>                if (elem instanceof AnnotationIntElem) {<a name="line.265"></a>
+<span class="sourceLineNo">266</span>                    AnnotationIntElem e = (AnnotationIntElem)elem;<a name="line.266"></a>
+<span class="sourceLineNo">267</span>                    if (e.getValue() == 0) {<a name="line.267"></a>
+<span class="sourceLineNo">268</span>                        return ImmutableBooleanEncodedValue.FALSE_VALUE;<a name="line.268"></a>
+<span class="sourceLineNo">269</span>                    } else if (e.getValue() == 1) {<a name="line.269"></a>
+<span class="sourceLineNo">270</span>                        return ImmutableBooleanEncodedValue.TRUE_VALUE;<a name="line.270"></a>
+<span class="sourceLineNo">271</span>                    } else {<a name="line.271"></a>
+<span class="sourceLineNo">272</span>                        throw new RuntimeException("error: boolean value from int with value != 0 or 1.");<a name="line.272"></a>
+<span class="sourceLineNo">273</span>                    }<a name="line.273"></a>
+<span class="sourceLineNo">274</span>                }<a name="line.274"></a>
+<span class="sourceLineNo">275</span>                else if (elem instanceof AnnotationBooleanElem) {<a name="line.275"></a>
+<span class="sourceLineNo">276</span>                        AnnotationBooleanElem e = (AnnotationBooleanElem) elem;<a name="line.276"></a>
+<span class="sourceLineNo">277</span>                        if (e.getValue())<a name="line.277"></a>
+<span class="sourceLineNo">278</span>                                return ImmutableBooleanEncodedValue.TRUE_VALUE;<a name="line.278"></a>
+<span class="sourceLineNo">279</span>                        else<a name="line.279"></a>
+<span class="sourceLineNo">280</span>                                return ImmutableBooleanEncodedValue.FALSE_VALUE;<a name="line.280"></a>
+<span class="sourceLineNo">281</span>                }<a name="line.281"></a>
+<span class="sourceLineNo">282</span>                else<a name="line.282"></a>
+<span class="sourceLineNo">283</span>                        throw new RuntimeException("Annotation type incompatible with target type boolean");<a name="line.283"></a>
+<span class="sourceLineNo">284</span>        }<a name="line.284"></a>
+<span class="sourceLineNo">285</span>        case 'S': {<a name="line.285"></a>
+<span class="sourceLineNo">286</span>            AnnotationIntElem e = (AnnotationIntElem)elem;<a name="line.286"></a>
+<span class="sourceLineNo">287</span>            return new ImmutableShortEncodedValue((short)e.getValue());<a name="line.287"></a>
+<span class="sourceLineNo">288</span>        }<a name="line.288"></a>
+<span class="sourceLineNo">289</span>        case 'B': {<a name="line.289"></a>
+<span class="sourceLineNo">290</span>            AnnotationIntElem e = (AnnotationIntElem)elem;<a name="line.290"></a>
+<span class="sourceLineNo">291</span>            return new ImmutableByteEncodedValue((byte)e.getValue());<a name="line.291"></a>
+<span class="sourceLineNo">292</span>        }<a name="line.292"></a>
+<span class="sourceLineNo">293</span>        case 'C': {<a name="line.293"></a>
+<span class="sourceLineNo">294</span>            AnnotationIntElem e = (AnnotationIntElem)elem;<a name="line.294"></a>
+<span class="sourceLineNo">295</span>            return new ImmutableCharEncodedValue((char)e.getValue());<a name="line.295"></a>
+<span class="sourceLineNo">296</span>        }<a name="line.296"></a>
+<span class="sourceLineNo">297</span>        case 'I': {<a name="line.297"></a>
+<span class="sourceLineNo">298</span>            AnnotationIntElem e = (AnnotationIntElem)elem;<a name="line.298"></a>
+<span class="sourceLineNo">299</span>            return new ImmutableIntEncodedValue(e.getValue());<a name="line.299"></a>
+<span class="sourceLineNo">300</span>        }<a name="line.300"></a>
+<span class="sourceLineNo">301</span>        case 'J': {<a name="line.301"></a>
+<span class="sourceLineNo">302</span>            AnnotationLongElem e = (AnnotationLongElem)elem;<a name="line.302"></a>
+<span class="sourceLineNo">303</span>            return new ImmutableLongEncodedValue(e.getValue());<a name="line.303"></a>
+<span class="sourceLineNo">304</span>        }<a name="line.304"></a>
+<span class="sourceLineNo">305</span>        case 'F': {<a name="line.305"></a>
+<span class="sourceLineNo">306</span>            AnnotationFloatElem e = (AnnotationFloatElem)elem;<a name="line.306"></a>
+<span class="sourceLineNo">307</span>            return new ImmutableFloatEncodedValue(e.getValue());<a name="line.307"></a>
+<span class="sourceLineNo">308</span>        }<a name="line.308"></a>
+<span class="sourceLineNo">309</span>        case 'D': {<a name="line.309"></a>
+<span class="sourceLineNo">310</span>            AnnotationDoubleElem e = (AnnotationDoubleElem)elem;<a name="line.310"></a>
+<span class="sourceLineNo">311</span>            return new ImmutableDoubleEncodedValue(e.getValue());<a name="line.311"></a>
+<span class="sourceLineNo">312</span>        }<a name="line.312"></a>
+<span class="sourceLineNo">313</span>        case 's': {<a name="line.313"></a>
+<span class="sourceLineNo">314</span>            AnnotationStringElem e = (AnnotationStringElem)elem;<a name="line.314"></a>
+<span class="sourceLineNo">315</span>            return new ImmutableStringEncodedValue(e.getValue());<a name="line.315"></a>
+<span class="sourceLineNo">316</span>        }<a name="line.316"></a>
+<span class="sourceLineNo">317</span>        case 'e': {<a name="line.317"></a>
+<span class="sourceLineNo">318</span>            AnnotationEnumElem e = (AnnotationEnumElem)elem;<a name="line.318"></a>
+<span class="sourceLineNo">319</span>            <a name="line.319"></a>
+<span class="sourceLineNo">320</span>            String classT = SootToDexUtils.getDexClassName(e.getTypeName());<a name="line.320"></a>
+<span class="sourceLineNo">321</span>            String fieldT = classT;<a name="line.321"></a>
+<span class="sourceLineNo">322</span>            <a name="line.322"></a>
+<span class="sourceLineNo">323</span>            FieldReference fref = dexFile.internFieldReference(new ImmutableFieldReference<a name="line.323"></a>
+<span class="sourceLineNo">324</span>                        (classT, e.getConstantName(), fieldT));<a name="line.324"></a>
+<span class="sourceLineNo">325</span>            <a name="line.325"></a>
+<span class="sourceLineNo">326</span>            return new ImmutableEnumEncodedValue(fref);<a name="line.326"></a>
+<span class="sourceLineNo">327</span>        }<a name="line.327"></a>
+<span class="sourceLineNo">328</span>        case 'c': {<a name="line.328"></a>
+<span class="sourceLineNo">329</span>            AnnotationClassElem e = (AnnotationClassElem)elem;<a name="line.329"></a>
+<span class="sourceLineNo">330</span>            return new ImmutableTypeEncodedValue(e.getDesc());<a name="line.330"></a>
+<span class="sourceLineNo">331</span>        }<a name="line.331"></a>
+<span class="sourceLineNo">332</span>        case '[': {<a name="line.332"></a>
+<span class="sourceLineNo">333</span>            AnnotationArrayElem e = (AnnotationArrayElem)elem;<a name="line.333"></a>
+<span class="sourceLineNo">334</span>            List&lt;EncodedValue&gt; values = new ArrayList&lt;EncodedValue&gt;();<a name="line.334"></a>
+<span class="sourceLineNo">335</span>            for (int i = 0; i &lt; e.getNumValues(); i++){<a name="line.335"></a>
+<span class="sourceLineNo">336</span>                EncodedValue val = buildEncodedValueForAnnotation(e.getValueAt(i));<a name="line.336"></a>
+<span class="sourceLineNo">337</span>                values.add(val);<a name="line.337"></a>
+<span class="sourceLineNo">338</span>            }<a name="line.338"></a>
+<span class="sourceLineNo">339</span>            return new ImmutableArrayEncodedValue(values);<a name="line.339"></a>
+<span class="sourceLineNo">340</span>        }<a name="line.340"></a>
+<span class="sourceLineNo">341</span>        case '@': {<a name="line.341"></a>
+<span class="sourceLineNo">342</span>                AnnotationAnnotationElem e = (AnnotationAnnotationElem)elem;<a name="line.342"></a>
+<span class="sourceLineNo">343</span>                <a name="line.343"></a>
+<span class="sourceLineNo">344</span>                Set&lt;String&gt; alreadyWritten = new HashSet&lt;String&gt;();<a name="line.344"></a>
+<span class="sourceLineNo">345</span>            List&lt;AnnotationElement&gt; elements = null;<a name="line.345"></a>
+<span class="sourceLineNo">346</span>            if (!e.getValue().getElems().isEmpty()) {<a name="line.346"></a>
+<span class="sourceLineNo">347</span>                elements = new ArrayList&lt;AnnotationElement&gt;();<a name="line.347"></a>
+<span class="sourceLineNo">348</span>                    for (AnnotationElem ae : e.getValue().getElems()) {<a name="line.348"></a>
+<span class="sourceLineNo">349</span>                        if (!alreadyWritten.add(ae.getName()))<a name="line.349"></a>
+<span class="sourceLineNo">350</span>                                throw new RuntimeException("Duplicate annotation attribute: " + ae.getName());<a name="line.350"></a>
+<span class="sourceLineNo">351</span>                        <a name="line.351"></a>
+<span class="sourceLineNo">352</span>                        AnnotationElement element = new ImmutableAnnotationElement(ae.getName(),<a name="line.352"></a>
+<span class="sourceLineNo">353</span>                                        buildEncodedValueForAnnotation(ae));<a name="line.353"></a>
+<span class="sourceLineNo">354</span>                        elements.add(element);<a name="line.354"></a>
+<span class="sourceLineNo">355</span>                    }<a name="line.355"></a>
+<span class="sourceLineNo">356</span>            }<a name="line.356"></a>
+<span class="sourceLineNo">357</span>                        <a name="line.357"></a>
+<span class="sourceLineNo">358</span>            return new ImmutableAnnotationEncodedValue<a name="line.358"></a>
+<span class="sourceLineNo">359</span>                        (SootToDexUtils.getDexClassName(e.getValue().getType()),<a name="line.359"></a>
+<span class="sourceLineNo">360</span>                        elements);<a name="line.360"></a>
+<span class="sourceLineNo">361</span>        }<a name="line.361"></a>
+<span class="sourceLineNo">362</span>        case 'f': { // field (Dalvik specific?)<a name="line.362"></a>
+<span class="sourceLineNo">363</span>            AnnotationStringElem e = (AnnotationStringElem)elem;<a name="line.363"></a>
+<span class="sourceLineNo">364</span>            <a name="line.364"></a>
+<span class="sourceLineNo">365</span>            String fSig = e.getValue();<a name="line.365"></a>
+<span class="sourceLineNo">366</span>            String[] sp = fSig.split(" ");<a name="line.366"></a>
+<span class="sourceLineNo">367</span>            String classString = SootToDexUtils.getDexClassName(sp[0].split(":")[0]);<a name="line.367"></a>
+<span class="sourceLineNo">368</span>            if (classString.isEmpty())<a name="line.368"></a>
+<span class="sourceLineNo">369</span>                throw new RuntimeException("Empty class name in annotation");<a name="line.369"></a>
+<span class="sourceLineNo">370</span><a name="line.370"></a>
+<span class="sourceLineNo">371</span>            String typeString = sp[1];<a name="line.371"></a>
+<span class="sourceLineNo">372</span>            if (typeString.isEmpty())<a name="line.372"></a>
+<span class="sourceLineNo">373</span>                throw new RuntimeException("Empty type string in annotation");<a name="line.373"></a>
+<span class="sourceLineNo">374</span>            <a name="line.374"></a>
+<span class="sourceLineNo">375</span>            String fieldName = sp[2];<a name="line.375"></a>
+<span class="sourceLineNo">376</span>            <a name="line.376"></a>
+<span class="sourceLineNo">377</span>            FieldReference fref = dexFile.internFieldReference(new ImmutableFieldReference<a name="line.377"></a>
+<span class="sourceLineNo">378</span>                        (classString, fieldName, typeString));<a name="line.378"></a>
+<span class="sourceLineNo">379</span>            return new ImmutableFieldEncodedValue(fref);<a name="line.379"></a>
+<span class="sourceLineNo">380</span>        }<a name="line.380"></a>
+<span class="sourceLineNo">381</span>        case 'M': { // method (Dalvik specific?)<a name="line.381"></a>
+<span class="sourceLineNo">382</span>            AnnotationStringElem e = (AnnotationStringElem)elem;<a name="line.382"></a>
+<span class="sourceLineNo">383</span>            <a name="line.383"></a>
+<span class="sourceLineNo">384</span>            String[] sp = e.getValue().split(" ");<a name="line.384"></a>
+<span class="sourceLineNo">385</span>            String classString = SootToDexUtils.getDexClassName(sp[0].split(":")[0]);<a name="line.385"></a>
+<span class="sourceLineNo">386</span>            if (classString.isEmpty())<a name="line.386"></a>
+<span class="sourceLineNo">387</span>                throw new RuntimeException("Empty class name in annotation");<a name="line.387"></a>
+<span class="sourceLineNo">388</span><a name="line.388"></a>
+<span class="sourceLineNo">389</span>            String returnType = sp[1];<a name="line.389"></a>
+<span class="sourceLineNo">390</span>            String[] sp2 = sp[2].split("\\(");<a name="line.390"></a>
+<span class="sourceLineNo">391</span>            String methodNameString = sp2[0];<a name="line.391"></a>
+<span class="sourceLineNo">392</span>            <a name="line.392"></a>
+<span class="sourceLineNo">393</span>            String parameters = sp2[1].replaceAll("\\)", "");<a name="line.393"></a>
+<span class="sourceLineNo">394</span>            List&lt;String&gt; paramTypeList = null;<a name="line.394"></a>
+<span class="sourceLineNo">395</span>            if (!parameters.isEmpty()) {<a name="line.395"></a>
+<span class="sourceLineNo">396</span>                paramTypeList = new ArrayList&lt;String&gt;();<a name="line.396"></a>
+<span class="sourceLineNo">397</span>                    if (parameters.length() &gt; 0)<a name="line.397"></a>
+<span class="sourceLineNo">398</span>                        for (String p: parameters.split(",")) {<a name="line.398"></a>
+<span class="sourceLineNo">399</span>                            paramTypeList.add(p);<a name="line.399"></a>
+<span class="sourceLineNo">400</span>                        }<a name="line.400"></a>
+<span class="sourceLineNo">401</span>            }<a name="line.401"></a>
+<span class="sourceLineNo">402</span>            <a name="line.402"></a>
+<span class="sourceLineNo">403</span>            MethodReference mref = dexFile.internMethodReference(new ImmutableMethodReference<a name="line.403"></a>
+<span class="sourceLineNo">404</span>                        (classString, methodNameString, paramTypeList, returnType));<a name="line.404"></a>
+<span class="sourceLineNo">405</span>            return new ImmutableMethodEncodedValue(mref);<a name="line.405"></a>
+<span class="sourceLineNo">406</span>        }<a name="line.406"></a>
+<span class="sourceLineNo">407</span>        case 'N': { // null (Dalvik specific?)<a name="line.407"></a>
+<span class="sourceLineNo">408</span>                return ImmutableNullEncodedValue.INSTANCE;<a name="line.408"></a>
+<span class="sourceLineNo">409</span>        }<a name="line.409"></a>
+<span class="sourceLineNo">410</span>        default :<a name="line.410"></a>
+<span class="sourceLineNo">411</span>            throw new RuntimeException("Unknown Elem Attr Kind: "+elem.getKind());<a name="line.411"></a>
+<span class="sourceLineNo">412</span>        }<a name="line.412"></a>
+<span class="sourceLineNo">413</span>    }<a name="line.413"></a>
+<span class="sourceLineNo">414</span><a name="line.414"></a>
+<span class="sourceLineNo">415</span>    private EncodedValue makeConstantItem(SootField sf, Tag t) {<a name="line.415"></a>
+<span class="sourceLineNo">416</span>        if (!(t instanceof ConstantValueTag))<a name="line.416"></a>
+<span class="sourceLineNo">417</span>            throw new RuntimeException("error: t not ConstantValueTag.");<a name="line.417"></a>
+<span class="sourceLineNo">418</span><a name="line.418"></a>
+<span class="sourceLineNo">419</span>        if (t instanceof IntegerConstantValueTag) {<a name="line.419"></a>
+<span class="sourceLineNo">420</span>            Type sft = sf.getType();<a name="line.420"></a>
+<span class="sourceLineNo">421</span>            IntegerConstantValueTag i = (IntegerConstantValueTag) t;<a name="line.421"></a>
+<span class="sourceLineNo">422</span>            if (sft instanceof BooleanType) {<a name="line.422"></a>
+<span class="sourceLineNo">423</span>                int v = i.getIntValue();<a name="line.423"></a>
+<span class="sourceLineNo">424</span>                if (v == 0) {<a name="line.424"></a>
+<span class="sourceLineNo">425</span>                    return ImmutableBooleanEncodedValue.FALSE_VALUE;<a name="line.425"></a>
+<span class="sourceLineNo">426</span>                } else if (v == 1) {<a name="line.426"></a>
+<span class="sourceLineNo">427</span>                        return ImmutableBooleanEncodedValue.TRUE_VALUE;<a name="line.427"></a>
+<span class="sourceLineNo">428</span>                } else {<a name="line.428"></a>
+<span class="sourceLineNo">429</span>                    throw new RuntimeException(<a name="line.429"></a>
+<span class="sourceLineNo">430</span>                            "error: boolean value from int with value != 0 or 1.");<a name="line.430"></a>
+<span class="sourceLineNo">431</span>                }<a name="line.431"></a>
+<span class="sourceLineNo">432</span>            } else if (sft instanceof CharType) {<a name="line.432"></a>
+<span class="sourceLineNo">433</span>                return new ImmutableCharEncodedValue((char) i.getIntValue());<a name="line.433"></a>
+<span class="sourceLineNo">434</span>            } else if (sft instanceof ByteType) {<a name="line.434"></a>
+<span class="sourceLineNo">435</span>                return new ImmutableByteEncodedValue((byte) i.getIntValue());<a name="line.435"></a>
+<span class="sourceLineNo">436</span>            } else if (sft instanceof IntType) {<a name="line.436"></a>
+<span class="sourceLineNo">437</span>                return new ImmutableIntEncodedValue(i.getIntValue());<a name="line.437"></a>
+<span class="sourceLineNo">438</span>            } else if (sft instanceof ShortType) {<a name="line.438"></a>
+<span class="sourceLineNo">439</span>                return new ImmutableShortEncodedValue((short) i.getIntValue());<a name="line.439"></a>
+<span class="sourceLineNo">440</span>            } else {<a name="line.440"></a>
+<span class="sourceLineNo">441</span>                throw new RuntimeException("error: unexpected constant tag type: " + t<a name="line.441"></a>
+<span class="sourceLineNo">442</span>                        + " for field " + sf);<a name="line.442"></a>
+<span class="sourceLineNo">443</span>            }<a name="line.443"></a>
+<span class="sourceLineNo">444</span>        } else if (t instanceof LongConstantValueTag) {<a name="line.444"></a>
+<span class="sourceLineNo">445</span>            LongConstantValueTag l = (LongConstantValueTag) t;<a name="line.445"></a>
+<span class="sourceLineNo">446</span>            return new ImmutableLongEncodedValue(l.getLongValue());<a name="line.446"></a>
+<span class="sourceLineNo">447</span>        } else if (t instanceof DoubleConstantValueTag) {<a name="line.447"></a>
+<span class="sourceLineNo">448</span>            DoubleConstantValueTag d = (DoubleConstantValueTag) t;<a name="line.448"></a>
+<span class="sourceLineNo">449</span>            return new ImmutableDoubleEncodedValue(d.getDoubleValue());<a name="line.449"></a>
+<span class="sourceLineNo">450</span>        } else if (t instanceof FloatConstantValueTag) {<a name="line.450"></a>
+<span class="sourceLineNo">451</span>            FloatConstantValueTag f = (FloatConstantValueTag) t;<a name="line.451"></a>
+<span class="sourceLineNo">452</span>            return new ImmutableFloatEncodedValue(f.getFloatValue());<a name="line.452"></a>
+<span class="sourceLineNo">453</span>        } else if (t instanceof StringConstantValueTag) {<a name="line.453"></a>
+<span class="sourceLineNo">454</span>            StringConstantValueTag s = (StringConstantValueTag) t;<a name="line.454"></a>
+<span class="sourceLineNo">455</span>            return new ImmutableStringEncodedValue(s.getStringValue());<a name="line.455"></a>
+<span class="sourceLineNo">456</span>        } else<a name="line.456"></a>
+<span class="sourceLineNo">457</span>                throw new RuntimeException("Unexpected constant type");<a name="line.457"></a>
+<span class="sourceLineNo">458</span>    }<a name="line.458"></a>
+<span class="sourceLineNo">459</span>    <a name="line.459"></a>
+<span class="sourceLineNo">460</span>    private void addAsClassDefItem(SootClass c) {<a name="line.460"></a>
+<span class="sourceLineNo">461</span>        // add source file tag if any<a name="line.461"></a>
+<span class="sourceLineNo">462</span>        String sourceFile = null;<a name="line.462"></a>
+<span class="sourceLineNo">463</span>        if (c.hasTag("SourceFileTag")) {<a name="line.463"></a>
+<span class="sourceLineNo">464</span>            SourceFileTag sft = (SourceFileTag) c.getTag("SourceFileTag");<a name="line.464"></a>
+<span class="sourceLineNo">465</span>            sourceFile = sft.getSourceFile();<a name="line.465"></a>
+<span class="sourceLineNo">466</span>        }<a name="line.466"></a>
+<span class="sourceLineNo">467</span>        <a name="line.467"></a>
+<span class="sourceLineNo">468</span>        String classType = SootToDexUtils.getDexTypeDescriptor(c.getType());<a name="line.468"></a>
+<span class="sourceLineNo">469</span>        int accessFlags = c.getModifiers();<a name="line.469"></a>
+<span class="sourceLineNo">470</span>        String superClass = c.hasSuperclass() ?<a name="line.470"></a>
+<span class="sourceLineNo">471</span>                        SootToDexUtils.getDexTypeDescriptor(c.getSuperclass().getType()) : null;<a name="line.471"></a>
+<span class="sourceLineNo">472</span>        <a name="line.472"></a>
+<span class="sourceLineNo">473</span>        List&lt;String&gt; interfaces = null;<a name="line.473"></a>
+<span class="sourceLineNo">474</span>        if (!c.getInterfaces().isEmpty()) {<a name="line.474"></a>
+<span class="sourceLineNo">475</span>                interfaces = new ArrayList&lt;String&gt;();<a name="line.475"></a>
+<span class="sourceLineNo">476</span>            for (SootClass ifc : c.getInterfaces())<a name="line.476"></a>
+<span class="sourceLineNo">477</span>                interfaces.add(SootToDexUtils.getDexTypeDescriptor(ifc.getType()));<a name="line.477"></a>
+<span class="sourceLineNo">478</span>        }<a name="line.478"></a>
+<span class="sourceLineNo">479</span>        <a name="line.479"></a>
+<span class="sourceLineNo">480</span>        List&lt;BuilderField&gt; fields = null;<a name="line.480"></a>
+<span class="sourceLineNo">481</span>        if (!c.getFields().isEmpty()) {<a name="line.481"></a>
+<span class="sourceLineNo">482</span>                fields = new ArrayList&lt;BuilderField&gt;();<a name="line.482"></a>
+<span class="sourceLineNo">483</span>                for (SootField f : c.getFields()) {             <a name="line.483"></a>
+<span class="sourceLineNo">484</span>                        // Look for a static initializer<a name="line.484"></a>
+<span class="sourceLineNo">485</span>                    EncodedValue staticInit = null;<a name="line.485"></a>
+<span class="sourceLineNo">486</span>                    for (Tag t : f.getTags()) {<a name="line.486"></a>
+<span class="sourceLineNo">487</span>                        if (t instanceof ConstantValueTag) {<a name="line.487"></a>
+<span class="sourceLineNo">488</span>                            if (staticInit != null) {<a name="line.488"></a>
+<span class="sourceLineNo">489</span>                                G.v().out.println("warning: more than one constant tag for field: " + f + ": "<a name="line.489"></a>
+<span class="sourceLineNo">490</span>                                        + t);<a name="line.490"></a>
+<span class="sourceLineNo">491</span>                            } else {<a name="line.491"></a>
+<span class="sourceLineNo">492</span>                                staticInit = makeConstantItem(f, t);<a name="line.492"></a>
+<span class="sourceLineNo">493</span>                            }<a name="line.493"></a>
+<span class="sourceLineNo">494</span>                        }<a name="line.494"></a>
+<span class="sourceLineNo">495</span>                    }<a name="line.495"></a>
+<span class="sourceLineNo">496</span>                    if (staticInit == null)<a name="line.496"></a>
+<span class="sourceLineNo">497</span>                        staticInit = BuilderEncodedValues.defaultValueForType<a name="line.497"></a>
+<span class="sourceLineNo">498</span>                                        (SootToDexUtils.getDexTypeDescriptor(f.getType()));<a name="line.498"></a>
+<span class="sourceLineNo">499</span>                    <a name="line.499"></a>
+<span class="sourceLineNo">500</span>                    // Build field annotations<a name="line.500"></a>
+<span class="sourceLineNo">501</span>                    Set&lt;Annotation&gt; fieldAnnotations = buildFieldAnnotations(f);<a name="line.501"></a>
+<span class="sourceLineNo">502</span>                    <a name="line.502"></a>
+<span class="sourceLineNo">503</span>                        BuilderField field = dexFile.internField(classType,<a name="line.503"></a>
+<span class="sourceLineNo">504</span>                                        f.getName(),<a name="line.504"></a>
+<span class="sourceLineNo">505</span>                                        SootToDexUtils.getDexTypeDescriptor(f.getType()),<a name="line.505"></a>
+<span class="sourceLineNo">506</span>                                        f.getModifiers(),<a name="line.506"></a>
+<span class="sourceLineNo">507</span>                                        staticInit,<a name="line.507"></a>
+<span class="sourceLineNo">508</span>                                        fieldAnnotations);<a name="line.508"></a>
+<span class="sourceLineNo">509</span>                        fields.add(field);<a name="line.509"></a>
+<span class="sourceLineNo">510</span>                }<a name="line.510"></a>
+<span class="sourceLineNo">511</span>        }<a name="line.511"></a>
+<span class="sourceLineNo">512</span>                <a name="line.512"></a>
+<span class="sourceLineNo">513</span>        dexFile.internClassDef(classType,<a name="line.513"></a>
+<span class="sourceLineNo">514</span>                        accessFlags,<a name="line.514"></a>
+<span class="sourceLineNo">515</span>                        superClass,<a name="line.515"></a>
+<span class="sourceLineNo">516</span>                        interfaces,<a name="line.516"></a>
+<span class="sourceLineNo">517</span>                        sourceFile,<a name="line.517"></a>
+<span class="sourceLineNo">518</span>                        buildClassAnnotations(c),<a name="line.518"></a>
+<span class="sourceLineNo">519</span>                        fields,<a name="line.519"></a>
+<span class="sourceLineNo">520</span>                        toMethods(c));<a name="line.520"></a>
+<span class="sourceLineNo">521</span>        }<a name="line.521"></a>
+<span class="sourceLineNo">522</span>    <a name="line.522"></a>
+<span class="sourceLineNo">523</span>    private Set&lt;Annotation&gt; buildClassAnnotations(SootClass c) {<a name="line.523"></a>
+<span class="sourceLineNo">524</span>        Set&lt;String&gt; skipList = new HashSet&lt;String&gt;();<a name="line.524"></a>
+<span class="sourceLineNo">525</span>        Set&lt;Annotation&gt; annotations = buildCommonAnnotations(c, skipList);<a name="line.525"></a>
+<span class="sourceLineNo">526</span>        <a name="line.526"></a>
+<span class="sourceLineNo">527</span>        // Classes can have either EnclosingMethod or EnclosingClass tags. Soot<a name="line.527"></a>
+<span class="sourceLineNo">528</span>        // sets the outer class for both "normal" and anonymous inner classes,<a name="line.528"></a>
+<span class="sourceLineNo">529</span>        // so we test for enclosing methods first. <a name="line.529"></a>
+<span class="sourceLineNo">530</span>        if (c.hasTag("EnclosingMethodTag")) {<a name="line.530"></a>
+<span class="sourceLineNo">531</span>                EnclosingMethodTag eMethTag = (EnclosingMethodTag)c.getTag("EnclosingMethodTag");<a name="line.531"></a>
+<span class="sourceLineNo">532</span>                Annotation enclosingMethodItem = buildEnclosingMethodTag(eMethTag, skipList);<a name="line.532"></a>
+<span class="sourceLineNo">533</span>                if (enclosingMethodItem != null)<a name="line.533"></a>
+<span class="sourceLineNo">534</span>                  annotations.add(enclosingMethodItem);<a name="line.534"></a>
+<span class="sourceLineNo">535</span>        }<a name="line.535"></a>
+<span class="sourceLineNo">536</span>        else if (c.hasOuterClass()) {<a name="line.536"></a>
+<span class="sourceLineNo">537</span>                        if (skipList.add("Ldalvik/annotation/EnclosingClass;")) {<a name="line.537"></a>
+<span class="sourceLineNo">538</span>                        // EnclosingClass annotation<a name="line.538"></a>
+<span class="sourceLineNo">539</span>                        ImmutableAnnotationElement enclosingElement = new ImmutableAnnotationElement<a name="line.539"></a>
+<span class="sourceLineNo">540</span>                                        ("value", new ImmutableTypeEncodedValue<a name="line.540"></a>
+<span class="sourceLineNo">541</span>                                                        (SootToDexUtils.getDexClassName(c.getOuterClass().getName())));<a name="line.541"></a>
+<span class="sourceLineNo">542</span>                        annotations.add(new ImmutableAnnotation(AnnotationVisibility.SYSTEM,<a name="line.542"></a>
+<span class="sourceLineNo">543</span>                                        "Ldalvik/annotation/EnclosingClass;",<a name="line.543"></a>
+<span class="sourceLineNo">544</span>                                        Collections.singleton(enclosingElement)));<a name="line.544"></a>
+<span class="sourceLineNo">545</span>                }<a name="line.545"></a>
+<span class="sourceLineNo">546</span>        }<a name="line.546"></a>
+<span class="sourceLineNo">547</span>        <a name="line.547"></a>
+<span class="sourceLineNo">548</span>        // If we have an outer class, we also pick up the InnerClass annotations<a name="line.548"></a>
+<span class="sourceLineNo">549</span>        // from there. Note that Java and Soot associate InnerClass annotations<a name="line.549"></a>
+<span class="sourceLineNo">550</span>        // with the respective outer classes, while Dalvik puts them on the<a name="line.550"></a>
+<span class="sourceLineNo">551</span>        // respective inner classes.<a name="line.551"></a>
+<span class="sourceLineNo">552</span>        if (c.hasOuterClass()) {<a name="line.552"></a>
+<span class="sourceLineNo">553</span>                InnerClassAttribute icTag = (InnerClassAttribute) c.getOuterClass().getTag("InnerClassAttribute");<a name="line.553"></a>
+<span class="sourceLineNo">554</span>                if (icTag != null) {<a name="line.554"></a>
+<span class="sourceLineNo">555</span>                        List&lt;Annotation&gt; innerClassItem = buildInnerClassAttribute(c, icTag, skipList);<a name="line.555"></a>
+<span class="sourceLineNo">556</span>                        if (innerClassItem != null)<a name="line.556"></a>
+<span class="sourceLineNo">557</span>                          annotations.addAll(innerClassItem);<a name="line.557"></a>
+<span class="sourceLineNo">558</span>                }<a name="line.558"></a>
+<span class="sourceLineNo">559</span>        }<a name="line.559"></a>
+<span class="sourceLineNo">560</span>        <a name="line.560"></a>
+<span class="sourceLineNo">561</span>        // Write the MemberClasses tag<a name="line.561"></a>
+<span class="sourceLineNo">562</span>        InnerClassAttribute icTag = (InnerClassAttribute) c.getTag("InnerClassAttribute");<a name="line.562"></a>
+<span class="sourceLineNo">563</span>        if (icTag != null) {<a name="line.563"></a>
+<span class="sourceLineNo">564</span>                List&lt;Annotation&gt; memberClassesItem = buildMemberClassesAttribute(c, icTag, skipList);<a name="line.564"></a>
+<span class="sourceLineNo">565</span>                if (memberClassesItem != null)<a name="line.565"></a>
+<span class="sourceLineNo">566</span>                  annotations.addAll(memberClassesItem);<a name="line.566"></a>
+<span class="sourceLineNo">567</span>        }<a name="line.567"></a>
+<span class="sourceLineNo">568</span>        <a name="line.568"></a>
+<span class="sourceLineNo">569</span>        <a name="line.569"></a>
+<span class="sourceLineNo">570</span>        for (Tag t : c.getTags()) {<a name="line.570"></a>
+<span class="sourceLineNo">571</span>            if (t.getName().equals("VisibilityAnnotationTag")){<a name="line.571"></a>
+<span class="sourceLineNo">572</span>                List&lt;ImmutableAnnotation&gt; visibilityItems = buildVisibilityAnnotationTag<a name="line.572"></a>
+<span class="sourceLineNo">573</span>                                ((VisibilityAnnotationTag) t, skipList);<a name="line.573"></a>
+<span class="sourceLineNo">574</span>                annotations.addAll(visibilityItems);<a name="line.574"></a>
+<span class="sourceLineNo">575</span>            }<a name="line.575"></a>
+<span class="sourceLineNo">576</span>        }<a name="line.576"></a>
+<span class="sourceLineNo">577</span>        <a name="line.577"></a>
+<span class="sourceLineNo">578</span><a name="line.578"></a>
+<span class="sourceLineNo">579</span>        //Write default-annotation tags<a name="line.579"></a>
+<span class="sourceLineNo">580</span>                List&lt;AnnotationElem&gt; defaults = new ArrayList&lt;AnnotationElem&gt;();<a name="line.580"></a>
+<span class="sourceLineNo">581</span>        for (SootMethod method : c.getMethods()) {<a name="line.581"></a>
+<span class="sourceLineNo">582</span>                AnnotationDefaultTag tag = (AnnotationDefaultTag) method.getTag("AnnotationDefaultTag");<a name="line.582"></a>
+<span class="sourceLineNo">583</span>                if (tag != null) {<a name="line.583"></a>
+<span class="sourceLineNo">584</span>                        tag.getDefaultVal().setName(method.getName());<a name="line.584"></a>
+<span class="sourceLineNo">585</span>                        defaults.add(tag.getDefaultVal());<a name="line.585"></a>
+<span class="sourceLineNo">586</span>                }<a name="line.586"></a>
+<span class="sourceLineNo">587</span>        }<a name="line.587"></a>
+<span class="sourceLineNo">588</span>        if (defaults.size() &gt; 0) {<a name="line.588"></a>
+<span class="sourceLineNo">589</span>                VisibilityAnnotationTag defaultAnnotationTag = new VisibilityAnnotationTag(AnnotationConstants.RUNTIME_INVISIBLE);<a name="line.589"></a>
+<span class="sourceLineNo">590</span>                AnnotationTag a = new AnnotationTag("Ldalvik/annotation/AnnotationDefault;");<a name="line.590"></a>
+<span class="sourceLineNo">591</span>                defaultAnnotationTag.addAnnotation(a);<a name="line.591"></a>
+<span class="sourceLineNo">592</span><a name="line.592"></a>
+<span class="sourceLineNo">593</span>                AnnotationTag at = new AnnotationTag(SootToDexUtils.getDexClassName(c.getName()));<a name="line.593"></a>
+<span class="sourceLineNo">594</span>                AnnotationAnnotationElem ae = new AnnotationAnnotationElem(at, '@', "value");<a name="line.594"></a>
+<span class="sourceLineNo">595</span>                a.addElem(ae);<a name="line.595"></a>
+<span class="sourceLineNo">596</span><a name="line.596"></a>
+<span class="sourceLineNo">597</span>                <a name="line.597"></a>
+<span class="sourceLineNo">598</span>                for (AnnotationElem aelem : defaults)<a name="line.598"></a>
+<span class="sourceLineNo">599</span>                        at.addElem(aelem);<a name="line.599"></a>
+<span class="sourceLineNo">600</span>                <a name="line.600"></a>
+<span class="sourceLineNo">601</span>            List&lt;ImmutableAnnotation&gt; visibilityItems = buildVisibilityAnnotationTag<a name="line.601"></a>
+<span class="sourceLineNo">602</span>                        (defaultAnnotationTag, skipList);<a name="line.602"></a>
+<span class="sourceLineNo">603</span>                annotations.addAll(visibilityItems);<a name="line.603"></a>
+<span class="sourceLineNo">604</span>        }<a name="line.604"></a>
+<span class="sourceLineNo">605</span>        <a name="line.605"></a>
+<span class="sourceLineNo">606</span>        return annotations;<a name="line.606"></a>
+<span class="sourceLineNo">607</span>    }<a name="line.607"></a>
+<span class="sourceLineNo">608</span><a name="line.608"></a>
+<span class="sourceLineNo">609</span>    private Set&lt;Annotation&gt; buildFieldAnnotations(SootField f) {<a name="line.609"></a>
+<span class="sourceLineNo">610</span>        Set&lt;String&gt; skipList = new HashSet&lt;String&gt;();<a name="line.610"></a>
+<span class="sourceLineNo">611</span>        Set&lt;Annotation&gt; annotations = buildCommonAnnotations(f, skipList);<a name="line.611"></a>
+<span class="sourceLineNo">612</span>        <a name="line.612"></a>
+<span class="sourceLineNo">613</span>        for (Tag t : f.getTags()) {<a name="line.613"></a>
+<span class="sourceLineNo">614</span>            if (t.getName().equals("VisibilityAnnotationTag")){<a name="line.614"></a>
+<span class="sourceLineNo">615</span>                List&lt;ImmutableAnnotation&gt; visibilityItems = buildVisibilityAnnotationTag<a name="line.615"></a>
+<span class="sourceLineNo">616</span>                                ((VisibilityAnnotationTag) t, skipList);<a name="line.616"></a>
+<span class="sourceLineNo">617</span>                annotations.addAll(visibilityItems);<a name="line.617"></a>
+<span class="sourceLineNo">618</span>            }<a name="line.618"></a>
+<span class="sourceLineNo">619</span>        }<a name="line.619"></a>
+<span class="sourceLineNo">620</span>                <a name="line.620"></a>
+<span class="sourceLineNo">621</span>        return annotations;<a name="line.621"></a>
+<span class="sourceLineNo">622</span>    }<a name="line.622"></a>
+<span class="sourceLineNo">623</span><a name="line.623"></a>
+<span class="sourceLineNo">624</span>    private Set&lt;Annotation&gt; buildMethodAnnotations(SootMethod m) {<a name="line.624"></a>
+<span class="sourceLineNo">625</span>        Set&lt;String&gt; skipList = new HashSet&lt;String&gt;();<a name="line.625"></a>
+<span class="sourceLineNo">626</span>        Set&lt;Annotation&gt; annotations = buildCommonAnnotations(m, skipList);<a name="line.626"></a>
+<span class="sourceLineNo">627</span>        <a name="line.627"></a>
+<span class="sourceLineNo">628</span>        for (Tag t : m.getTags()) {<a name="line.628"></a>
+<span class="sourceLineNo">629</span>            if (t.getName().equals("VisibilityAnnotationTag")){<a name="line.629"></a>
+<span class="sourceLineNo">630</span>                List&lt;ImmutableAnnotation&gt; visibilityItems = buildVisibilityAnnotationTag<a name="line.630"></a>
+<span class="sourceLineNo">631</span>                                ((VisibilityAnnotationTag) t, skipList);<a name="line.631"></a>
+<span class="sourceLineNo">632</span>                annotations.addAll(visibilityItems);<a name="line.632"></a>
+<span class="sourceLineNo">633</span>            }<a name="line.633"></a>
+<span class="sourceLineNo">634</span>        }<a name="line.634"></a>
+<span class="sourceLineNo">635</span>        List&lt;SootClass&gt; exceptionList = m.getExceptions();<a name="line.635"></a>
+<span class="sourceLineNo">636</span>        if (exceptionList != null &amp;&amp; !exceptionList.isEmpty()) {<a name="line.636"></a>
+<span class="sourceLineNo">637</span>            Set&lt;ImmutableAnnotationElement&gt; elements = new HashSet&lt;ImmutableAnnotationElement&gt;();<a name="line.637"></a>
+<span class="sourceLineNo">638</span>            List&lt;ImmutableEncodedValue&gt; valueList = new ArrayList&lt;ImmutableEncodedValue&gt;();<a name="line.638"></a>
+<span class="sourceLineNo">639</span>                for (SootClass exceptionClass : exceptionList) {<a name="line.639"></a>
+<span class="sourceLineNo">640</span>                    valueList.add(new ImmutableTypeEncodedValue(DexType.toDalvikICAT(exceptionClass.getName()).replace(".", "/")));<a name="line.640"></a>
+<span class="sourceLineNo">641</span>                }<a name="line.641"></a>
+<span class="sourceLineNo">642</span>            ImmutableArrayEncodedValue valueValue = new ImmutableArrayEncodedValue(valueList);<a name="line.642"></a>
+<span class="sourceLineNo">643</span>            ImmutableAnnotationElement valueElement = new ImmutableAnnotationElement<a name="line.643"></a>
+<span class="sourceLineNo">644</span>                        ("value", valueValue);<a name="line.644"></a>
+<span class="sourceLineNo">645</span>            elements.add(valueElement);<a name="line.645"></a>
+<span class="sourceLineNo">646</span>            ImmutableAnnotation ann = new ImmutableAnnotation<a name="line.646"></a>
+<span class="sourceLineNo">647</span>                        (AnnotationVisibility.SYSTEM,<a name="line.647"></a>
+<span class="sourceLineNo">648</span>                                "Ldalvik/annotation/Throws;",<a name="line.648"></a>
+<span class="sourceLineNo">649</span>                                elements);<a name="line.649"></a>
+<span class="sourceLineNo">650</span>                annotations.add(ann);<a name="line.650"></a>
+<span class="sourceLineNo">651</span>        }<a name="line.651"></a>
+<span class="sourceLineNo">652</span>        <a name="line.652"></a>
+<span class="sourceLineNo">653</span>        return annotations;<a name="line.653"></a>
+<span class="sourceLineNo">654</span>    }<a name="line.654"></a>
+<span class="sourceLineNo">655</span><a name="line.655"></a>
+<span class="sourceLineNo">656</span>    private Set&lt;Annotation&gt; buildMethodParameterAnnotations(SootMethod m,<a name="line.656"></a>
+<span class="sourceLineNo">657</span>                final int paramIdx) {<a name="line.657"></a>
+<span class="sourceLineNo">658</span>        Set&lt;String&gt; skipList = new HashSet&lt;String&gt;();<a name="line.658"></a>
+<span class="sourceLineNo">659</span>        Set&lt;Annotation&gt; annotations = new HashSet&lt;Annotation&gt;();<a name="line.659"></a>
+<span class="sourceLineNo">660</span>        <a name="line.660"></a>
+<span class="sourceLineNo">661</span>        for (Tag t : m.getTags()) {<a name="line.661"></a>
+<span class="sourceLineNo">662</span>            if (t.getName().equals("VisibilityParameterAnnotationTag")) {<a name="line.662"></a>
+<span class="sourceLineNo">663</span>                VisibilityParameterAnnotationTag vat = (VisibilityParameterAnnotationTag)t;<a name="line.663"></a>
+<span class="sourceLineNo">664</span>                List&lt;ImmutableAnnotation&gt; visibilityItems = buildVisibilityParameterAnnotationTag<a name="line.664"></a>
+<span class="sourceLineNo">665</span>                                (vat, skipList, paramIdx);<a name="line.665"></a>
+<span class="sourceLineNo">666</span>                annotations.addAll(visibilityItems);<a name="line.666"></a>
+<span class="sourceLineNo">667</span>            }<a name="line.667"></a>
+<span class="sourceLineNo">668</span>        }<a name="line.668"></a>
+<span class="sourceLineNo">669</span>        <a name="line.669"></a>
+<span class="sourceLineNo">670</span>        return annotations;<a name="line.670"></a>
+<span class="sourceLineNo">671</span>    }<a name="line.671"></a>
+<span class="sourceLineNo">672</span>    <a name="line.672"></a>
+<span class="sourceLineNo">673</span>    private Set&lt;Annotation&gt; buildCommonAnnotations(AbstractHost host, Set&lt;String&gt; skipList) {<a name="line.673"></a>
+<span class="sourceLineNo">674</span>                Set&lt;Annotation&gt; annotations = new HashSet&lt;Annotation&gt;();<a name="line.674"></a>
+<span class="sourceLineNo">675</span>                <a name="line.675"></a>
+<span class="sourceLineNo">676</span>        // handle deprecated tag<a name="line.676"></a>
+<span class="sourceLineNo">677</span>        if (host.hasTag("DeprecatedTag") &amp;&amp; !skipList.contains("Ljava/lang/Deprecated;")) {<a name="line.677"></a>
+<span class="sourceLineNo">678</span>                ImmutableAnnotation ann = new ImmutableAnnotation<a name="line.678"></a>
+<span class="sourceLineNo">679</span>                                (AnnotationVisibility.RUNTIME,<a name="line.679"></a>
+<span class="sourceLineNo">680</span>                                "Ljava/lang/Deprecated;",<a name="line.680"></a>
+<span class="sourceLineNo">681</span>                                Collections.&lt;AnnotationElement&gt;emptySet());<a name="line.681"></a>
+<span class="sourceLineNo">682</span>                annotations.add(ann);<a name="line.682"></a>
+<span class="sourceLineNo">683</span>            skipList.add("Ljava/lang/Deprecated;");<a name="line.683"></a>
+<span class="sourceLineNo">684</span>        }<a name="line.684"></a>
+<span class="sourceLineNo">685</span>        <a name="line.685"></a>
+<span class="sourceLineNo">686</span>        // handle signature tag<a name="line.686"></a>
+<span class="sourceLineNo">687</span>        if (host.hasTag("SignatureTag") &amp;&amp; !skipList.contains("Ldalvik/annotation/Signature;")) {<a name="line.687"></a>
+<span class="sourceLineNo">688</span>            SignatureTag tag = (SignatureTag) host.getTag("SignatureTag");<a name="line.688"></a>
+<span class="sourceLineNo">689</span>            List&lt;String&gt; splitSignature = SootToDexUtils.splitSignature(tag.getSignature());<a name="line.689"></a>
+<span class="sourceLineNo">690</span><a name="line.690"></a>
+<span class="sourceLineNo">691</span>            Set&lt;ImmutableAnnotationElement&gt; elements = null;<a name="line.691"></a>
+<span class="sourceLineNo">692</span>            if (splitSignature != null &amp;&amp; splitSignature.size() &gt; 0) {<a name="line.692"></a>
+<span class="sourceLineNo">693</span>                elements = new HashSet&lt;ImmutableAnnotationElement&gt;();<a name="line.693"></a>
+<span class="sourceLineNo">694</span>            <a name="line.694"></a>
+<span class="sourceLineNo">695</span>                    List&lt;ImmutableEncodedValue&gt; valueList = new ArrayList&lt;ImmutableEncodedValue&gt;();<a name="line.695"></a>
+<span class="sourceLineNo">696</span>                    for (String s : splitSignature) {<a name="line.696"></a>
+<span class="sourceLineNo">697</span>                        ImmutableStringEncodedValue val = new ImmutableStringEncodedValue(s);<a name="line.697"></a>
+<span class="sourceLineNo">698</span>                        valueList.add(val);<a name="line.698"></a>
+<span class="sourceLineNo">699</span>                    }<a name="line.699"></a>
+<span class="sourceLineNo">700</span>                    ImmutableArrayEncodedValue valueValue = new ImmutableArrayEncodedValue(valueList);<a name="line.700"></a>
+<span class="sourceLineNo">701</span>                    ImmutableAnnotationElement valueElement = new ImmutableAnnotationElement<a name="line.701"></a>
+<span class="sourceLineNo">702</span>                                ("value", valueValue);<a name="line.702"></a>
+<span class="sourceLineNo">703</span>                    elements.add(valueElement);<a name="line.703"></a>
+<span class="sourceLineNo">704</span>            }<a name="line.704"></a>
+<span class="sourceLineNo">705</span>            else<a name="line.705"></a>
+<span class="sourceLineNo">706</span>                G.v().out.println("Signature annotation without value detected");<a name="line.706"></a>
+<span class="sourceLineNo">707</span>            <a name="line.707"></a>
+<span class="sourceLineNo">708</span>            ImmutableAnnotation ann = new ImmutableAnnotation<a name="line.708"></a>
+<span class="sourceLineNo">709</span>                        (AnnotationVisibility.SYSTEM,<a name="line.709"></a>
+<span class="sourceLineNo">710</span>                                "Ldalvik/annotation/Signature;",<a name="line.710"></a>
+<span class="sourceLineNo">711</span>                                elements);<a name="line.711"></a>
+<span class="sourceLineNo">712</span>                annotations.add(ann);<a name="line.712"></a>
+<span class="sourceLineNo">713</span>            skipList.add("Ldalvik/annotation/Signature;");<a name="line.713"></a>
+<span class="sourceLineNo">714</span>        }        <a name="line.714"></a>
+<span class="sourceLineNo">715</span>        <a name="line.715"></a>
+<span class="sourceLineNo">716</span>        return annotations;<a name="line.716"></a>
+<span class="sourceLineNo">717</span>        }<a name="line.717"></a>
+<span class="sourceLineNo">718</span>    <a name="line.718"></a>
+<span class="sourceLineNo">719</span>    private List&lt;ImmutableAnnotation&gt; buildVisibilityAnnotationTag<a name="line.719"></a>
+<span class="sourceLineNo">720</span>                        (VisibilityAnnotationTag t, Set&lt;String&gt; skipList) {<a name="line.720"></a>
+<span class="sourceLineNo">721</span>        if (t.getAnnotations() == null)<a name="line.721"></a>
+<span class="sourceLineNo">722</span>                return Collections.emptyList();<a name="line.722"></a>
+<span class="sourceLineNo">723</span>        <a name="line.723"></a>
+<span class="sourceLineNo">724</span>        List&lt;ImmutableAnnotation&gt; annotations = new ArrayList&lt;ImmutableAnnotation&gt;();<a name="line.724"></a>
+<span class="sourceLineNo">725</span>        for (AnnotationTag at: t.getAnnotations()) {<a name="line.725"></a>
+<span class="sourceLineNo">726</span>            String type = at.getType();<a name="line.726"></a>
+<span class="sourceLineNo">727</span>            if (!skipList.add(type))<a name="line.727"></a>
+<span class="sourceLineNo">728</span>                continue;<a name="line.728"></a>
+<span class="sourceLineNo">729</span>            <a name="line.729"></a>
+<span class="sourceLineNo">730</span>            Set&lt;String&gt; alreadyWritten = new HashSet&lt;String&gt;();<a name="line.730"></a>
+<span class="sourceLineNo">731</span>            List&lt;AnnotationElement&gt; elements = null;<a name="line.731"></a>
+<span class="sourceLineNo">732</span>            if (!at.getElems().isEmpty()) {<a name="line.732"></a>
+<span class="sourceLineNo">733</span>                elements = new ArrayList&lt;AnnotationElement&gt;();<a name="line.733"></a>
+<span class="sourceLineNo">734</span>                    for (AnnotationElem ae : at.getElems()) {<a name="line.734"></a>
+<span class="sourceLineNo">735</span>                        if (ae.getName() == null || ae.getName().isEmpty())<a name="line.735"></a>
+<span class="sourceLineNo">736</span>                                throw new RuntimeException("Null or empty annotation name encountered");<a name="line.736"></a>
+<span class="sourceLineNo">737</span>                        if (!alreadyWritten.add(ae.getName()))<a name="line.737"></a>
+<span class="sourceLineNo">738</span>                                throw new RuntimeException("Duplicate annotation attribute: " + ae.getName());<a name="line.738"></a>
+<span class="sourceLineNo">739</span>                        <a name="line.739"></a>
+<span class="sourceLineNo">740</span>                        EncodedValue value = buildEncodedValueForAnnotation(ae);<a name="line.740"></a>
+<span class="sourceLineNo">741</span>                        ImmutableAnnotationElement element = new ImmutableAnnotationElement<a name="line.741"></a>
+<span class="sourceLineNo">742</span>                                        (ae.getName(), value);<a name="line.742"></a>
+<span class="sourceLineNo">743</span>                        elements.add(element);<a name="line.743"></a>
+<span class="sourceLineNo">744</span>                    }<a name="line.744"></a>
+<span class="sourceLineNo">745</span>            }<a name="line.745"></a>
+<span class="sourceLineNo">746</span>            <a name="line.746"></a>
+<span class="sourceLineNo">747</span>            String typeName = SootToDexUtils.getDexClassName(at.getType());<a name="line.747"></a>
+<span class="sourceLineNo">748</span>            ImmutableAnnotation ann = new ImmutableAnnotation(getVisibility(t.getVisibility()),<a name="line.748"></a>
+<span class="sourceLineNo">749</span>                        typeName, elements);<a name="line.749"></a>
+<span class="sourceLineNo">750</span>            annotations.add(ann);<a name="line.750"></a>
+<span class="sourceLineNo">751</span>        }<a name="line.751"></a>
+<span class="sourceLineNo">752</span>        return annotations;<a name="line.752"></a>
+<span class="sourceLineNo">753</span>        }<a name="line.753"></a>
+<span class="sourceLineNo">754</span><a name="line.754"></a>
+<span class="sourceLineNo">755</span>    private List&lt;ImmutableAnnotation&gt; buildVisibilityParameterAnnotationTag<a name="line.755"></a>
+<span class="sourceLineNo">756</span>                (VisibilityParameterAnnotationTag t, Set&lt;String&gt; skipList,<a name="line.756"></a>
+<span class="sourceLineNo">757</span>                                int paramIdx) {<a name="line.757"></a>
+<span class="sourceLineNo">758</span>                if (t.getVisibilityAnnotations() == null)<a name="line.758"></a>
+<span class="sourceLineNo">759</span>                return Collections.emptyList();<a name="line.759"></a>
+<span class="sourceLineNo">760</span>                <a name="line.760"></a>
+<span class="sourceLineNo">761</span>        int paramTagIdx = 0;<a name="line.761"></a>
+<span class="sourceLineNo">762</span>        List&lt;ImmutableAnnotation&gt; annotations = new ArrayList&lt;ImmutableAnnotation&gt;();<a name="line.762"></a>
+<span class="sourceLineNo">763</span>        for (VisibilityAnnotationTag vat : t.getVisibilityAnnotations()) {<a name="line.763"></a>
+<span class="sourceLineNo">764</span>                if (paramTagIdx == paramIdx<a name="line.764"></a>
+<span class="sourceLineNo">765</span>                                &amp;&amp; vat != null<a name="line.765"></a>
+<span class="sourceLineNo">766</span>                                &amp;&amp; vat.getAnnotations() != null)<a name="line.766"></a>
+<span class="sourceLineNo">767</span>                        for (AnnotationTag at : vat.getAnnotations()) {<a name="line.767"></a>
+<span class="sourceLineNo">768</span>                            String type = at.getType();<a name="line.768"></a>
+<span class="sourceLineNo">769</span>                            if (!skipList.add(type))<a name="line.769"></a>
+<span class="sourceLineNo">770</span>                                continue;<a name="line.770"></a>
+<span class="sourceLineNo">771</span>                            <a name="line.771"></a>
+<span class="sourceLineNo">772</span>                            Set&lt;String&gt; alreadyWritten = new HashSet&lt;String&gt;();<a name="line.772"></a>
+<span class="sourceLineNo">773</span>                            List&lt;AnnotationElement&gt; elements = null;<a name="line.773"></a>
+<span class="sourceLineNo">774</span>                            if (!at.getElems().isEmpty()) {<a name="line.774"></a>
+<span class="sourceLineNo">775</span>                                elements = new ArrayList&lt;AnnotationElement&gt;();<a name="line.775"></a>
+<span class="sourceLineNo">776</span>                                    for (AnnotationElem ae : at.getElems()) {<a name="line.776"></a>
+<span class="sourceLineNo">777</span>                                        if (ae.getName() == null || ae.getName().isEmpty())<a name="line.777"></a>
+<span class="sourceLineNo">778</span>                                                throw new RuntimeException("Null or empty annotation name encountered");<a name="line.778"></a>
+<span class="sourceLineNo">779</span>                                        if (!alreadyWritten.add(ae.getName()))<a name="line.779"></a>
+<span class="sourceLineNo">780</span>                                                throw new RuntimeException("Duplicate annotation attribute: " + ae.getName());<a name="line.780"></a>
+<span class="sourceLineNo">781</span>        <a name="line.781"></a>
+<span class="sourceLineNo">782</span>                                        EncodedValue value = buildEncodedValueForAnnotation(ae);<a name="line.782"></a>
+<span class="sourceLineNo">783</span>                                        ImmutableAnnotationElement element = new ImmutableAnnotationElement(ae.getName(), value);<a name="line.783"></a>
+<span class="sourceLineNo">784</span>                                        elements.add(element);<a name="line.784"></a>
+<span class="sourceLineNo">785</span>                                    }<a name="line.785"></a>
+<span class="sourceLineNo">786</span>                            }<a name="line.786"></a>
+<span class="sourceLineNo">787</span>                            <a name="line.787"></a>
+<span class="sourceLineNo">788</span>                            ImmutableAnnotation ann = new ImmutableAnnotation(getVisibility(vat.getVisibility()),<a name="line.788"></a>
+<span class="sourceLineNo">789</span>                                        SootToDexUtils.getDexClassName(at.getType()),<a name="line.789"></a>
+<span class="sourceLineNo">790</span>                                        elements);<a name="line.790"></a>
+<span class="sourceLineNo">791</span>                            annotations.add(ann);<a name="line.791"></a>
+<span class="sourceLineNo">792</span>                        }<a name="line.792"></a>
+<span class="sourceLineNo">793</span>                paramTagIdx++;<a name="line.793"></a>
+<span class="sourceLineNo">794</span>        }<a name="line.794"></a>
+<span class="sourceLineNo">795</span>        return annotations;<a name="line.795"></a>
+<span class="sourceLineNo">796</span>    }<a name="line.796"></a>
+<span class="sourceLineNo">797</span>    <a name="line.797"></a>
+<span class="sourceLineNo">798</span>    private Annotation buildEnclosingMethodTag(EnclosingMethodTag t, Set&lt;String&gt; skipList) {<a name="line.798"></a>
+<span class="sourceLineNo">799</span>        if (!skipList.add("Ldalvik/annotation/EnclosingMethod;"))<a name="line.799"></a>
+<span class="sourceLineNo">800</span>                return null;<a name="line.800"></a>
+<span class="sourceLineNo">801</span>        <a name="line.801"></a>
+<span class="sourceLineNo">802</span>        if (t.getEnclosingMethod() == null)<a name="line.802"></a>
+<span class="sourceLineNo">803</span>                return null;<a name="line.803"></a>
+<span class="sourceLineNo">804</span><a name="line.804"></a>
+<span class="sourceLineNo">805</span>        String[] split1 = t.getEnclosingMethodSig().split("\\)");<a name="line.805"></a>
+<span class="sourceLineNo">806</span>            String parametersS = split1[0].replaceAll("\\(", "");<a name="line.806"></a>
+<span class="sourceLineNo">807</span>            String returnTypeS = split1[1];<a name="line.807"></a>
+<span class="sourceLineNo">808</span>            <a name="line.808"></a>
+<span class="sourceLineNo">809</span>            List&lt;String&gt; typeList = new ArrayList&lt;String&gt;();<a name="line.809"></a>
+<span class="sourceLineNo">810</span>        if (!parametersS.equals("")) {<a name="line.810"></a>
+<span class="sourceLineNo">811</span>            for (String p : Util.splitParameters(parametersS)) {<a name="line.811"></a>
+<span class="sourceLineNo">812</span>                if (!p.isEmpty())<a name="line.812"></a>
+<span class="sourceLineNo">813</span>                        typeList.add(p);<a name="line.813"></a>
+<span class="sourceLineNo">814</span>            }<a name="line.814"></a>
+<span class="sourceLineNo">815</span>        }<a name="line.815"></a>
+<span class="sourceLineNo">816</span>        <a name="line.816"></a>
+<span class="sourceLineNo">817</span>            ImmutableMethodReference mRef = new ImmutableMethodReference<a name="line.817"></a>
+<span class="sourceLineNo">818</span>                        (SootToDexUtils.getDexClassName(t.getEnclosingClass()),<a name="line.818"></a>
+<span class="sourceLineNo">819</span>                        t.getEnclosingMethod(), typeList, returnTypeS);<a name="line.819"></a>
+<span class="sourceLineNo">820</span>        ImmutableMethodEncodedValue methodRef = new ImmutableMethodEncodedValue<a name="line.820"></a>
+<span class="sourceLineNo">821</span>                        (dexFile.internMethodReference(mRef));<a name="line.821"></a>
+<span class="sourceLineNo">822</span>        AnnotationElement methodElement = new ImmutableAnnotationElement("value", methodRef);<a name="line.822"></a>
+<span class="sourceLineNo">823</span>        <a name="line.823"></a>
+<span class="sourceLineNo">824</span>        return new ImmutableAnnotation(AnnotationVisibility.SYSTEM,<a name="line.824"></a>
+<span class="sourceLineNo">825</span>                        "Ldalvik/annotation/EnclosingMethod;",<a name="line.825"></a>
+<span class="sourceLineNo">826</span>                        Collections.singleton(methodElement));<a name="line.826"></a>
+<span class="sourceLineNo">827</span>    }<a name="line.827"></a>
+<span class="sourceLineNo">828</span><a name="line.828"></a>
+<span class="sourceLineNo">829</span>    private List&lt;Annotation&gt; buildInnerClassAttribute(SootClass parentClass,<a name="line.829"></a>
+<span class="sourceLineNo">830</span>                InnerClassAttribute t, Set&lt;String&gt; skipList) {<a name="line.830"></a>
+<span class="sourceLineNo">831</span>        if (t.getSpecs() == null)<a name="line.831"></a>
+<span class="sourceLineNo">832</span>                return null;<a name="line.832"></a>
+<span class="sourceLineNo">833</span>        <a name="line.833"></a>
+<span class="sourceLineNo">834</span>        List&lt;Annotation&gt; anns = null;<a name="line.834"></a>
+<span class="sourceLineNo">835</span>        for (Tag t2 : t.getSpecs()) {<a name="line.835"></a>
+<span class="sourceLineNo">836</span>                InnerClassTag icTag = (InnerClassTag) t2;<a name="line.836"></a>
+<span class="sourceLineNo">837</span>                <a name="line.837"></a>
+<span class="sourceLineNo">838</span>                // In Dalvik, both the EnclosingMethod/EnclosingClass tag and the<a name="line.838"></a>
+<span class="sourceLineNo">839</span>                // InnerClass tag are written to the inner class which is different<a name="line.839"></a>
+<span class="sourceLineNo">840</span>                // to Java. We thus check whether this tag actually points to our<a name="line.840"></a>
+<span class="sourceLineNo">841</span>                // outer class.<a name="line.841"></a>
+<span class="sourceLineNo">842</span>                String outerClass = getOuterClassNameFromTag(icTag);<a name="line.842"></a>
+<span class="sourceLineNo">843</span>                        String innerClass = icTag.getInnerClass().replaceAll("/", ".");<a name="line.843"></a>
+<span class="sourceLineNo">844</span>                                                <a name="line.844"></a>
+<span class="sourceLineNo">845</span>                        // Only write the InnerClass tag to the inner class itself, not<a name="line.845"></a>
+<span class="sourceLineNo">846</span>                        // the other one. If the outer class points to our parent, but<a name="line.846"></a>
+<span class="sourceLineNo">847</span>                        // this is simply the wrong inner class, we also continue with the<a name="line.847"></a>
+<span class="sourceLineNo">848</span>                        // next tag.<a name="line.848"></a>
+<span class="sourceLineNo">849</span>                if (!parentClass.hasOuterClass()<a name="line.849"></a>
+<span class="sourceLineNo">850</span>                                || !innerClass.equals(parentClass.getName()))<a name="line.850"></a>
+<span class="sourceLineNo">851</span>                        continue;<a name="line.851"></a>
+<span class="sourceLineNo">852</span>                <a name="line.852"></a>
+<span class="sourceLineNo">853</span>                // If the outer class points to the very same class, we null it<a name="line.853"></a>
+<span class="sourceLineNo">854</span>                if (parentClass.getName().equals(outerClass)<a name="line.854"></a>
+<span class="sourceLineNo">855</span>                                &amp;&amp; icTag.getOuterClass() == null)<a name="line.855"></a>
+<span class="sourceLineNo">856</span>                        outerClass = null;<a name="line.856"></a>
+<span class="sourceLineNo">857</span>                <a name="line.857"></a>
+<span class="sourceLineNo">858</span>                // Do not write garbage. Never.<a name="line.858"></a>
+<span class="sourceLineNo">859</span>                if (parentClass.getName().equals(outerClass))<a name="line.859"></a>
+<span class="sourceLineNo">860</span>                        continue;<a name="line.860"></a>
+<span class="sourceLineNo">861</span>                <a name="line.861"></a>
+<span class="sourceLineNo">862</span>                // This is an actual inner class. Write the annotation<a name="line.862"></a>
+<span class="sourceLineNo">863</span>                if (skipList.add("Ldalvik/annotation/InnerClass;")) {<a name="line.863"></a>
+<span class="sourceLineNo">864</span>                        // InnerClass annotation<a name="line.864"></a>
+<span class="sourceLineNo">865</span>                        List&lt;AnnotationElement&gt; elements = new ArrayList&lt;AnnotationElement&gt;();<a name="line.865"></a>
+<span class="sourceLineNo">866</span>                        <a name="line.866"></a>
+<span class="sourceLineNo">867</span>                        ImmutableAnnotationElement flagsElement = new ImmutableAnnotationElement<a name="line.867"></a>
+<span class="sourceLineNo">868</span>                                        ("accessFlags", new ImmutableIntEncodedValue(icTag.getAccessFlags()));<a name="line.868"></a>
+<span class="sourceLineNo">869</span>                        elements.add(flagsElement);<a name="line.869"></a>
+<span class="sourceLineNo">870</span>                        <a name="line.870"></a>
+<span class="sourceLineNo">871</span>                        ImmutableEncodedValue nameValue;<a name="line.871"></a>
+<span class="sourceLineNo">872</span>                        if (icTag.getShortName() != null &amp;&amp; !icTag.getShortName().isEmpty())<a name="line.872"></a>
+<span class="sourceLineNo">873</span>                                nameValue = new ImmutableStringEncodedValue(icTag.getShortName());<a name="line.873"></a>
+<span class="sourceLineNo">874</span>                        else<a name="line.874"></a>
+<span class="sourceLineNo">875</span>                                nameValue = ImmutableNullEncodedValue.INSTANCE;<a name="line.875"></a>
+<span class="sourceLineNo">876</span>                        <a name="line.876"></a>
+<span class="sourceLineNo">877</span>                        ImmutableAnnotationElement nameElement = new ImmutableAnnotationElement<a name="line.877"></a>
+<span class="sourceLineNo">878</span>                                        ("name", nameValue);<a name="line.878"></a>
+<span class="sourceLineNo">879</span>                            elements.add(nameElement);<a name="line.879"></a>
+<span class="sourceLineNo">880</span>                        <a name="line.880"></a>
+<span class="sourceLineNo">881</span>                        if (anns == null) anns = new ArrayList&lt;Annotation&gt;();<a name="line.881"></a>
+<span class="sourceLineNo">882</span>                        anns.add(new ImmutableAnnotation(AnnotationVisibility.SYSTEM,<a name="line.882"></a>
+<span class="sourceLineNo">883</span>                                        "Ldalvik/annotation/InnerClass;",<a name="line.883"></a>
+<span class="sourceLineNo">884</span>                                        elements));<a name="line.884"></a>
+<span class="sourceLineNo">885</span>                }<a name="line.885"></a>
+<span class="sourceLineNo">886</span>        }<a name="line.886"></a>
+<span class="sourceLineNo">887</span>                <a name="line.887"></a>
+<span class="sourceLineNo">888</span>        return anns;<a name="line.888"></a>
+<span class="sourceLineNo">889</span>    }<a name="line.889"></a>
+<span class="sourceLineNo">890</span><a name="line.890"></a>
+<span class="sourceLineNo">891</span>        private String getOuterClassNameFromTag(InnerClassTag icTag) {<a name="line.891"></a>
+<span class="sourceLineNo">892</span>                String outerClass;<a name="line.892"></a>
+<span class="sourceLineNo">893</span>                if (icTag.getOuterClass() == null) { // anonymous inner classes<a name="line.893"></a>
+<span class="sourceLineNo">894</span>                        outerClass = icTag.getInnerClass().replaceAll("\\$[0-9,a-z,A-Z]*$", "").replaceAll("/", ".");<a name="line.894"></a>
+<span class="sourceLineNo">895</span>                } else {<a name="line.895"></a>
+<span class="sourceLineNo">896</span>                        outerClass = icTag.getOuterClass().replaceAll("/", ".");<a name="line.896"></a>
+<span class="sourceLineNo">897</span>                }<a name="line.897"></a>
+<span class="sourceLineNo">898</span>                <a name="line.898"></a>
+<span class="sourceLineNo">899</span>                return outerClass;<a name="line.899"></a>
+<span class="sourceLineNo">900</span>        }<a name="line.900"></a>
+<span class="sourceLineNo">901</span><a name="line.901"></a>
+<span class="sourceLineNo">902</span>    private List&lt;Annotation&gt; buildMemberClassesAttribute(SootClass parentClass,<a name="line.902"></a>
+<span class="sourceLineNo">903</span>                InnerClassAttribute t, Set&lt;String&gt; skipList) {<a name="line.903"></a>
+<span class="sourceLineNo">904</span>        List&lt;Annotation&gt; anns = null;<a name="line.904"></a>
+<span class="sourceLineNo">905</span>        Set&lt;String&gt; memberClasses = null;<a name="line.905"></a>
+<span class="sourceLineNo">906</span>        <a name="line.906"></a>
+<span class="sourceLineNo">907</span>        // Collect the inner classes<a name="line.907"></a>
+<span class="sourceLineNo">908</span>        for (Tag t2 : t.getSpecs()) {<a name="line.908"></a>
+<span class="sourceLineNo">909</span>                InnerClassTag icTag = (InnerClassTag) t2;<a name="line.909"></a>
+<span class="sourceLineNo">910</span>                String outerClass = getOuterClassNameFromTag(icTag);<a name="line.910"></a>
+<span class="sourceLineNo">911</span>                        <a name="line.911"></a>
+<span class="sourceLineNo">912</span>                        // Only classes with names are member classes<a name="line.912"></a>
+<span class="sourceLineNo">913</span>                        if (icTag.getOuterClass() != null<a name="line.913"></a>
+<span class="sourceLineNo">914</span>                                        &amp;&amp; parentClass.getName().equals(outerClass)) {<a name="line.914"></a>
+<span class="sourceLineNo">915</span>                                if (memberClasses == null)<a name="line.915"></a>
+<span class="sourceLineNo">916</span>                                        memberClasses = new HashSet&lt;String&gt;();<a name="line.916"></a>
+<span class="sourceLineNo">917</span>                                memberClasses.add(SootToDexUtils.getDexClassName(icTag.getInnerClass()));<a name="line.917"></a>
+<span class="sourceLineNo">918</span>                        }<a name="line.918"></a>
+<span class="sourceLineNo">919</span>        }<a name="line.919"></a>
+<span class="sourceLineNo">920</span>        <a name="line.920"></a>
+<span class="sourceLineNo">921</span>        // Write the member classes<a name="line.921"></a>
+<span class="sourceLineNo">922</span>        if (memberClasses != null<a name="line.922"></a>
+<span class="sourceLineNo">923</span>                        &amp;&amp; !memberClasses.isEmpty()<a name="line.923"></a>
+<span class="sourceLineNo">924</span>                        &amp;&amp; skipList.add("Ldalvik/annotation/MemberClasses;")) {<a name="line.924"></a>
+<span class="sourceLineNo">925</span>                List&lt;EncodedValue&gt; classes = new ArrayList&lt;EncodedValue&gt;();<a name="line.925"></a>
+<span class="sourceLineNo">926</span>                for (String memberClass : memberClasses) {<a name="line.926"></a>
+<span class="sourceLineNo">927</span>                        ImmutableTypeEncodedValue classValue = new ImmutableTypeEncodedValue(memberClass);<a name="line.927"></a>
+<span class="sourceLineNo">928</span>                        classes.add(classValue);<a name="line.928"></a>
+<span class="sourceLineNo">929</span>                }<a name="line.929"></a>
+<span class="sourceLineNo">930</span>                <a name="line.930"></a>
+<span class="sourceLineNo">931</span>                ImmutableArrayEncodedValue classesValue =<a name="line.931"></a>
+<span class="sourceLineNo">932</span>                                new ImmutableArrayEncodedValue(classes);<a name="line.932"></a>
+<span class="sourceLineNo">933</span>                ImmutableAnnotationElement element =<a name="line.933"></a>
+<span class="sourceLineNo">934</span>                                new ImmutableAnnotationElement("value", classesValue);<a name="line.934"></a>
+<span class="sourceLineNo">935</span>                ImmutableAnnotation memberAnnotation =<a name="line.935"></a>
+<span class="sourceLineNo">936</span>                                new ImmutableAnnotation(AnnotationVisibility.SYSTEM,<a name="line.936"></a>
+<span class="sourceLineNo">937</span>                                                "Ldalvik/annotation/MemberClasses;",<a name="line.937"></a>
+<span class="sourceLineNo">938</span>                                                Collections.singletonList(element));<a name="line.938"></a>
+<span class="sourceLineNo">939</span>                if (anns == null) anns = new ArrayList&lt;Annotation&gt;();<a name="line.939"></a>
+<span class="sourceLineNo">940</span>                anns.add(memberAnnotation);<a name="line.940"></a>
+<span class="sourceLineNo">941</span>        }<a name="line.941"></a>
+<span class="sourceLineNo">942</span>        return anns;<a name="line.942"></a>
+<span class="sourceLineNo">943</span>    }<a name="line.943"></a>
+<span class="sourceLineNo">944</span>    <a name="line.944"></a>
+<span class="sourceLineNo">945</span>    /**<a name="line.945"></a>
+<span class="sourceLineNo">946</span>     * Converts Jimple visibility to Dexlib visibility<a name="line.946"></a>
+<span class="sourceLineNo">947</span>     * <a name="line.947"></a>
+<span class="sourceLineNo">948</span>     * @param visibility<a name="line.948"></a>
+<span class="sourceLineNo">949</span>     *            Jimple visibility<a name="line.949"></a>
+<span class="sourceLineNo">950</span>     * @return Dexlib visibility<a name="line.950"></a>
+<span class="sourceLineNo">951</span>     */<a name="line.951"></a>
+<span class="sourceLineNo">952</span>    private static int getVisibility(int visibility) {<a name="line.952"></a>
+<span class="sourceLineNo">953</span>        if (visibility == AnnotationConstants.RUNTIME_VISIBLE)<a name="line.953"></a>
+<span class="sourceLineNo">954</span>            return AnnotationVisibility.RUNTIME;<a name="line.954"></a>
+<span class="sourceLineNo">955</span>        if (visibility == AnnotationConstants.RUNTIME_INVISIBLE)<a name="line.955"></a>
+<span class="sourceLineNo">956</span>            return AnnotationVisibility.SYSTEM;<a name="line.956"></a>
+<span class="sourceLineNo">957</span>        if (visibility == AnnotationConstants.SOURCE_VISIBLE)<a name="line.957"></a>
+<span class="sourceLineNo">958</span>            return AnnotationVisibility.BUILD;<a name="line.958"></a>
+<span class="sourceLineNo">959</span>        throw new RuntimeException("Unknown annotation visibility: '" + visibility + "'");<a name="line.959"></a>
+<span class="sourceLineNo">960</span>    }<a name="line.960"></a>
+<span class="sourceLineNo">961</span>    <a name="line.961"></a>
+<span class="sourceLineNo">962</span>        private Collection&lt;BuilderMethod&gt; toMethods(SootClass clazz) {<a name="line.962"></a>
+<span class="sourceLineNo">963</span>                if (clazz.getMethods().isEmpty())<a name="line.963"></a>
+<span class="sourceLineNo">964</span>                        return null;<a name="line.964"></a>
+<span class="sourceLineNo">965</span>                <a name="line.965"></a>
+<span class="sourceLineNo">966</span>        String classType = SootToDexUtils.getDexTypeDescriptor(clazz.getType());<a name="line.966"></a>
+<span class="sourceLineNo">967</span>        List&lt;BuilderMethod&gt; methods = new ArrayList&lt;BuilderMethod&gt;();<a name="line.967"></a>
+<span class="sourceLineNo">968</span>        for (SootMethod sm : clazz.getMethods()) {<a name="line.968"></a>
+<span class="sourceLineNo">969</span>            if (sm.isPhantom()) {<a name="line.969"></a>
+<span class="sourceLineNo">970</span>                // Do not print method bodies for inherited methods<a name="line.970"></a>
+<span class="sourceLineNo">971</span>                continue;<a name="line.971"></a>
+<span class="sourceLineNo">972</span>            }<a name="line.972"></a>
+<span class="sourceLineNo">973</span>            <a name="line.973"></a>
+<span class="sourceLineNo">974</span>                MethodImplementation impl = toMethodImplementation(sm);<a name="line.974"></a>
+<span class="sourceLineNo">975</span>                <a name="line.975"></a>
+<span class="sourceLineNo">976</span>                List&lt;String&gt; parameterNames = null;<a name="line.976"></a>
+<span class="sourceLineNo">977</span>                if (sm.hasTag("ParamNamesTag"))<a name="line.977"></a>
+<span class="sourceLineNo">978</span>                        parameterNames = ((ParamNamesTag) sm.getTag("ParamNamesTag")).getNames();<a name="line.978"></a>
+<span class="sourceLineNo">979</span>                <a name="line.979"></a>
+<span class="sourceLineNo">980</span>                int paramIdx = 0;<a name="line.980"></a>
+<span class="sourceLineNo">981</span>                List&lt;MethodParameter&gt; parameters = null;<a name="line.981"></a>
+<span class="sourceLineNo">982</span>                if (sm.getParameterCount() &gt; 0) {<a name="line.982"></a>
+<span class="sourceLineNo">983</span>                        parameters = new ArrayList&lt;MethodParameter&gt;();<a name="line.983"></a>
+<span class="sourceLineNo">984</span>                        for (Type tp : sm.getParameterTypes()) {<a name="line.984"></a>
+<span class="sourceLineNo">985</span>                                String paramType = SootToDexUtils.getDexTypeDescriptor(tp);<a name="line.985"></a>
+<span class="sourceLineNo">986</span>                                parameters.add(new ImmutableMethodParameter(paramType,<a name="line.986"></a>
+<span class="sourceLineNo">987</span>                                                buildMethodParameterAnnotations(sm, paramIdx),<a name="line.987"></a>
+<span class="sourceLineNo">988</span>                                                sm.isConcrete() &amp;&amp; parameterNames != null ?<a name="line.988"></a>
+<span class="sourceLineNo">989</span>                                                                parameterNames.get(paramIdx) : null));<a name="line.989"></a>
+<span class="sourceLineNo">990</span>                                paramIdx++;<a name="line.990"></a>
+<span class="sourceLineNo">991</span>                        }<a name="line.991"></a>
+<span class="sourceLineNo">992</span>                }<a name="line.992"></a>
+<span class="sourceLineNo">993</span>                <a name="line.993"></a>
+<span class="sourceLineNo">994</span>            String returnType = SootToDexUtils.getDexTypeDescriptor(sm.getReturnType());<a name="line.994"></a>
+<span class="sourceLineNo">995</span>            <a name="line.995"></a>
+<span class="sourceLineNo">996</span>                        int accessFlags = SootToDexUtils.getDexAccessFlags(sm);<a name="line.996"></a>
+<span class="sourceLineNo">997</span>            BuilderMethod meth = dexFile.internMethod(classType,<a name="line.997"></a>
+<span class="sourceLineNo">998</span>                                        sm.getName(),<a name="line.998"></a>
+<span class="sourceLineNo">999</span>                                        parameters,<a name="line.999"></a>
+<span class="sourceLineNo">1000</span>                                        returnType,<a name="line.1000"></a>
+<span class="sourceLineNo">1001</span>                                        accessFlags,<a name="line.1001"></a>
+<span class="sourceLineNo">1002</span>                                        buildMethodAnnotations(sm),<a name="line.1002"></a>
+<span class="sourceLineNo">1003</span>                                        impl);<a name="line.1003"></a>
+<span class="sourceLineNo">1004</span>            methods.add(meth);<a name="line.1004"></a>
+<span class="sourceLineNo">1005</span>        }<a name="line.1005"></a>
+<span class="sourceLineNo">1006</span>                return methods;<a name="line.1006"></a>
+<span class="sourceLineNo">1007</span>        }<a name="line.1007"></a>
+<span class="sourceLineNo">1008</span>        <a name="line.1008"></a>
+<span class="sourceLineNo">1009</span>    protected static BuilderFieldReference toFieldReference<a name="line.1009"></a>
+<span class="sourceLineNo">1010</span>                (SootField f, DexBuilder belongingDexFile) {<a name="line.1010"></a>
+<span class="sourceLineNo">1011</span>        FieldReference fieldRef = new ImmutableFieldReference<a name="line.1011"></a>
+<span class="sourceLineNo">1012</span>                        (SootToDexUtils.getDexClassName(f.getDeclaringClass().getName()),<a name="line.1012"></a>
+<span class="sourceLineNo">1013</span>                        f.getName(),<a name="line.1013"></a>
+<span class="sourceLineNo">1014</span>                        SootToDexUtils.getDexTypeDescriptor(f.getType()));<a name="line.1014"></a>
+<span class="sourceLineNo">1015</span>        return belongingDexFile.internFieldReference(fieldRef);<a name="line.1015"></a>
+<span class="sourceLineNo">1016</span>        }<a name="line.1016"></a>
+<span class="sourceLineNo">1017</span>        <a name="line.1017"></a>
+<span class="sourceLineNo">1018</span>    protected static BuilderMethodReference toMethodReference<a name="line.1018"></a>
+<span class="sourceLineNo">1019</span>                        (SootMethodRef m, DexBuilder belongingDexFile) {<a name="line.1019"></a>
+<span class="sourceLineNo">1020</span>        List&lt;String&gt; parameters = new ArrayList&lt;String&gt;();<a name="line.1020"></a>
+<span class="sourceLineNo">1021</span>        for (Type t : m.parameterTypes())<a name="line.1021"></a>
+<span class="sourceLineNo">1022</span>                parameters.add(SootToDexUtils.getDexTypeDescriptor(t));<a name="line.1022"></a>
+<span class="sourceLineNo">1023</span>        MethodReference methodRef = new ImmutableMethodReference<a name="line.1023"></a>
+<span class="sourceLineNo">1024</span>                        (SootToDexUtils.getDexClassName(m.declaringClass().getName()),<a name="line.1024"></a>
+<span class="sourceLineNo">1025</span>                        m.name(),<a name="line.1025"></a>
+<span class="sourceLineNo">1026</span>                        parameters,<a name="line.1026"></a>
+<span class="sourceLineNo">1027</span>                        SootToDexUtils.getDexTypeDescriptor(m.returnType()));<a name="line.1027"></a>
+<span class="sourceLineNo">1028</span>        return belongingDexFile.internMethodReference(methodRef);<a name="line.1028"></a>
+<span class="sourceLineNo">1029</span>    }<a name="line.1029"></a>
+<span class="sourceLineNo">1030</span><a name="line.1030"></a>
+<span class="sourceLineNo">1031</span>    protected static BuilderTypeReference toTypeReference<a name="line.1031"></a>
+<span class="sourceLineNo">1032</span>                        (Type t, DexBuilder belongingDexFile) {<a name="line.1032"></a>
+<span class="sourceLineNo">1033</span>        return belongingDexFile.internTypeReference<a name="line.1033"></a>
+<span class="sourceLineNo">1034</span>                        (SootToDexUtils.getDexTypeDescriptor(t));<a name="line.1034"></a>
+<span class="sourceLineNo">1035</span>    }<a name="line.1035"></a>
+<span class="sourceLineNo">1036</span>    <a name="line.1036"></a>
+<span class="sourceLineNo">1037</span>        private MethodImplementation toMethodImplementation(SootMethod m) {<a name="line.1037"></a>
+<span class="sourceLineNo">1038</span>                if (m.isAbstract() || m.isNative()) {<a name="line.1038"></a>
+<span class="sourceLineNo">1039</span>                        return null;<a name="line.1039"></a>
+<span class="sourceLineNo">1040</span>                }<a name="line.1040"></a>
+<span class="sourceLineNo">1041</span>                Body activeBody = m.retrieveActiveBody();<a name="line.1041"></a>
+<span class="sourceLineNo">1042</span>                <a name="line.1042"></a>
+<span class="sourceLineNo">1043</span>                // check the method name to make sure that dexopt won't get into trouble<a name="line.1043"></a>
+<span class="sourceLineNo">1044</span>                // when installing the app<a name="line.1044"></a>
+<span class="sourceLineNo">1045</span>                if (m.getName().contains("&lt;") || m.getName().equals("&gt;"))<a name="line.1045"></a>
+<span class="sourceLineNo">1046</span>                        if (!m.getName().equals("&lt;init&gt;") &amp;&amp; !m.getName().equals("&lt;clinit&gt;"))<a name="line.1046"></a>
+<span class="sourceLineNo">1047</span>                                throw new RuntimeException("Invalid method name: " + m.getName());<a name="line.1047"></a>
+<span class="sourceLineNo">1048</span>                <a name="line.1048"></a>
+<span class="sourceLineNo">1049</span>                // Switch statements may not be empty in dex, so we have to fix this first<a name="line.1049"></a>
+<span class="sourceLineNo">1050</span>                EmptySwitchEliminator.v().transform(activeBody);<a name="line.1050"></a>
+<span class="sourceLineNo">1051</span>                <a name="line.1051"></a>
+<span class="sourceLineNo">1052</span>                // Dalvik requires synchronized methods to have explicit monitor calls,<a name="line.1052"></a>
+<span class="sourceLineNo">1053</span>                // so we insert them here. See http://milk.com/kodebase/dalvik-docs-mirror/docs/debugger.html<a name="line.1053"></a>
+<span class="sourceLineNo">1054</span>                // We cannot place this upon the developer since it is only required<a name="line.1054"></a>
+<span class="sourceLineNo">1055</span>                // for Dalvik, but not for other targets.<a name="line.1055"></a>
+<span class="sourceLineNo">1056</span>                SynchronizedMethodTransformer.v().transform(activeBody);<a name="line.1056"></a>
+<span class="sourceLineNo">1057</span>                <a name="line.1057"></a>
+<span class="sourceLineNo">1058</span>                // Tries may not start or end at units which have no corresponding Dalvik<a name="line.1058"></a>
+<span class="sourceLineNo">1059</span>                // instructions such as IdentityStmts. We reduce the traps to start at the<a name="line.1059"></a>
+<span class="sourceLineNo">1060</span>                // first "real" instruction. We could also use a TrapTigthener, but that<a name="line.1060"></a>
+<span class="sourceLineNo">1061</span>                // would be too expensive for what we need here.<a name="line.1061"></a>
+<span class="sourceLineNo">1062</span>                FastDexTrapTightener.v().transform(activeBody);<a name="line.1062"></a>
+<span class="sourceLineNo">1063</span>                <a name="line.1063"></a>
+<span class="sourceLineNo">1064</span>                // Look for sequences of array element assignments that we can collapse<a name="line.1064"></a>
+<span class="sourceLineNo">1065</span>                // into bulk initializations<a name="line.1065"></a>
+<span class="sourceLineNo">1066</span>                DexArrayInitDetector initDetector = new DexArrayInitDetector();<a name="line.1066"></a>
+<span class="sourceLineNo">1067</span>                initDetector.constructArrayInitializations(activeBody);<a name="line.1067"></a>
+<span class="sourceLineNo">1068</span>                initDetector.fixTraps(activeBody);<a name="line.1068"></a>
+<span class="sourceLineNo">1069</span>                <a name="line.1069"></a>
+<span class="sourceLineNo">1070</span>                // Split the tries since Dalvik does not supported nested try/catch blocks<a name="line.1070"></a>
+<span class="sourceLineNo">1071</span>                TrapSplitter.v().transform(activeBody);<a name="line.1071"></a>
+<span class="sourceLineNo">1072</span><a name="line.1072"></a>
+<span class="sourceLineNo">1073</span>                // word count of incoming parameters<a name="line.1073"></a>
+<span class="sourceLineNo">1074</span>                int inWords = SootToDexUtils.getDexWords(m.getParameterTypes());<a name="line.1074"></a>
+<span class="sourceLineNo">1075</span>                if (!m.isStatic()) {<a name="line.1075"></a>
+<span class="sourceLineNo">1076</span>                        inWords++; // extra word for "this"<a name="line.1076"></a>
+<span class="sourceLineNo">1077</span>                }<a name="line.1077"></a>
+<span class="sourceLineNo">1078</span>                // word count of max outgoing parameters<a name="line.1078"></a>
+<span class="sourceLineNo">1079</span>                Collection&lt;Unit&gt; units = activeBody.getUnits();<a name="line.1079"></a>
+<span class="sourceLineNo">1080</span>                // register count = parameters + additional registers, depending on the dex instructions generated (e.g. locals used and constants loaded)<a name="line.1080"></a>
+<span class="sourceLineNo">1081</span>                StmtVisitor stmtV = new StmtVisitor(m, dexFile, initDetector);<a name="line.1081"></a>
+<span class="sourceLineNo">1082</span>                <a name="line.1082"></a>
+<span class="sourceLineNo">1083</span>                toInstructions(units, stmtV);<a name="line.1083"></a>
+<span class="sourceLineNo">1084</span>                <a name="line.1084"></a>
+<span class="sourceLineNo">1085</span>                int registerCount = stmtV.getRegisterCount();<a name="line.1085"></a>
+<span class="sourceLineNo">1086</span>                if (inWords &gt; registerCount) {<a name="line.1086"></a>
+<span class="sourceLineNo">1087</span>                        /*<a name="line.1087"></a>
+<span class="sourceLineNo">1088</span>                         * as the Dalvik VM moves the parameters into the last registers, the "in" word count must be at least equal to the register count.<a name="line.1088"></a>
+<span class="sourceLineNo">1089</span>                         * a smaller register count could occur if soot generated the method body, see e.g. the handling of phantom refs in SootMethodRefImpl.resolve(StringBuffer):<a name="line.1089"></a>
+<span class="sourceLineNo">1090</span>                         * the body has no locals for the ParameterRefs, it just throws an error.<a name="line.1090"></a>
+<span class="sourceLineNo">1091</span>                         * <a name="line.1091"></a>
+<span class="sourceLineNo">1092</span>                         * we satisfy the verifier by just increasing the register count, since calling phantom refs will lead to an error anyway.<a name="line.1092"></a>
+<span class="sourceLineNo">1093</span>                         */<a name="line.1093"></a>
+<span class="sourceLineNo">1094</span>                        registerCount = inWords;<a name="line.1094"></a>
+<span class="sourceLineNo">1095</span>                }<a name="line.1095"></a>
+<span class="sourceLineNo">1096</span>                <a name="line.1096"></a>
+<span class="sourceLineNo">1097</span>                MethodImplementationBuilder builder = new MethodImplementationBuilder(registerCount);<a name="line.1097"></a>
+<span class="sourceLineNo">1098</span>                LabelAssigner labelAssinger = new LabelAssigner(builder);<a name="line.1098"></a>
+<span class="sourceLineNo">1099</span>                List&lt;BuilderInstruction&gt; instructions = stmtV.getRealInsns(labelAssinger);<a name="line.1099"></a>
+<span class="sourceLineNo">1100</span>                <a name="line.1100"></a>
+<span class="sourceLineNo">1101</span>                fixLongJumps(instructions, labelAssinger, stmtV);<a name="line.1101"></a>
+<span class="sourceLineNo">1102</span>                <a name="line.1102"></a>
+<span class="sourceLineNo">1103</span>                Map&lt;Local, Integer&gt; seenRegisters = new HashMap&lt;Local, Integer&gt;();<a name="line.1103"></a>
+<span class="sourceLineNo">1104</span>                Map&lt;Instruction, LocalRegisterAssignmentInformation&gt; instructionRegisterMap = stmtV.getInstructionRegisterMap();<a name="line.1104"></a>
+<span class="sourceLineNo">1105</span>                <a name="line.1105"></a>
+<span class="sourceLineNo">1106</span>                if (Options.v().write_local_annotations()) {<a name="line.1106"></a>
+<span class="sourceLineNo">1107</span>                        for (LocalRegisterAssignmentInformation assignment : stmtV.getParameterInstructionsList()) {<a name="line.1107"></a>
+<span class="sourceLineNo">1108</span>                                //The "this" local gets added automatically, so we do not need to add it explicitly<a name="line.1108"></a>
+<span class="sourceLineNo">1109</span>                                //(at least not if it exists with exactly this name)<a name="line.1109"></a>
+<span class="sourceLineNo">1110</span>                                if (assignment.getLocal().getName().equals("this"))<a name="line.1110"></a>
+<span class="sourceLineNo">1111</span>                                        continue;<a name="line.1111"></a>
+<span class="sourceLineNo">1112</span>                                addRegisterAssignmentDebugInfo(assignment, seenRegisters, builder);<a name="line.1112"></a>
+<span class="sourceLineNo">1113</span>                        }<a name="line.1113"></a>
+<span class="sourceLineNo">1114</span>                }<a name="line.1114"></a>
+<span class="sourceLineNo">1115</span>        <a name="line.1115"></a>
+<span class="sourceLineNo">1116</span>        for (BuilderInstruction ins : instructions) {<a name="line.1116"></a>
+<span class="sourceLineNo">1117</span>            Stmt origStmt = stmtV.getStmtForInstruction(ins);<a name="line.1117"></a>
+<span class="sourceLineNo">1118</span>            <a name="line.1118"></a>
+<span class="sourceLineNo">1119</span>            // If this is a switch payload, we need to place the label<a name="line.1119"></a>
+<span class="sourceLineNo">1120</span>            if (stmtV.getInstructionPayloadMap().containsKey(ins))<a name="line.1120"></a>
+<span class="sourceLineNo">1121</span>                builder.addLabel(labelAssinger.getLabelName(stmtV.getInstructionPayloadMap().get(ins)));<a name="line.1121"></a>
+<span class="sourceLineNo">1122</span>            <a name="line.1122"></a>
+<span class="sourceLineNo">1123</span>            if (origStmt != null) {<a name="line.1123"></a>
+<span class="sourceLineNo">1124</span>                    // Do we need a label here because this a trap handler?<a name="line.1124"></a>
+<span class="sourceLineNo">1125</span>                    for (Trap t : m.getActiveBody().getTraps()) {<a name="line.1125"></a>
+<span class="sourceLineNo">1126</span>                        if (t.getBeginUnit() == origStmt<a name="line.1126"></a>
+<span class="sourceLineNo">1127</span>                                        || t.getEndUnit() == origStmt<a name="line.1127"></a>
+<span class="sourceLineNo">1128</span>                                        || t.getHandlerUnit() == origStmt) {<a name="line.1128"></a>
+<span class="sourceLineNo">1129</span>                                labelAssinger.getOrCreateLabel(origStmt);<a name="line.1129"></a>
+<span class="sourceLineNo">1130</span>                                break;<a name="line.1130"></a>
+<span class="sourceLineNo">1131</span>                        }<a name="line.1131"></a>
+<span class="sourceLineNo">1132</span>                    }<a name="line.1132"></a>
+<span class="sourceLineNo">1133</span>                    <a name="line.1133"></a>
+<span class="sourceLineNo">1134</span>                        // Add the label if the statement has one<a name="line.1134"></a>
+<span class="sourceLineNo">1135</span>                                String labelName = labelAssinger.getLabelName(origStmt);<a name="line.1135"></a>
+<span class="sourceLineNo">1136</span>                                if (labelName != null &amp;&amp; !builder.getLabel(labelName).isPlaced())<a name="line.1136"></a>
+<span class="sourceLineNo">1137</span>                                        builder.addLabel(labelName);<a name="line.1137"></a>
+<span class="sourceLineNo">1138</span>                                <a name="line.1138"></a>
+<span class="sourceLineNo">1139</span>                                // Add the tags<a name="line.1139"></a>
+<span class="sourceLineNo">1140</span>                                if (stmtV.getStmtForInstruction(ins) != null) {<a name="line.1140"></a>
+<span class="sourceLineNo">1141</span>                        List&lt;Tag&gt; tags = origStmt.getTags();<a name="line.1141"></a>
+<span class="sourceLineNo">1142</span>                        for (Tag t : tags) {<a name="line.1142"></a>
+<span class="sourceLineNo">1143</span>                            if (t instanceof LineNumberTag) {<a name="line.1143"></a>
+<span class="sourceLineNo">1144</span>                                LineNumberTag lnt = (LineNumberTag) t;<a name="line.1144"></a>
+<span class="sourceLineNo">1145</span>                                        builder.addLineNumber(lnt.getLineNumber());<a name="line.1145"></a>
+<span class="sourceLineNo">1146</span>                            }<a name="line.1146"></a>
+<span class="sourceLineNo">1147</span>                            else if (t instanceof SourceFileTag) {<a name="line.1147"></a>
+<span class="sourceLineNo">1148</span>                                SourceFileTag sft = (SourceFileTag) t;<a name="line.1148"></a>
+<span class="sourceLineNo">1149</span>                                builder.addSetSourceFile(dexFile.internStringReference<a name="line.1149"></a>
+<span class="sourceLineNo">1150</span>                                                (sft.getSourceFile()));<a name="line.1150"></a>
+<span class="sourceLineNo">1151</span>                            }<a name="line.1151"></a>
+<span class="sourceLineNo">1152</span>                        }<a name="line.1152"></a>
+<span class="sourceLineNo">1153</span>                    }<a name="line.1153"></a>
+<span class="sourceLineNo">1154</span>            }<a name="line.1154"></a>
+<span class="sourceLineNo">1155</span>            <a name="line.1155"></a>
+<span class="sourceLineNo">1156</span>            builder.addInstruction(ins);<a name="line.1156"></a>
+<span class="sourceLineNo">1157</span>            LocalRegisterAssignmentInformation registerAssignmentTag = instructionRegisterMap.get(ins);<a name="line.1157"></a>
+<span class="sourceLineNo">1158</span>            if (registerAssignmentTag != null)<a name="line.1158"></a>
+<span class="sourceLineNo">1159</span>            {<a name="line.1159"></a>
+<span class="sourceLineNo">1160</span>                                //Add start local debugging information: Register -&gt; Local assignment<a name="line.1160"></a>
+<span class="sourceLineNo">1161</span>                        addRegisterAssignmentDebugInfo(registerAssignmentTag, seenRegisters, builder);<a name="line.1161"></a>
+<span class="sourceLineNo">1162</span>            }<a name="line.1162"></a>
+<span class="sourceLineNo">1163</span>                }<a name="line.1163"></a>
+<span class="sourceLineNo">1164</span>                <a name="line.1164"></a>
+<span class="sourceLineNo">1165</span>                for (int registersLeft : seenRegisters.values())<a name="line.1165"></a>
+<span class="sourceLineNo">1166</span>                        builder.addEndLocal(registersLeft);<a name="line.1166"></a>
+<span class="sourceLineNo">1167</span>                <a name="line.1167"></a>
+<span class="sourceLineNo">1168</span>                toTries(activeBody.getTraps(), stmtV, builder, labelAssinger);<a name="line.1168"></a>
+<span class="sourceLineNo">1169</span>        <a name="line.1169"></a>
+<span class="sourceLineNo">1170</span>        // Make sure that all labels have been placed by now<a name="line.1170"></a>
+<span class="sourceLineNo">1171</span>        for (Label lbl : labelAssinger.getAllLabels())<a name="line.1171"></a>
+<span class="sourceLineNo">1172</span>                if (!lbl.isPlaced())<a name="line.1172"></a>
+<span class="sourceLineNo">1173</span>                        throw new RuntimeException("Label not placed: " + lbl);<a name="line.1173"></a>
+<span class="sourceLineNo">1174</span>        <a name="line.1174"></a>
+<span class="sourceLineNo">1175</span>        return builder.getMethodImplementation();<a name="line.1175"></a>
+<span class="sourceLineNo">1176</span>        }<a name="line.1176"></a>
+<span class="sourceLineNo">1177</span>        <a name="line.1177"></a>
+<span class="sourceLineNo">1178</span>        /**<a name="line.1178"></a>
+<span class="sourceLineNo">1179</span>         * Fixes long jumps that exceed the maximum distance for the respective jump<a name="line.1179"></a>
+<span class="sourceLineNo">1180</span>         * type<a name="line.1180"></a>
+<span class="sourceLineNo">1181</span>         * @param instructions The list of generated dalvik instructions<a name="line.1181"></a>
+<span class="sourceLineNo">1182</span>         * @param labelAssigner The label assigner that maps statements to labels<a name="line.1182"></a>
+<span class="sourceLineNo">1183</span>         * @param stmtV The statement visitor used to produce the dalvik instructions<a name="line.1183"></a>
+<span class="sourceLineNo">1184</span>         */<a name="line.1184"></a>
+<span class="sourceLineNo">1185</span>        private void fixLongJumps(List&lt;BuilderInstruction&gt; instructions,<a name="line.1185"></a>
+<span class="sourceLineNo">1186</span>                        LabelAssigner labelAssigner, StmtVisitor stmtV) {<a name="line.1186"></a>
+<span class="sourceLineNo">1187</span>                // Only construct the maps once and update them afterwards<a name="line.1187"></a>
+<span class="sourceLineNo">1188</span>                Map&lt;Instruction, Integer&gt; instructionsToIndex = new HashMap&lt;Instruction, Integer&gt;();<a name="line.1188"></a>
+<span class="sourceLineNo">1189</span>                List&lt;Integer&gt; instructionsToOffsets = new ArrayList&lt;Integer&gt;();<a name="line.1189"></a>
+<span class="sourceLineNo">1190</span>                Map&lt;Label, Integer&gt; labelsToOffsets = new HashMap&lt;Label, Integer&gt;();<a name="line.1190"></a>
+<span class="sourceLineNo">1191</span>                Map&lt;Label, Integer&gt; labelsToIndex = new HashMap&lt;Label, Integer&gt;();<a name="line.1191"></a>
+<span class="sourceLineNo">1192</span>                <a name="line.1192"></a>
+<span class="sourceLineNo">1193</span>                boolean hasChanged;<a name="line.1193"></a>
+<span class="sourceLineNo">1194</span>                l0 : do {<a name="line.1194"></a>
+<span class="sourceLineNo">1195</span>                        // Look for changes anew every time<a name="line.1195"></a>
+<span class="sourceLineNo">1196</span>                        hasChanged = false;<a name="line.1196"></a>
+<span class="sourceLineNo">1197</span>                        instructionsToOffsets.clear();<a name="line.1197"></a>
+<span class="sourceLineNo">1198</span>                        <a name="line.1198"></a>
+<span class="sourceLineNo">1199</span>                        // Build a mapping between instructions and offsets<a name="line.1199"></a>
+<span class="sourceLineNo">1200</span>                        {<a name="line.1200"></a>
+<span class="sourceLineNo">1201</span>                        int offset = 0;<a name="line.1201"></a>
+<span class="sourceLineNo">1202</span>                        int idx = 0;<a name="line.1202"></a>
+<span class="sourceLineNo">1203</span>                        for (BuilderInstruction bi : instructions) {<a name="line.1203"></a>
+<span class="sourceLineNo">1204</span>                                instructionsToIndex.put(bi, idx);<a name="line.1204"></a>
+<span class="sourceLineNo">1205</span>                                instructionsToOffsets.add(offset);<a name="line.1205"></a>
+<span class="sourceLineNo">1206</span>                    Stmt origStmt = stmtV.getStmtForInstruction(bi);<a name="line.1206"></a>
+<span class="sourceLineNo">1207</span>                    if (origStmt != null) {<a name="line.1207"></a>
+<span class="sourceLineNo">1208</span>                        Label lbl = labelAssigner.getLabelUnsafe(origStmt);<a name="line.1208"></a>
+<span class="sourceLineNo">1209</span>                        if (lbl != null) {<a name="line.1209"></a>
+<span class="sourceLineNo">1210</span>                                labelsToOffsets.put(lbl, offset);<a name="line.1210"></a>
+<span class="sourceLineNo">1211</span>                                labelsToIndex.put(lbl, idx);<a name="line.1211"></a>
+<span class="sourceLineNo">1212</span>                        }<a name="line.1212"></a>
+<span class="sourceLineNo">1213</span>                    }<a name="line.1213"></a>
+<span class="sourceLineNo">1214</span>                    offset += (bi.getFormat().size / 2);<a name="line.1214"></a>
+<span class="sourceLineNo">1215</span>                    idx++;<a name="line.1215"></a>
+<span class="sourceLineNo">1216</span>                        }<a name="line.1216"></a>
+<span class="sourceLineNo">1217</span>                        }<a name="line.1217"></a>
+<span class="sourceLineNo">1218</span>                        <a name="line.1218"></a>
+<span class="sourceLineNo">1219</span>                        // Look for references to labels<a name="line.1219"></a>
+<span class="sourceLineNo">1220</span>                        for (int j = 0; j &lt; instructions.size(); j++) {<a name="line.1220"></a>
+<span class="sourceLineNo">1221</span>                                BuilderInstruction bj = instructions.get(j);<a name="line.1221"></a>
+<span class="sourceLineNo">1222</span>                                if (bj instanceof BuilderOffsetInstruction) {<a name="line.1222"></a>
+<span class="sourceLineNo">1223</span>                                        BuilderOffsetInstruction boj = (BuilderOffsetInstruction) bj;<a name="line.1223"></a>
+<span class="sourceLineNo">1224</span>                                        <a name="line.1224"></a>
+<span class="sourceLineNo">1225</span>                                        // Compute the distance between the instructions<a name="line.1225"></a>
+<span class="sourceLineNo">1226</span>                                        Insn jumpInsn = stmtV.getInsnForInstruction(boj);<a name="line.1226"></a>
+<span class="sourceLineNo">1227</span>                                        if (jumpInsn instanceof InsnWithOffset) {<a name="line.1227"></a>
+<span class="sourceLineNo">1228</span>                                                InsnWithOffset offsetInsn = (InsnWithOffset) jumpInsn;<a name="line.1228"></a>
+<span class="sourceLineNo">1229</span>                                                Integer targetOffset = labelsToOffsets.get(boj.getTarget());<a name="line.1229"></a>
+<span class="sourceLineNo">1230</span>                                                if (targetOffset == null)<a name="line.1230"></a>
+<span class="sourceLineNo">1231</span>                                                        continue;<a name="line.1231"></a>
+<span class="sourceLineNo">1232</span>                                                <a name="line.1232"></a>
+<span class="sourceLineNo">1233</span>                                                int distance = instructionsToOffsets.get(j) - targetOffset;<a name="line.1233"></a>
+<span class="sourceLineNo">1234</span>                                                if (Math.abs(distance) &gt; offsetInsn.getMaxJumpOffset()) {<a name="line.1234"></a>
+<span class="sourceLineNo">1235</span>                                                        // We need intermediate jumps<a name="line.1235"></a>
+<span class="sourceLineNo">1236</span>                                                        insertIntermediateJump(labelsToIndex.get(boj.getTarget()),<a name="line.1236"></a>
+<span class="sourceLineNo">1237</span>                                                                        j, stmtV, instructions, labelAssigner);<a name="line.1237"></a>
+<span class="sourceLineNo">1238</span>                                                        hasChanged = true;<a name="line.1238"></a>
+<span class="sourceLineNo">1239</span>                                                        continue l0;<a name="line.1239"></a>
+<span class="sourceLineNo">1240</span>                                                }<a name="line.1240"></a>
+<span class="sourceLineNo">1241</span>                                        }<a name="line.1241"></a>
+<span class="sourceLineNo">1242</span>                                }<a name="line.1242"></a>
+<span class="sourceLineNo">1243</span>                        }<a name="line.1243"></a>
+<span class="sourceLineNo">1244</span>                } while (hasChanged);<a name="line.1244"></a>
+<span class="sourceLineNo">1245</span>        }<a name="line.1245"></a>
+<span class="sourceLineNo">1246</span>        <a name="line.1246"></a>
+<span class="sourceLineNo">1247</span>        /**<a name="line.1247"></a>
+<span class="sourceLineNo">1248</span>         * Creates an intermediate jump instruction between the original jump<a name="line.1248"></a>
+<span class="sourceLineNo">1249</span>         * instruction and its target<a name="line.1249"></a>
+<span class="sourceLineNo">1250</span>         * @param targetInsPos The jump target index<a name="line.1250"></a>
+<span class="sourceLineNo">1251</span>         * @param jumpInsPos The position of the jump instruction<a name="line.1251"></a>
+<span class="sourceLineNo">1252</span>         * @param stmtV The statement visitor used for constructing the instructions<a name="line.1252"></a>
+<span class="sourceLineNo">1253</span>         * @param instructions The list of Dalvik instructions<a name="line.1253"></a>
+<span class="sourceLineNo">1254</span>         * @param labelAssigner The label assigner to be used for creating new labels<a name="line.1254"></a>
+<span class="sourceLineNo">1255</span>         */<a name="line.1255"></a>
+<span class="sourceLineNo">1256</span>        private void insertIntermediateJump(int targetInsPos, int jumpInsPos,<a name="line.1256"></a>
+<span class="sourceLineNo">1257</span>                        StmtVisitor stmtV, List&lt;BuilderInstruction&gt; instructions,<a name="line.1257"></a>
+<span class="sourceLineNo">1258</span>                        LabelAssigner labelAssigner) {<a name="line.1258"></a>
+<span class="sourceLineNo">1259</span>                // Get the original jump instruction<a name="line.1259"></a>
+<span class="sourceLineNo">1260</span>                BuilderInstruction originalJumpInstruction = instructions.get(jumpInsPos);<a name="line.1260"></a>
+<span class="sourceLineNo">1261</span>                Insn originalJumpInsn = stmtV.getInsnForInstruction(originalJumpInstruction);<a name="line.1261"></a>
+<span class="sourceLineNo">1262</span>                if (originalJumpInsn == null)<a name="line.1262"></a>
+<span class="sourceLineNo">1263</span>                        return;<a name="line.1263"></a>
+<span class="sourceLineNo">1264</span>                if (!(originalJumpInsn instanceof InsnWithOffset))<a name="line.1264"></a>
+<span class="sourceLineNo">1265</span>                        throw new RuntimeException("Unexpected jump instruction target");<a name="line.1265"></a>
+<span class="sourceLineNo">1266</span>                InsnWithOffset offsetInsn = (InsnWithOffset) originalJumpInsn;<a name="line.1266"></a>
+<span class="sourceLineNo">1267</span>                <a name="line.1267"></a>
+<span class="sourceLineNo">1268</span>                // If this is goto instruction, we can just replace it<a name="line.1268"></a>
+<span class="sourceLineNo">1269</span>                if (originalJumpInsn instanceof Insn10t) {<a name="line.1269"></a>
+<span class="sourceLineNo">1270</span>                        if (originalJumpInsn.getOpcode() == Opcode.GOTO) {<a name="line.1270"></a>
+<span class="sourceLineNo">1271</span>                                Insn30t newJump = new Insn30t(Opcode.GOTO_32);<a name="line.1271"></a>
+<span class="sourceLineNo">1272</span>                                newJump.setTarget(((Insn10t) originalJumpInsn).getTarget());<a name="line.1272"></a>
+<span class="sourceLineNo">1273</span>                                BuilderInstruction newJumpInstruction = newJump.getRealInsn(labelAssigner);<a name="line.1273"></a>
+<span class="sourceLineNo">1274</span>                                instructions.remove(jumpInsPos);<a name="line.1274"></a>
+<span class="sourceLineNo">1275</span>                                instructions.add(jumpInsPos, newJumpInstruction);<a name="line.1275"></a>
+<span class="sourceLineNo">1276</span>                                stmtV. fakeNewInsn(stmtV.getStmtForInstruction(originalJumpInstruction),<a name="line.1276"></a>
+<span class="sourceLineNo">1277</span>                                                newJump, newJumpInstruction);<a name="line.1277"></a>
+<span class="sourceLineNo">1278</span>                                return;<a name="line.1278"></a>
+<span class="sourceLineNo">1279</span>                        }<a name="line.1279"></a>
+<span class="sourceLineNo">1280</span>                }<a name="line.1280"></a>
+<span class="sourceLineNo">1281</span>                <a name="line.1281"></a>
+<span class="sourceLineNo">1282</span>                // Find a position where we can jump to<a name="line.1282"></a>
+<span class="sourceLineNo">1283</span>                int distance = Math.max(targetInsPos, jumpInsPos) - Math.min(targetInsPos, jumpInsPos);<a name="line.1283"></a>
+<span class="sourceLineNo">1284</span>                if (distance == 0)<a name="line.1284"></a>
+<span class="sourceLineNo">1285</span>                        return;<a name="line.1285"></a>
+<span class="sourceLineNo">1286</span>                int newJumpIdx = Math.min(targetInsPos, jumpInsPos) + (distance / 2);<a name="line.1286"></a>
+<span class="sourceLineNo">1287</span>                int sign = (int) Math.signum(targetInsPos - jumpInsPos);<a name="line.1287"></a>
+<span class="sourceLineNo">1288</span>                <a name="line.1288"></a>
+<span class="sourceLineNo">1289</span>                // There must be a statement at the instruction after the jump target.<a name="line.1289"></a>
+<span class="sourceLineNo">1290</span>                // This statement must not appear at an earlier statement as the jump<a name="line.1290"></a>
+<span class="sourceLineNo">1291</span>                // label may otherwise be attached to the wrong statement<a name="line.1291"></a>
+<span class="sourceLineNo">1292</span>                do {<a name="line.1292"></a>
+<span class="sourceLineNo">1293</span>                        Stmt newStmt = stmtV.getStmtForInstruction(instructions.get(newJumpIdx));<a name="line.1293"></a>
+<span class="sourceLineNo">1294</span>                        Stmt prevStmt = newJumpIdx &gt; 0 ? stmtV.getStmtForInstruction(instructions.get(newJumpIdx - 1)) : null;<a name="line.1294"></a>
+<span class="sourceLineNo">1295</span>                        <a name="line.1295"></a>
+<span class="sourceLineNo">1296</span>                        if (newStmt == null || newStmt == prevStmt) {<a name="line.1296"></a>
+<span class="sourceLineNo">1297</span>                                newJumpIdx -= sign;<a name="line.1297"></a>
+<span class="sourceLineNo">1298</span>                                if (newJumpIdx &lt; 0 || newJumpIdx &gt;= instructions.size())<a name="line.1298"></a>
+<span class="sourceLineNo">1299</span>                                        throw new RuntimeException("No position for inserting intermediate "<a name="line.1299"></a>
+<span class="sourceLineNo">1300</span>                                                        + "jump instruction found");<a name="line.1300"></a>
+<span class="sourceLineNo">1301</span>                        }<a name="line.1301"></a>
+<span class="sourceLineNo">1302</span>                        else<a name="line.1302"></a>
+<span class="sourceLineNo">1303</span>                                break;<a name="line.1303"></a>
+<span class="sourceLineNo">1304</span>                } while (true);<a name="line.1304"></a>
+<span class="sourceLineNo">1305</span>                <a name="line.1305"></a>
+<span class="sourceLineNo">1306</span>                // Create a jump instruction from the middle to the end<a name="line.1306"></a>
+<span class="sourceLineNo">1307</span>                NopStmt nop = Jimple.v().newNopStmt();<a name="line.1307"></a>
+<span class="sourceLineNo">1308</span>                Insn30t newJump = new Insn30t(Opcode.GOTO_32);<a name="line.1308"></a>
+<span class="sourceLineNo">1309</span>                newJump.setTarget(stmtV.getStmtForInstruction(instructions.get(targetInsPos)));<a name="line.1309"></a>
+<span class="sourceLineNo">1310</span>                BuilderInstruction newJumpInstruction = newJump.getRealInsn(labelAssigner);<a name="line.1310"></a>
+<span class="sourceLineNo">1311</span>                instructions.add(newJumpIdx, newJumpInstruction);<a name="line.1311"></a>
+<span class="sourceLineNo">1312</span>                stmtV.fakeNewInsn(nop, newJump, newJumpInstruction);<a name="line.1312"></a>
+<span class="sourceLineNo">1313</span>                <a name="line.1313"></a>
+<span class="sourceLineNo">1314</span>                // We have added something, so we need to fix indices<a name="line.1314"></a>
+<span class="sourceLineNo">1315</span>                if (newJumpIdx &lt;= jumpInsPos)<a name="line.1315"></a>
+<span class="sourceLineNo">1316</span>                        jumpInsPos++;<a name="line.1316"></a>
+<span class="sourceLineNo">1317</span>                if (newJumpIdx &lt;= targetInsPos)<a name="line.1317"></a>
+<span class="sourceLineNo">1318</span>                        targetInsPos++;<a name="line.1318"></a>
+<span class="sourceLineNo">1319</span>                <a name="line.1319"></a>
+<span class="sourceLineNo">1320</span>                // Jump from the original instruction to the new one in the middle<a name="line.1320"></a>
+<span class="sourceLineNo">1321</span>                offsetInsn.setTarget(nop);<a name="line.1321"></a>
+<span class="sourceLineNo">1322</span>                BuilderInstruction replacementJumpInstruction = offsetInsn.getRealInsn(labelAssigner);<a name="line.1322"></a>
+<span class="sourceLineNo">1323</span>                assert instructions.get(jumpInsPos) == originalJumpInstruction;<a name="line.1323"></a>
+<span class="sourceLineNo">1324</span>                instructions.remove(jumpInsPos);<a name="line.1324"></a>
+<span class="sourceLineNo">1325</span>                instructions.add(jumpInsPos, replacementJumpInstruction);<a name="line.1325"></a>
+<span class="sourceLineNo">1326</span>                stmtV.fakeNewInsn(stmtV.getStmtForInstruction(originalJumpInstruction),<a name="line.1326"></a>
+<span class="sourceLineNo">1327</span>                                originalJumpInsn, replacementJumpInstruction);<a name="line.1327"></a>
+<span class="sourceLineNo">1328</span>                <a name="line.1328"></a>
+<span class="sourceLineNo">1329</span>                // Our indices are still fine, because we just replaced something<a name="line.1329"></a>
+<span class="sourceLineNo">1330</span>                Stmt afterNewJump = stmtV.getStmtForInstruction(instructions.get(newJumpIdx + 1));<a name="line.1330"></a>
+<span class="sourceLineNo">1331</span>                <a name="line.1331"></a>
+<span class="sourceLineNo">1332</span>                // Make the original control flow jump around the new artificial jump instruction<a name="line.1332"></a>
+<span class="sourceLineNo">1333</span>                Insn10t jumpAround = new Insn10t(Opcode.GOTO);<a name="line.1333"></a>
+<span class="sourceLineNo">1334</span>                jumpAround.setTarget(afterNewJump);<a name="line.1334"></a>
+<span class="sourceLineNo">1335</span>                BuilderInstruction jumpAroundInstruction = jumpAround.getRealInsn(labelAssigner);<a name="line.1335"></a>
+<span class="sourceLineNo">1336</span>                instructions.add(newJumpIdx, jumpAroundInstruction);<a name="line.1336"></a>
+<span class="sourceLineNo">1337</span>                stmtV.fakeNewInsn(Jimple.v().newNopStmt(), jumpAround, jumpAroundInstruction);<a name="line.1337"></a>
+<span class="sourceLineNo">1338</span>        }<a name="line.1338"></a>
+<span class="sourceLineNo">1339</span>        <a name="line.1339"></a>
+<span class="sourceLineNo">1340</span>        private void addRegisterAssignmentDebugInfo(<a name="line.1340"></a>
+<span class="sourceLineNo">1341</span>                        LocalRegisterAssignmentInformation registerAssignment,<a name="line.1341"></a>
+<span class="sourceLineNo">1342</span>                        Map&lt;Local, Integer&gt; seenRegisters,<a name="line.1342"></a>
+<span class="sourceLineNo">1343</span>                        MethodImplementationBuilder builder) {<a name="line.1343"></a>
+<span class="sourceLineNo">1344</span>                Local local = registerAssignment.getLocal();<a name="line.1344"></a>
+<span class="sourceLineNo">1345</span>                String dexLocalType = SootToDexUtils.getDexTypeDescriptor(local.getType());<a name="line.1345"></a>
+<span class="sourceLineNo">1346</span>                StringReference localName = dexFile.internStringReference(local.getName());<a name="line.1346"></a>
+<span class="sourceLineNo">1347</span>                Register reg = registerAssignment.getRegister();<a name="line.1347"></a>
+<span class="sourceLineNo">1348</span>                int register = reg.getNumber();<a name="line.1348"></a>
+<span class="sourceLineNo">1349</span>                <a name="line.1349"></a>
+<span class="sourceLineNo">1350</span>                Integer beforeRegister = seenRegisters.get(local);<a name="line.1350"></a>
+<span class="sourceLineNo">1351</span>                if (beforeRegister != null)<a name="line.1351"></a>
+<span class="sourceLineNo">1352</span>                {<a name="line.1352"></a>
+<span class="sourceLineNo">1353</span>                        if (beforeRegister == register)<a name="line.1353"></a>
+<span class="sourceLineNo">1354</span>                                //No change<a name="line.1354"></a>
+<span class="sourceLineNo">1355</span>                                return;<a name="line.1355"></a>
+<span class="sourceLineNo">1356</span>                        builder.addEndLocal(beforeRegister);<a name="line.1356"></a>
+<span class="sourceLineNo">1357</span>                }<a name="line.1357"></a>
+<span class="sourceLineNo">1358</span>                builder.addStartLocal(register, localName, dexFile.internTypeReference(dexLocalType), dexFile.internStringReference(""));<a name="line.1358"></a>
+<span class="sourceLineNo">1359</span>                seenRegisters.put(local, register);<a name="line.1359"></a>
+<span class="sourceLineNo">1360</span>        }<a name="line.1360"></a>
+<span class="sourceLineNo">1361</span><a name="line.1361"></a>
+<span class="sourceLineNo">1362</span>        private void toInstructions(Collection&lt;Unit&gt; units, StmtVisitor stmtV) {<a name="line.1362"></a>
+<span class="sourceLineNo">1363</span>                // Collect all constant arguments to monitor instructions and<a name="line.1363"></a>
+<span class="sourceLineNo">1364</span>                // pre-alloocate their registers<a name="line.1364"></a>
+<span class="sourceLineNo">1365</span>                Set&lt;ClassConstant&gt; monitorConsts = new HashSet&lt;ClassConstant&gt;();<a name="line.1365"></a>
+<span class="sourceLineNo">1366</span>                for (Unit u : units) {<a name="line.1366"></a>
+<span class="sourceLineNo">1367</span>                        if (u instanceof MonitorStmt) {<a name="line.1367"></a>
+<span class="sourceLineNo">1368</span>                                MonitorStmt monitorStmt = (MonitorStmt) u;<a name="line.1368"></a>
+<span class="sourceLineNo">1369</span>                                if (monitorStmt.getOp() instanceof ClassConstant){<a name="line.1369"></a>
+<span class="sourceLineNo">1370</span>                                        monitorConsts.add((ClassConstant) monitorStmt.getOp());<a name="line.1370"></a>
+<span class="sourceLineNo">1371</span>                                }<a name="line.1371"></a>
+<span class="sourceLineNo">1372</span>                        }<a name="line.1372"></a>
+<span class="sourceLineNo">1373</span>                }<a name="line.1373"></a>
+<span class="sourceLineNo">1374</span>                <a name="line.1374"></a>
+<span class="sourceLineNo">1375</span>                boolean monitorAllocsMade = false;<a name="line.1375"></a>
+<span class="sourceLineNo">1376</span>                for (Unit u : units) {<a name="line.1376"></a>
+<span class="sourceLineNo">1377</span>                        if (!monitorAllocsMade<a name="line.1377"></a>
+<span class="sourceLineNo">1378</span>                                        &amp;&amp; !monitorConsts.isEmpty()<a name="line.1378"></a>
+<span class="sourceLineNo">1379</span>                                        &amp;&amp; !(u instanceof IdentityStmt)) {<a name="line.1379"></a>
+<span class="sourceLineNo">1380</span>                                stmtV.preAllocateMonitorConsts(monitorConsts);<a name="line.1380"></a>
+<span class="sourceLineNo">1381</span>                                monitorAllocsMade = true;<a name="line.1381"></a>
+<span class="sourceLineNo">1382</span>                        }<a name="line.1382"></a>
+<span class="sourceLineNo">1383</span>                        <a name="line.1383"></a>
+<span class="sourceLineNo">1384</span>                        stmtV.beginNewStmt((Stmt) u);<a name="line.1384"></a>
+<span class="sourceLineNo">1385</span>                        u.apply(stmtV);<a name="line.1385"></a>
+<span class="sourceLineNo">1386</span>                }<a name="line.1386"></a>
+<span class="sourceLineNo">1387</span>                stmtV.finalizeInstructions();<a name="line.1387"></a>
+<span class="sourceLineNo">1388</span>        }<a name="line.1388"></a>
+<span class="sourceLineNo">1389</span>        <a name="line.1389"></a>
+<span class="sourceLineNo">1390</span>        private static class CodeRange {<a name="line.1390"></a>
+<span class="sourceLineNo">1391</span>                int startAddress;<a name="line.1391"></a>
+<span class="sourceLineNo">1392</span>                int endAddress;<a name="line.1392"></a>
+<span class="sourceLineNo">1393</span>                <a name="line.1393"></a>
+<span class="sourceLineNo">1394</span>                public CodeRange(int startAddress, int endAddress) {<a name="line.1394"></a>
+<span class="sourceLineNo">1395</span>                        this.startAddress = startAddress;<a name="line.1395"></a>
+<span class="sourceLineNo">1396</span>                        this.endAddress = endAddress;<a name="line.1396"></a>
+<span class="sourceLineNo">1397</span>                }<a name="line.1397"></a>
+<span class="sourceLineNo">1398</span>                <a name="line.1398"></a>
+<span class="sourceLineNo">1399</span>                /**<a name="line.1399"></a>
+<span class="sourceLineNo">1400</span>                 * Checks whether the given code range r is fully enclosed by this code<a name="line.1400"></a>
+<span class="sourceLineNo">1401</span>                 * range.<a name="line.1401"></a>
+<span class="sourceLineNo">1402</span>                 * @param r The other code range<a name="line.1402"></a>
+<span class="sourceLineNo">1403</span>                 * @return True if the given code range r is fully enclosed by this code<a name="line.1403"></a>
+<span class="sourceLineNo">1404</span>                 * range, otherwise false.<a name="line.1404"></a>
+<span class="sourceLineNo">1405</span>                 */<a name="line.1405"></a>
+<span class="sourceLineNo">1406</span>                public boolean containsRange(CodeRange r) {<a name="line.1406"></a>
+<span class="sourceLineNo">1407</span>                        return (r.startAddress &gt;= this.startAddress &amp;&amp; r.endAddress &lt;= this.endAddress);<a name="line.1407"></a>
+<span class="sourceLineNo">1408</span>                }<a name="line.1408"></a>
+<span class="sourceLineNo">1409</span>                <a name="line.1409"></a>
+<span class="sourceLineNo">1410</span>                /**<a name="line.1410"></a>
+<span class="sourceLineNo">1411</span>                 * Checks whether this range overlaps with the given one<a name="line.1411"></a>
+<span class="sourceLineNo">1412</span>                 * @param r The region to check for overlaps<a name="line.1412"></a>
+<span class="sourceLineNo">1413</span>                 * @return True if this region has a non-empty overlap with the given one<a name="line.1413"></a>
+<span class="sourceLineNo">1414</span>                 */<a name="line.1414"></a>
+<span class="sourceLineNo">1415</span>                public boolean overlaps(CodeRange r) {<a name="line.1415"></a>
+<span class="sourceLineNo">1416</span>                        return (r.startAddress &gt;= this.startAddress &amp;&amp; r.startAddress &lt; this.endAddress)<a name="line.1416"></a>
+<span class="sourceLineNo">1417</span>                                        || (r.startAddress &lt;= this.startAddress &amp;&amp; r.endAddress &gt; this.startAddress);<a name="line.1417"></a>
+<span class="sourceLineNo">1418</span>                }<a name="line.1418"></a>
+<span class="sourceLineNo">1419</span>                <a name="line.1419"></a>
+<span class="sourceLineNo">1420</span>                @Override<a name="line.1420"></a>
+<span class="sourceLineNo">1421</span>                public String toString() {<a name="line.1421"></a>
+<span class="sourceLineNo">1422</span>                        return this.startAddress + "-" + this.endAddress;<a name="line.1422"></a>
+<span class="sourceLineNo">1423</span>                }<a name="line.1423"></a>
+<span class="sourceLineNo">1424</span>                <a name="line.1424"></a>
+<span class="sourceLineNo">1425</span>                @Override<a name="line.1425"></a>
+<span class="sourceLineNo">1426</span>                public boolean equals(Object other) {<a name="line.1426"></a>
+<span class="sourceLineNo">1427</span>                        if (other == this)<a name="line.1427"></a>
+<span class="sourceLineNo">1428</span>                                return true;<a name="line.1428"></a>
+<span class="sourceLineNo">1429</span>                        if (other == null &amp;&amp; !(other instanceof CodeRange))<a name="line.1429"></a>
+<span class="sourceLineNo">1430</span>                                return false;<a name="line.1430"></a>
+<span class="sourceLineNo">1431</span>                        CodeRange cr = (CodeRange) other;<a name="line.1431"></a>
+<span class="sourceLineNo">1432</span>                        return (this.startAddress == cr.startAddress &amp;&amp; this.endAddress == cr.endAddress);<a name="line.1432"></a>
+<span class="sourceLineNo">1433</span>                }<a name="line.1433"></a>
+<span class="sourceLineNo">1434</span>                <a name="line.1434"></a>
+<span class="sourceLineNo">1435</span>                @Override<a name="line.1435"></a>
+<span class="sourceLineNo">1436</span>                public int hashCode() {<a name="line.1436"></a>
+<span class="sourceLineNo">1437</span>                        return 17 * startAddress + 13 * endAddress;<a name="line.1437"></a>
+<span class="sourceLineNo">1438</span>                }<a name="line.1438"></a>
+<span class="sourceLineNo">1439</span>        }<a name="line.1439"></a>
+<span class="sourceLineNo">1440</span>        <a name="line.1440"></a>
+<span class="sourceLineNo">1441</span>        private void toTries(Collection&lt;Trap&gt; traps, StmtVisitor stmtV,<a name="line.1441"></a>
+<span class="sourceLineNo">1442</span>                        MethodImplementationBuilder builder, LabelAssigner labelAssigner) {<a name="line.1442"></a>
+<span class="sourceLineNo">1443</span>                // Original code: assume that the mapping startCodeAddress -&gt; TryItem is enough for<a name="line.1443"></a>
+<span class="sourceLineNo">1444</span>                //              a "code range", ignore different end Units / try lengths<a name="line.1444"></a>
+<span class="sourceLineNo">1445</span>                // That's definitely not enough since we can have two handlers H1, H2 with<a name="line.1445"></a>
+<span class="sourceLineNo">1446</span>                //              H1:240-322, H2:242-322. There is no valid ordering for such overlapping traps<a name="line.1446"></a>
+<span class="sourceLineNo">1447</span>                //              in dex. Current solution: If there is already a trap T' for a subrange of the<a name="line.1447"></a>
+<span class="sourceLineNo">1448</span>                //              current trap T, merge T and T' on the fully range of T. This is not a 100%<a name="line.1448"></a>
+<span class="sourceLineNo">1449</span>                //              correct since we extend traps over the requested range, but it's better than<a name="line.1449"></a>
+<span class="sourceLineNo">1450</span>                //              the previous code that produced APKs which failed Dalvik's bytecode verification.<a name="line.1450"></a>
+<span class="sourceLineNo">1451</span>                //              (Steven Arzt, 09.08.2013)<a name="line.1451"></a>
+<span class="sourceLineNo">1452</span>                // There are cases in which we need to split traps, e.g. in cases like<a name="line.1452"></a>
+<span class="sourceLineNo">1453</span>                //              ( (t1) ... (t2) )&lt;big catch all around it&gt; where the all three handlers do<a name="line.1453"></a>
+<span class="sourceLineNo">1454</span>                //              something different. That's why we run the TrapSplitter before we get here.<a name="line.1454"></a>
+<span class="sourceLineNo">1455</span>                //              (Steven Arzt, 25.09.2013)<a name="line.1455"></a>
+<span class="sourceLineNo">1456</span>                Map&lt;CodeRange, List&lt;ExceptionHandler&gt;&gt; codeRangesToTryItem =<a name="line.1456"></a>
+<span class="sourceLineNo">1457</span>                                new LinkedHashMap&lt;CodeRange, List&lt;ExceptionHandler&gt;&gt;();<a name="line.1457"></a>
+<span class="sourceLineNo">1458</span>                for (Trap t : traps) {<a name="line.1458"></a>
+<span class="sourceLineNo">1459</span>                        // see if there is old handler info at this code range<a name="line.1459"></a>
+<span class="sourceLineNo">1460</span>                        Stmt beginStmt = (Stmt) t.getBeginUnit();<a name="line.1460"></a>
+<span class="sourceLineNo">1461</span>                        Stmt endStmt = (Stmt) t.getEndUnit();<a name="line.1461"></a>
+<span class="sourceLineNo">1462</span>                        <a name="line.1462"></a>
+<span class="sourceLineNo">1463</span>                        int startCodeAddress = labelAssigner.getLabel(beginStmt).getCodeAddress();<a name="line.1463"></a>
+<span class="sourceLineNo">1464</span>                        int endCodeAddress = labelAssigner.getLabel(endStmt).getCodeAddress();<a name="line.1464"></a>
+<span class="sourceLineNo">1465</span>                        CodeRange range = new CodeRange(startCodeAddress, endCodeAddress);<a name="line.1465"></a>
+<span class="sourceLineNo">1466</span>                        <a name="line.1466"></a>
+<span class="sourceLineNo">1467</span>                String exceptionType = SootToDexUtils.getDexTypeDescriptor(t.getException().getType());<a name="line.1467"></a>
+<span class="sourceLineNo">1468</span>                <a name="line.1468"></a>
+<span class="sourceLineNo">1469</span>                int codeAddress = labelAssigner.getLabel((Stmt) t.getHandlerUnit()).getCodeAddress();<a name="line.1469"></a>
+<span class="sourceLineNo">1470</span>                        ImmutableExceptionHandler exceptionHandler = new ImmutableExceptionHandler<a name="line.1470"></a>
+<span class="sourceLineNo">1471</span>                                        (exceptionType, codeAddress);<a name="line.1471"></a>
+<span class="sourceLineNo">1472</span>                        <a name="line.1472"></a>
+<span class="sourceLineNo">1473</span>                        List&lt;ExceptionHandler&gt; newHandlers = new ArrayList&lt;ExceptionHandler&gt;();<a name="line.1473"></a>
+<span class="sourceLineNo">1474</span>                        for (CodeRange r : codeRangesToTryItem.keySet()) {<a name="line.1474"></a>
+<span class="sourceLineNo">1475</span>                                // Check whether this range is contained in some other range. We then extend our<a name="line.1475"></a>
+<span class="sourceLineNo">1476</span>                                // trap over the bigger range containing this range<a name="line.1476"></a>
+<span class="sourceLineNo">1477</span>                                if (r.containsRange(range)) {<a name="line.1477"></a>
+<span class="sourceLineNo">1478</span>                                        range.startAddress = r.startAddress;<a name="line.1478"></a>
+<span class="sourceLineNo">1479</span>                                        range.endAddress = r.endAddress;<a name="line.1479"></a>
+<span class="sourceLineNo">1480</span>                                        <a name="line.1480"></a>
+<span class="sourceLineNo">1481</span>                                        // copy the old handlers to a bigger array (the old one cannot be modified...)<a name="line.1481"></a>
+<span class="sourceLineNo">1482</span>                                        List&lt;ExceptionHandler&gt; oldHandlers = codeRangesToTryItem.get(r);<a name="line.1482"></a>
+<span class="sourceLineNo">1483</span>                                        if (oldHandlers != null)<a name="line.1483"></a>
+<span class="sourceLineNo">1484</span>                                                newHandlers.addAll(oldHandlers);<a name="line.1484"></a>
+<span class="sourceLineNo">1485</span>                                        break;<a name="line.1485"></a>
+<span class="sourceLineNo">1486</span>                                }<a name="line.1486"></a>
+<span class="sourceLineNo">1487</span>                                // Check whether the other range is contained in this range. In this case,<a name="line.1487"></a>
+<span class="sourceLineNo">1488</span>                                // a smaller range is already in the list. We merge the two over the larger<a name="line.1488"></a>
+<span class="sourceLineNo">1489</span>                                // range.<a name="line.1489"></a>
+<span class="sourceLineNo">1490</span>                                else if (range.containsRange(r)) {<a name="line.1490"></a>
+<span class="sourceLineNo">1491</span>                                        range.startAddress = r.startAddress;<a name="line.1491"></a>
+<span class="sourceLineNo">1492</span>                                        range.endAddress = r.endAddress;<a name="line.1492"></a>
+<span class="sourceLineNo">1493</span><a name="line.1493"></a>
+<span class="sourceLineNo">1494</span>                                        // just use the newly found handler info<a name="line.1494"></a>
+<span class="sourceLineNo">1495</span>                                        List&lt;ExceptionHandler&gt; oldHandlers = codeRangesToTryItem.get(range);<a name="line.1495"></a>
+<span class="sourceLineNo">1496</span>                                        if (oldHandlers != null)<a name="line.1496"></a>
+<span class="sourceLineNo">1497</span>                                                newHandlers.addAll(oldHandlers);<a name="line.1497"></a>
+<span class="sourceLineNo">1498</span>                                        <a name="line.1498"></a>
+<span class="sourceLineNo">1499</span>                                        // remove the old range, the new one will be added anyway and contain<a name="line.1499"></a>
+<span class="sourceLineNo">1500</span>                                        // the merged handlers<a name="line.1500"></a>
+<span class="sourceLineNo">1501</span>                                        codeRangesToTryItem.remove(r);<a name="line.1501"></a>
+<span class="sourceLineNo">1502</span>                                        break;<a name="line.1502"></a>
+<span class="sourceLineNo">1503</span>                                }<a name="line.1503"></a>
+<span class="sourceLineNo">1504</span>                        }<a name="line.1504"></a>
+<span class="sourceLineNo">1505</span>                        <a name="line.1505"></a>
+<span class="sourceLineNo">1506</span>                        if (!newHandlers.contains(exceptionHandler))<a name="line.1506"></a>
+<span class="sourceLineNo">1507</span>                                newHandlers.add(exceptionHandler);<a name="line.1507"></a>
+<span class="sourceLineNo">1508</span>                        codeRangesToTryItem.put(range, newHandlers);<a name="line.1508"></a>
+<span class="sourceLineNo">1509</span>                }<a name="line.1509"></a>
+<span class="sourceLineNo">1510</span>                <a name="line.1510"></a>
+<span class="sourceLineNo">1511</span>                // Check for overlaps<a name="line.1511"></a>
+<span class="sourceLineNo">1512</span>                for (CodeRange r1 : codeRangesToTryItem.keySet()) {<a name="line.1512"></a>
+<span class="sourceLineNo">1513</span>                        for (CodeRange r2 : codeRangesToTryItem.keySet()) {<a name="line.1513"></a>
+<span class="sourceLineNo">1514</span>                                if (r1 != r2 &amp;&amp; r1.overlaps(r2))<a name="line.1514"></a>
+<span class="sourceLineNo">1515</span>                                        System.out.println("WARNING: Trap region overlap detected");<a name="line.1515"></a>
+<span class="sourceLineNo">1516</span>                        }<a name="line.1516"></a>
+<span class="sourceLineNo">1517</span>                }<a name="line.1517"></a>
+<span class="sourceLineNo">1518</span>                <a name="line.1518"></a>
+<span class="sourceLineNo">1519</span>                for (CodeRange range : codeRangesToTryItem.keySet()) {<a name="line.1519"></a>
+<span class="sourceLineNo">1520</span>                        boolean allCaughtForRange = false;<a name="line.1520"></a>
+<span class="sourceLineNo">1521</span>                        for (ExceptionHandler handler : codeRangesToTryItem.get(range)) {<a name="line.1521"></a>
+<span class="sourceLineNo">1522</span>                                // If we have a catchall directive for a range and then some follow-up<a name="line.1522"></a>
+<span class="sourceLineNo">1523</span>                                // exception handler, we can discard the latter as it will never be used<a name="line.1523"></a>
+<span class="sourceLineNo">1524</span>                                // anyway.<a name="line.1524"></a>
+<span class="sourceLineNo">1525</span>                                if (allCaughtForRange)<a name="line.1525"></a>
+<span class="sourceLineNo">1526</span>                                        continue;<a name="line.1526"></a>
+<span class="sourceLineNo">1527</span>                                <a name="line.1527"></a>
+<span class="sourceLineNo">1528</span>                                // Normally, we would model catchall as real catchall directives. For<a name="line.1528"></a>
+<span class="sourceLineNo">1529</span>                                // some reason, this however fails with an invalid handler index. We<a name="line.1529"></a>
+<span class="sourceLineNo">1530</span>                                // therefore hack it using java.lang.Throwable.<a name="line.1530"></a>
+<span class="sourceLineNo">1531</span>                                if (handler.getExceptionType().equals("Ljava/lang/Throwable;")) {<a name="line.1531"></a>
+<span class="sourceLineNo">1532</span>                                        /*<a name="line.1532"></a>
+<span class="sourceLineNo">1533</span>                                        builder.addCatch(labelAssigner.getLabelAtAddress(range.startAddress),<a name="line.1533"></a>
+<span class="sourceLineNo">1534</span>                                                        labelAssigner.getLabelAtAddress(range.endAddress),<a name="line.1534"></a>
+<span class="sourceLineNo">1535</span>                                                        labelAssigner.getLabelAtAddress(handler.getHandlerCodeAddress()));<a name="line.1535"></a>
+<span class="sourceLineNo">1536</span>                                                        */<a name="line.1536"></a>
+<span class="sourceLineNo">1537</span>                                        allCaughtForRange = true;<a name="line.1537"></a>
+<span class="sourceLineNo">1538</span>                                }<a name="line.1538"></a>
+<span class="sourceLineNo">1539</span>//                              else<a name="line.1539"></a>
+<span class="sourceLineNo">1540</span>                                        builder.addCatch(dexFile.internTypeReference(handler.getExceptionType()),<a name="line.1540"></a>
+<span class="sourceLineNo">1541</span>                                                        labelAssigner.getLabelAtAddress(range.startAddress),<a name="line.1541"></a>
+<span class="sourceLineNo">1542</span>                                                        labelAssigner.getLabelAtAddress(range.endAddress),<a name="line.1542"></a>
+<span class="sourceLineNo">1543</span>                                                        labelAssigner.getLabelAtAddress(handler.getHandlerCodeAddress()));<a name="line.1543"></a>
+<span class="sourceLineNo">1544</span>                        }<a name="line.1544"></a>
+<span class="sourceLineNo">1545</span>                }<a name="line.1545"></a>
+<span class="sourceLineNo">1546</span>        }<a name="line.1546"></a>
+<span class="sourceLineNo">1547</span>        <a name="line.1547"></a>
+<span class="sourceLineNo">1548</span>        public void add(SootClass c) {<a name="line.1548"></a>
+<span class="sourceLineNo">1549</span>                if (c.isPhantom())<a name="line.1549"></a>
+<span class="sourceLineNo">1550</span>                        return;<a name="line.1550"></a>
+<span class="sourceLineNo">1551</span>                                <a name="line.1551"></a>
+<span class="sourceLineNo">1552</span>                addAsClassDefItem(c);<a name="line.1552"></a>
+<span class="sourceLineNo">1553</span>                // save original APK for this class, needed to copy all the other files inside<a name="line.1553"></a>
+<span class="sourceLineNo">1554</span>                Map&lt;String, File&gt; dexClassIndex = SourceLocator.v().dexClassIndex();<a name="line.1554"></a>
+<span class="sourceLineNo">1555</span>        if (dexClassIndex == null) {<a name="line.1555"></a>
+<span class="sourceLineNo">1556</span>                return; // no dex classes were loaded<a name="line.1556"></a>
+<span class="sourceLineNo">1557</span>        }<a name="line.1557"></a>
+<span class="sourceLineNo">1558</span>                File sourceForClass = dexClassIndex.get(c.getName());<a name="line.1558"></a>
+<span class="sourceLineNo">1559</span>        if (sourceForClass == null || sourceForClass.getName().endsWith(".dex")) {<a name="line.1559"></a>
+<span class="sourceLineNo">1560</span>                return; // a class was written that was not a dex class or the class originates from a .dex file, not an APK<a name="line.1560"></a>
+<span class="sourceLineNo">1561</span>        }<a name="line.1561"></a>
+<span class="sourceLineNo">1562</span>        if (originalApk != null &amp;&amp; !originalApk.equals(sourceForClass)) {<a name="line.1562"></a>
+<span class="sourceLineNo">1563</span>                throw new CompilationDeathException("multiple APKs as source of an application are not supported");<a name="line.1563"></a>
+<span class="sourceLineNo">1564</span>        }<a name="line.1564"></a>
+<span class="sourceLineNo">1565</span>        originalApk = sourceForClass;<a name="line.1565"></a>
+<span class="sourceLineNo">1566</span>        }<a name="line.1566"></a>
+<span class="sourceLineNo">1567</span><a name="line.1567"></a>
+<span class="sourceLineNo">1568</span>        public void print() {<a name="line.1568"></a>
+<span class="sourceLineNo">1569</span>                String outputDir = SourceLocator.v().getOutputDir();<a name="line.1569"></a>
+<span class="sourceLineNo">1570</span>                try {<a name="line.1570"></a>
+<span class="sourceLineNo">1571</span>                        if (originalApk != null<a name="line.1571"></a>
+<span class="sourceLineNo">1572</span>                                        &amp;&amp; Options.v().output_format() != Options.output_format_force_dex) {<a name="line.1572"></a>
+<span class="sourceLineNo">1573</span>                                printApk(outputDir, originalApk);<a name="line.1573"></a>
+<span class="sourceLineNo">1574</span>                        } else {<a name="line.1574"></a>
+<span class="sourceLineNo">1575</span>                                String fileName = outputDir + File.separatorChar + CLASSES_DEX;<a name="line.1575"></a>
+<span class="sourceLineNo">1576</span>                                G.v().out.println("Writing dex to: " + fileName);<a name="line.1576"></a>
+<span class="sourceLineNo">1577</span>                                writeTo(fileName);<a name="line.1577"></a>
+<span class="sourceLineNo">1578</span>                        }<a name="line.1578"></a>
+<span class="sourceLineNo">1579</span>                } catch (IOException e) {<a name="line.1579"></a>
+<span class="sourceLineNo">1580</span>                        throw new CompilationDeathException("I/O exception while printing dex", e);<a name="line.1580"></a>
+<span class="sourceLineNo">1581</span>                }<a name="line.1581"></a>
+<span class="sourceLineNo">1582</span>        }<a name="line.1582"></a>
+<span class="sourceLineNo">1583</span><a name="line.1583"></a>
+<span class="sourceLineNo">1584</span>}<a name="line.1584"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

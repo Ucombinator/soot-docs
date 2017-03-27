@@ -1,0 +1,445 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2000 Patrice Pominville<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * Copyright (C) 2004 Ondrej Lhotak, Ganesh Sittampalam<a name="line.3"></a>
+<span class="sourceLineNo">004</span> *<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * This library is free software; you can redistribute it and/or<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * modify it under the terms of the GNU Lesser General Public<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * License as published by the Free Software Foundation; either<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * This library is distributed in the hope that it will be useful,<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * Lesser General Public License for more details.<a name="line.13"></a>
+<span class="sourceLineNo">014</span> *<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * You should have received a copy of the GNU Lesser General Public<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * License along with this library; if not, write to the<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.17"></a>
+<span class="sourceLineNo">018</span> * Boston, MA 02111-1307, USA.<a name="line.18"></a>
+<span class="sourceLineNo">019</span> */<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>/*<a name="line.21"></a>
+<span class="sourceLineNo">022</span> * Modified by the Sable Research Group and others 1997-1999.  <a name="line.22"></a>
+<span class="sourceLineNo">023</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.23"></a>
+<span class="sourceLineNo">024</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.24"></a>
+<span class="sourceLineNo">025</span> */<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>package soot;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.io.IOException;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.io.InputStream;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import java.util.ArrayDeque;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import java.util.Collection;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import java.util.Collections;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import java.util.Deque;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import java.util.HashMap;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import java.util.Iterator;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import java.util.Map;<a name="line.37"></a>
+<span class="sourceLineNo">038</span><a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.JastAddJ.BytecodeParser;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.JastAddJ.CompilationUnit;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.JastAddJ.JastAddJavaParser;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.JastAddJ.JavaParser;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.JastAddJ.Program;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.javaToJimple.IInitialResolver.Dependencies;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.options.Options;<a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span>/** Loads symbols for SootClasses from either class files or jimple files. */<a name="line.47"></a>
+<span class="sourceLineNo">048</span>public class SootResolver {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>        /** Maps each resolved class to a list of all references in it. */<a name="line.49"></a>
+<span class="sourceLineNo">050</span>        private final Map&lt;SootClass, Collection&lt;Type&gt;&gt; classToTypesSignature = new HashMap&lt;SootClass, Collection&lt;Type&gt;&gt;();<a name="line.50"></a>
+<span class="sourceLineNo">051</span><a name="line.51"></a>
+<span class="sourceLineNo">052</span>        /** Maps each resolved class to a list of all references in it. */<a name="line.52"></a>
+<span class="sourceLineNo">053</span>        private final Map&lt;SootClass, Collection&lt;Type&gt;&gt; classToTypesHierarchy = new HashMap&lt;SootClass, Collection&lt;Type&gt;&gt;();<a name="line.53"></a>
+<span class="sourceLineNo">054</span><a name="line.54"></a>
+<span class="sourceLineNo">055</span>        /** SootClasses waiting to be resolved. */<a name="line.55"></a>
+<span class="sourceLineNo">056</span>        @SuppressWarnings("unchecked")<a name="line.56"></a>
+<span class="sourceLineNo">057</span>        private final Deque&lt;SootClass&gt;[] worklist = new Deque[4];<a name="line.57"></a>
+<span class="sourceLineNo">058</span><a name="line.58"></a>
+<span class="sourceLineNo">059</span>        private Program program = null;<a name="line.59"></a>
+<span class="sourceLineNo">060</span><a name="line.60"></a>
+<span class="sourceLineNo">061</span>        public SootResolver(Singletons.Global g) {<a name="line.61"></a>
+<span class="sourceLineNo">062</span>                worklist[SootClass.HIERARCHY] = new ArrayDeque&lt;SootClass&gt;();<a name="line.62"></a>
+<span class="sourceLineNo">063</span>                worklist[SootClass.SIGNATURES] = new ArrayDeque&lt;SootClass&gt;();<a name="line.63"></a>
+<span class="sourceLineNo">064</span>                worklist[SootClass.BODIES] = new ArrayDeque&lt;SootClass&gt;();<a name="line.64"></a>
+<span class="sourceLineNo">065</span>                <a name="line.65"></a>
+<span class="sourceLineNo">066</span>                if (Options.v().src_prec() != Options.src_prec_apk_c_j) {<a name="line.66"></a>
+<span class="sourceLineNo">067</span>                        program = new Program();<a name="line.67"></a>
+<span class="sourceLineNo">068</span>                        program.state().reset();<a name="line.68"></a>
+<span class="sourceLineNo">069</span>        <a name="line.69"></a>
+<span class="sourceLineNo">070</span>                        program.initBytecodeReader(new BytecodeParser());<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                        program.initJavaParser(new JavaParser() {<a name="line.71"></a>
+<span class="sourceLineNo">072</span>                                public CompilationUnit parse(InputStream is, String fileName)<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                                                throws IOException, beaver.Parser.Exception {<a name="line.73"></a>
+<span class="sourceLineNo">074</span>                                        return new JastAddJavaParser().parse(is, fileName);<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                                }<a name="line.75"></a>
+<span class="sourceLineNo">076</span>                        });<a name="line.76"></a>
+<span class="sourceLineNo">077</span>        <a name="line.77"></a>
+<span class="sourceLineNo">078</span>                        program.options().initOptions();<a name="line.78"></a>
+<span class="sourceLineNo">079</span>                        program.options().addKeyValueOption("-classpath");<a name="line.79"></a>
+<span class="sourceLineNo">080</span>                        program.options().setValueForOption(Scene.v().getSootClassPath(),<a name="line.80"></a>
+<span class="sourceLineNo">081</span>                                        "-classpath");<a name="line.81"></a>
+<span class="sourceLineNo">082</span>                        if (Options.v().src_prec() == Options.src_prec_java)<a name="line.82"></a>
+<span class="sourceLineNo">083</span>                                program.setSrcPrec(Program.SRC_PREC_JAVA);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                        else if (Options.v().src_prec() == Options.src_prec_class)<a name="line.84"></a>
+<span class="sourceLineNo">085</span>                                program.setSrcPrec(Program.SRC_PREC_CLASS);<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                        else if (Options.v().src_prec() == Options.src_prec_only_class)<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                                program.setSrcPrec(Program.SRC_PREC_CLASS);<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                        program.initPaths();<a name="line.88"></a>
+<span class="sourceLineNo">089</span>                }<a name="line.89"></a>
+<span class="sourceLineNo">090</span>        }<a name="line.90"></a>
+<span class="sourceLineNo">091</span><a name="line.91"></a>
+<span class="sourceLineNo">092</span>        public static SootResolver v() {<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                return G.v().soot_SootResolver();<a name="line.93"></a>
+<span class="sourceLineNo">094</span>        }<a name="line.94"></a>
+<span class="sourceLineNo">095</span><a name="line.95"></a>
+<span class="sourceLineNo">096</span>        /** Returns true if we are resolving all class refs recursively. */<a name="line.96"></a>
+<span class="sourceLineNo">097</span>        private boolean resolveEverything() {<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                if (Options.v().on_the_fly())<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                        return false;<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                return (Options.v().whole_program() || Options.v().whole_shimple()<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                                || Options.v().full_resolver() || Options.v().output_format() == Options.output_format_dava);<a name="line.101"></a>
+<span class="sourceLineNo">102</span>        }<a name="line.102"></a>
+<span class="sourceLineNo">103</span><a name="line.103"></a>
+<span class="sourceLineNo">104</span>        /**<a name="line.104"></a>
+<span class="sourceLineNo">105</span>         * Returns a (possibly not yet resolved) SootClass to be used in references<a name="line.105"></a>
+<span class="sourceLineNo">106</span>         * to a class. If/when the class is resolved, it will be resolved into this<a name="line.106"></a>
+<span class="sourceLineNo">107</span>         * SootClass.<a name="line.107"></a>
+<span class="sourceLineNo">108</span>         * */<a name="line.108"></a>
+<span class="sourceLineNo">109</span>        public SootClass makeClassRef(String className) {<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                // If this class name is escaped, we need to un-escape it<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                className = Scene.v().unescapeName(className);<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                <a name="line.112"></a>
+<span class="sourceLineNo">113</span>                if (Scene.v().containsClass(className))<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                        return Scene.v().getSootClass(className);<a name="line.114"></a>
+<span class="sourceLineNo">115</span><a name="line.115"></a>
+<span class="sourceLineNo">116</span>                SootClass newClass;<a name="line.116"></a>
+<span class="sourceLineNo">117</span>                newClass = new SootClass(className);<a name="line.117"></a>
+<span class="sourceLineNo">118</span>                newClass.setResolvingLevel(SootClass.DANGLING);<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                Scene.v().addClass(newClass);<a name="line.119"></a>
+<span class="sourceLineNo">120</span><a name="line.120"></a>
+<span class="sourceLineNo">121</span>                return newClass;<a name="line.121"></a>
+<span class="sourceLineNo">122</span>        }<a name="line.122"></a>
+<span class="sourceLineNo">123</span><a name="line.123"></a>
+<span class="sourceLineNo">124</span>        /**<a name="line.124"></a>
+<span class="sourceLineNo">125</span>         * Resolves the given class. Depending on the resolver settings, may decide<a name="line.125"></a>
+<span class="sourceLineNo">126</span>         * to resolve other classes as well. If the class has already been resolved,<a name="line.126"></a>
+<span class="sourceLineNo">127</span>         * just returns the class that was already resolved.<a name="line.127"></a>
+<span class="sourceLineNo">128</span>         * */<a name="line.128"></a>
+<span class="sourceLineNo">129</span>        public SootClass resolveClass(String className, int desiredLevel) {<a name="line.129"></a>
+<span class="sourceLineNo">130</span>                SootClass resolvedClass = null;<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                try {<a name="line.131"></a>
+<span class="sourceLineNo">132</span>                        resolvedClass = makeClassRef(className);<a name="line.132"></a>
+<span class="sourceLineNo">133</span>                        addToResolveWorklist(resolvedClass, desiredLevel);<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                        processResolveWorklist();<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                        return resolvedClass;<a name="line.135"></a>
+<span class="sourceLineNo">136</span>                } catch (SootClassNotFoundException e) {<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                        // remove unresolved class and rethrow<a name="line.137"></a>
+<span class="sourceLineNo">138</span>                        if (resolvedClass != null) {<a name="line.138"></a>
+<span class="sourceLineNo">139</span>                                assert resolvedClass.resolvingLevel() == SootClass.DANGLING;<a name="line.139"></a>
+<span class="sourceLineNo">140</span>                                Scene.v().removeClass(resolvedClass);<a name="line.140"></a>
+<span class="sourceLineNo">141</span>                        }<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                        throw e;<a name="line.142"></a>
+<span class="sourceLineNo">143</span>                }<a name="line.143"></a>
+<span class="sourceLineNo">144</span>        }<a name="line.144"></a>
+<span class="sourceLineNo">145</span><a name="line.145"></a>
+<span class="sourceLineNo">146</span>        /** Resolve all classes on toResolveWorklist. */<a name="line.146"></a>
+<span class="sourceLineNo">147</span>        private void processResolveWorklist() {<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                for (int i = SootClass.BODIES; i &gt;= SootClass.HIERARCHY; i--) {<a name="line.148"></a>
+<span class="sourceLineNo">149</span>                        while (!worklist[i].isEmpty()) {<a name="line.149"></a>
+<span class="sourceLineNo">150</span>                                SootClass sc = worklist[i].pop();<a name="line.150"></a>
+<span class="sourceLineNo">151</span>                                if (resolveEverything()) { // Whole program mode<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                                        boolean onlySignatures = sc.isPhantom()<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                                                        || (Options.v().no_bodies_for_excluded()<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                                                                        &amp;&amp; Scene.v().isExcluded(sc) &amp;&amp; !Scene.v()<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                                                                        .getBasicClasses().contains(sc.getName()));<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                                        if (onlySignatures) {<a name="line.156"></a>
+<span class="sourceLineNo">157</span>                                                bringToSignatures(sc);<a name="line.157"></a>
+<span class="sourceLineNo">158</span>                                                sc.setPhantomClass();<a name="line.158"></a>
+<span class="sourceLineNo">159</span>                                                for (SootMethod m : sc.getMethods()) {<a name="line.159"></a>
+<span class="sourceLineNo">160</span>                                                        m.setPhantom(true);<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                                                }<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                                                for (SootField f : sc.getFields()) {<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                                                        f.setPhantom(true);<a name="line.163"></a>
+<span class="sourceLineNo">164</span>                                                }<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                                        } else<a name="line.165"></a>
+<span class="sourceLineNo">166</span>                                                bringToBodies(sc);<a name="line.166"></a>
+<span class="sourceLineNo">167</span>                                } else { // No transitive<a name="line.167"></a>
+<span class="sourceLineNo">168</span>                                        switch (i) {<a name="line.168"></a>
+<span class="sourceLineNo">169</span>                                        case SootClass.BODIES:<a name="line.169"></a>
+<span class="sourceLineNo">170</span>                                                bringToBodies(sc);<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                                                break;<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                                        case SootClass.SIGNATURES:<a name="line.172"></a>
+<span class="sourceLineNo">173</span>                                                bringToSignatures(sc);<a name="line.173"></a>
+<span class="sourceLineNo">174</span>                                                break;<a name="line.174"></a>
+<span class="sourceLineNo">175</span>                                        case SootClass.HIERARCHY:<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                                                bringToHierarchy(sc);<a name="line.176"></a>
+<span class="sourceLineNo">177</span>                                                break;<a name="line.177"></a>
+<span class="sourceLineNo">178</span>                                        }<a name="line.178"></a>
+<span class="sourceLineNo">179</span>                                }<a name="line.179"></a>
+<span class="sourceLineNo">180</span>                        }<a name="line.180"></a>
+<span class="sourceLineNo">181</span>                }<a name="line.181"></a>
+<span class="sourceLineNo">182</span>        }<a name="line.182"></a>
+<span class="sourceLineNo">183</span><a name="line.183"></a>
+<span class="sourceLineNo">184</span>        private void addToResolveWorklist(Type type, int level) {<a name="line.184"></a>
+<span class="sourceLineNo">185</span>                // We go from Type -&gt; SootClass directly, since RefType.getSootClass<a name="line.185"></a>
+<span class="sourceLineNo">186</span>                // calls makeClassRef anyway<a name="line.186"></a>
+<span class="sourceLineNo">187</span>                if (type instanceof RefType)<a name="line.187"></a>
+<span class="sourceLineNo">188</span>                        addToResolveWorklist(((RefType) type).getSootClass(), level);<a name="line.188"></a>
+<span class="sourceLineNo">189</span>                else if (type instanceof ArrayType)<a name="line.189"></a>
+<span class="sourceLineNo">190</span>                        addToResolveWorklist(((ArrayType) type).baseType, level);<a name="line.190"></a>
+<span class="sourceLineNo">191</span>                // Other types ignored<a name="line.191"></a>
+<span class="sourceLineNo">192</span>        }<a name="line.192"></a>
+<span class="sourceLineNo">193</span><a name="line.193"></a>
+<span class="sourceLineNo">194</span>        private void addToResolveWorklist(SootClass sc, int desiredLevel) {<a name="line.194"></a>
+<span class="sourceLineNo">195</span>                if (sc.resolvingLevel() &gt;= desiredLevel)<a name="line.195"></a>
+<span class="sourceLineNo">196</span>                        return;<a name="line.196"></a>
+<span class="sourceLineNo">197</span>                worklist[desiredLevel].add(sc);<a name="line.197"></a>
+<span class="sourceLineNo">198</span>        }<a name="line.198"></a>
+<span class="sourceLineNo">199</span><a name="line.199"></a>
+<span class="sourceLineNo">200</span>        /**<a name="line.200"></a>
+<span class="sourceLineNo">201</span>         * Hierarchy - we know the hierarchy of the class and that's it requires at<a name="line.201"></a>
+<span class="sourceLineNo">202</span>         * least Hierarchy for all supertypes and enclosing types.<a name="line.202"></a>
+<span class="sourceLineNo">203</span>         * */<a name="line.203"></a>
+<span class="sourceLineNo">204</span>        private void bringToHierarchy(SootClass sc) {<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                if (sc.resolvingLevel() &gt;= SootClass.HIERARCHY)<a name="line.205"></a>
+<span class="sourceLineNo">206</span>                        return;<a name="line.206"></a>
+<span class="sourceLineNo">207</span>                if (Options.v().debug_resolver())<a name="line.207"></a>
+<span class="sourceLineNo">208</span>                        G.v().out.println("bringing to HIERARCHY: " + sc);<a name="line.208"></a>
+<span class="sourceLineNo">209</span>                sc.setResolvingLevel(SootClass.HIERARCHY);<a name="line.209"></a>
+<span class="sourceLineNo">210</span><a name="line.210"></a>
+<span class="sourceLineNo">211</span>                String className = sc.getName();<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                ClassSource is = SourceLocator.v().getClassSource(className);<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                try {<a name="line.213"></a>
+<span class="sourceLineNo">214</span>                        boolean modelAsPhantomRef = is == null;<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                        // || (<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                        // Options.v().no_jrl() &amp;&amp;<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                        // Scene.v().isExcluded(sc) &amp;&amp;<a name="line.217"></a>
+<span class="sourceLineNo">218</span>                        // !Scene.v().getBasicClasses().contains(sc.getName())<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                        // );<a name="line.219"></a>
+<span class="sourceLineNo">220</span>                        if (modelAsPhantomRef) {<a name="line.220"></a>
+<span class="sourceLineNo">221</span>                                if (!Scene.v().allowsPhantomRefs()) {<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                                        String suffix = "";<a name="line.222"></a>
+<span class="sourceLineNo">223</span>                                        if (className.equals("java.lang.Object")) {<a name="line.223"></a>
+<span class="sourceLineNo">224</span>                                                suffix = " Try adding rt.jar to Soot's classpath, e.g.:\n"<a name="line.224"></a>
+<span class="sourceLineNo">225</span>                                                                + "java -cp sootclasses.jar soot.Main -cp "<a name="line.225"></a>
+<span class="sourceLineNo">226</span>                                                                + ".:/path/to/jdk/jre/lib/rt.jar &lt;other options&gt;";<a name="line.226"></a>
+<span class="sourceLineNo">227</span>                                        } else if (className.equals("javax.crypto.Cipher")) {<a name="line.227"></a>
+<span class="sourceLineNo">228</span>                                                suffix = " Try adding jce.jar to Soot's classpath, e.g.:\n"<a name="line.228"></a>
+<span class="sourceLineNo">229</span>                                                                + "java -cp sootclasses.jar soot.Main -cp "<a name="line.229"></a>
+<span class="sourceLineNo">230</span>                                                                + ".:/path/to/jdk/jre/lib/rt.jar:/path/to/jdk/jre/lib/jce.jar &lt;other options&gt;";<a name="line.230"></a>
+<span class="sourceLineNo">231</span>                                        }<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                                        throw new SootClassNotFoundException("couldn't find class: "<a name="line.232"></a>
+<span class="sourceLineNo">233</span>                                                        + className<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                                                        + " (is your soot-class-path set properly?)" + suffix);<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                                } else {<a name="line.235"></a>
+<span class="sourceLineNo">236</span>                                        G.v().out.println("Warning: " + className<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                                                        + " is a phantom class!");<a name="line.237"></a>
+<span class="sourceLineNo">238</span>                                        sc.setPhantomClass();<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                                        classToTypesSignature.put(sc, Collections.&lt;Type&gt; emptyList());<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                                        classToTypesHierarchy.put(sc, Collections.&lt;Type&gt; emptyList());<a name="line.240"></a>
+<span class="sourceLineNo">241</span>                                }<a name="line.241"></a>
+<span class="sourceLineNo">242</span>                        } else {<a name="line.242"></a>
+<span class="sourceLineNo">243</span>                                Dependencies dependencies = is.resolve(sc);<a name="line.243"></a>
+<span class="sourceLineNo">244</span>                                if (!dependencies.typesToSignature.isEmpty())<a name="line.244"></a>
+<span class="sourceLineNo">245</span>                                        classToTypesSignature.put(sc, dependencies.typesToSignature);<a name="line.245"></a>
+<span class="sourceLineNo">246</span>                                if (!dependencies.typesToHierarchy.isEmpty())<a name="line.246"></a>
+<span class="sourceLineNo">247</span>                                        classToTypesHierarchy.put(sc, dependencies.typesToHierarchy);<a name="line.247"></a>
+<span class="sourceLineNo">248</span>                        }<a name="line.248"></a>
+<span class="sourceLineNo">249</span>                }<a name="line.249"></a>
+<span class="sourceLineNo">250</span>                finally {<a name="line.250"></a>
+<span class="sourceLineNo">251</span>                        if (is != null)<a name="line.251"></a>
+<span class="sourceLineNo">252</span>                                is.close();<a name="line.252"></a>
+<span class="sourceLineNo">253</span>                }<a name="line.253"></a>
+<span class="sourceLineNo">254</span>                reResolveHierarchy(sc);<a name="line.254"></a>
+<span class="sourceLineNo">255</span>        }<a name="line.255"></a>
+<span class="sourceLineNo">256</span><a name="line.256"></a>
+<span class="sourceLineNo">257</span>        public void reResolveHierarchy(SootClass sc) {<a name="line.257"></a>
+<span class="sourceLineNo">258</span>                // Bring superclasses to hierarchy<a name="line.258"></a>
+<span class="sourceLineNo">259</span>                if (sc.hasSuperclass())<a name="line.259"></a>
+<span class="sourceLineNo">260</span>                        addToResolveWorklist(sc.getSuperclass(), SootClass.HIERARCHY);<a name="line.260"></a>
+<span class="sourceLineNo">261</span>                if (sc.hasOuterClass())<a name="line.261"></a>
+<span class="sourceLineNo">262</span>                        addToResolveWorklist(sc.getOuterClass(), SootClass.HIERARCHY);<a name="line.262"></a>
+<span class="sourceLineNo">263</span>                for (SootClass iface : sc.getInterfaces()) {<a name="line.263"></a>
+<span class="sourceLineNo">264</span>                        addToResolveWorklist(iface, SootClass.HIERARCHY);<a name="line.264"></a>
+<span class="sourceLineNo">265</span>                }<a name="line.265"></a>
+<span class="sourceLineNo">266</span>        }<a name="line.266"></a>
+<span class="sourceLineNo">267</span><a name="line.267"></a>
+<span class="sourceLineNo">268</span>        /**<a name="line.268"></a>
+<span class="sourceLineNo">269</span>         * Signatures - we know the signatures of all methods and fields requires at<a name="line.269"></a>
+<span class="sourceLineNo">270</span>         * least Hierarchy for all referred to types in these signatures.<a name="line.270"></a>
+<span class="sourceLineNo">271</span>         * */<a name="line.271"></a>
+<span class="sourceLineNo">272</span>        private void bringToSignatures(SootClass sc) {<a name="line.272"></a>
+<span class="sourceLineNo">273</span>                if (sc.resolvingLevel() &gt;= SootClass.SIGNATURES)<a name="line.273"></a>
+<span class="sourceLineNo">274</span>                        return;<a name="line.274"></a>
+<span class="sourceLineNo">275</span>                bringToHierarchy(sc);<a name="line.275"></a>
+<span class="sourceLineNo">276</span>                if (Options.v().debug_resolver())<a name="line.276"></a>
+<span class="sourceLineNo">277</span>                        G.v().out.println("bringing to SIGNATURES: " + sc);<a name="line.277"></a>
+<span class="sourceLineNo">278</span>                sc.setResolvingLevel(SootClass.SIGNATURES);<a name="line.278"></a>
+<span class="sourceLineNo">279</span><a name="line.279"></a>
+<span class="sourceLineNo">280</span>                for (SootField f : sc.getFields()) {<a name="line.280"></a>
+<span class="sourceLineNo">281</span>                        addToResolveWorklist(f.getType(), SootClass.HIERARCHY);<a name="line.281"></a>
+<span class="sourceLineNo">282</span>                }<a name="line.282"></a>
+<span class="sourceLineNo">283</span>                for (SootMethod m : sc.getMethods()) {<a name="line.283"></a>
+<span class="sourceLineNo">284</span>                        addToResolveWorklist(m.getReturnType(), SootClass.HIERARCHY);<a name="line.284"></a>
+<span class="sourceLineNo">285</span>                        for (Type ptype : m.getParameterTypes()) {<a name="line.285"></a>
+<span class="sourceLineNo">286</span>                                addToResolveWorklist(ptype, SootClass.HIERARCHY);<a name="line.286"></a>
+<span class="sourceLineNo">287</span>                        }<a name="line.287"></a>
+<span class="sourceLineNo">288</span>                        for (SootClass exception : m.getExceptions()) {<a name="line.288"></a>
+<span class="sourceLineNo">289</span>                                addToResolveWorklist(exception, SootClass.HIERARCHY);<a name="line.289"></a>
+<span class="sourceLineNo">290</span>                        }<a name="line.290"></a>
+<span class="sourceLineNo">291</span>                }<a name="line.291"></a>
+<span class="sourceLineNo">292</span><a name="line.292"></a>
+<span class="sourceLineNo">293</span>                // Bring superclasses to signatures<a name="line.293"></a>
+<span class="sourceLineNo">294</span>                if (sc.hasSuperclass())<a name="line.294"></a>
+<span class="sourceLineNo">295</span>                        addToResolveWorklist(sc.getSuperclass(), SootClass.SIGNATURES);<a name="line.295"></a>
+<span class="sourceLineNo">296</span>                for (SootClass iface : sc.getInterfaces()) {<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                        addToResolveWorklist(iface, SootClass.SIGNATURES);<a name="line.297"></a>
+<span class="sourceLineNo">298</span>                }<a name="line.298"></a>
+<span class="sourceLineNo">299</span>        }<a name="line.299"></a>
+<span class="sourceLineNo">300</span><a name="line.300"></a>
+<span class="sourceLineNo">301</span>        /**<a name="line.301"></a>
+<span class="sourceLineNo">302</span>         * Bodies - we can now start loading the bodies of methods for all referred<a name="line.302"></a>
+<span class="sourceLineNo">303</span>         * to methods and fields in the bodies, requires signatures for the method<a name="line.303"></a>
+<span class="sourceLineNo">304</span>         * receiver and field container, and hierarchy for all other classes<a name="line.304"></a>
+<span class="sourceLineNo">305</span>         * referenced in method references. Current implementation does not<a name="line.305"></a>
+<span class="sourceLineNo">306</span>         * distinguish between the receiver and other references. Therefore, it is<a name="line.306"></a>
+<span class="sourceLineNo">307</span>         * conservative and brings all of them to signatures. But this could/should<a name="line.307"></a>
+<span class="sourceLineNo">308</span>         * be improved.<a name="line.308"></a>
+<span class="sourceLineNo">309</span>         * */<a name="line.309"></a>
+<span class="sourceLineNo">310</span>        private void bringToBodies(SootClass sc) {<a name="line.310"></a>
+<span class="sourceLineNo">311</span>                if (sc.resolvingLevel() &gt;= SootClass.BODIES)<a name="line.311"></a>
+<span class="sourceLineNo">312</span>                        return;<a name="line.312"></a>
+<span class="sourceLineNo">313</span>                bringToSignatures(sc);<a name="line.313"></a>
+<span class="sourceLineNo">314</span>                if (Options.v().debug_resolver())<a name="line.314"></a>
+<span class="sourceLineNo">315</span>                        G.v().out.println("bringing to BODIES: " + sc);<a name="line.315"></a>
+<span class="sourceLineNo">316</span>                sc.setResolvingLevel(SootClass.BODIES);<a name="line.316"></a>
+<span class="sourceLineNo">317</span><a name="line.317"></a>
+<span class="sourceLineNo">318</span>                {<a name="line.318"></a>
+<span class="sourceLineNo">319</span>                        Collection&lt;Type&gt; references = classToTypesHierarchy.get(sc);<a name="line.319"></a>
+<span class="sourceLineNo">320</span>                        if (references != null) {<a name="line.320"></a>
+<span class="sourceLineNo">321</span>                                // This must be an iterator, not a for-all since the underlying<a name="line.321"></a>
+<span class="sourceLineNo">322</span>                                // collection may change as we go<a name="line.322"></a>
+<span class="sourceLineNo">323</span>                                Iterator&lt;Type&gt; it = references.iterator();<a name="line.323"></a>
+<span class="sourceLineNo">324</span>                                while (it.hasNext()) {<a name="line.324"></a>
+<span class="sourceLineNo">325</span>                                        final Type t = it.next();<a name="line.325"></a>
+<span class="sourceLineNo">326</span>                                        addToResolveWorklist(t, SootClass.HIERARCHY);<a name="line.326"></a>
+<span class="sourceLineNo">327</span>                                }<a name="line.327"></a>
+<span class="sourceLineNo">328</span>                        }<a name="line.328"></a>
+<span class="sourceLineNo">329</span>                }<a name="line.329"></a>
+<span class="sourceLineNo">330</span><a name="line.330"></a>
+<span class="sourceLineNo">331</span>                {<a name="line.331"></a>
+<span class="sourceLineNo">332</span>                        Collection&lt;Type&gt; references = classToTypesSignature.get(sc);<a name="line.332"></a>
+<span class="sourceLineNo">333</span>                        if (references != null) {<a name="line.333"></a>
+<span class="sourceLineNo">334</span>                                // This must be an iterator, not a for-all since the underlying<a name="line.334"></a>
+<span class="sourceLineNo">335</span>                                // collection may change as we go<a name="line.335"></a>
+<span class="sourceLineNo">336</span>                                Iterator&lt;Type&gt; it = references.iterator();<a name="line.336"></a>
+<span class="sourceLineNo">337</span>                                while (it.hasNext()) {<a name="line.337"></a>
+<span class="sourceLineNo">338</span>                                        final Type t = it.next();<a name="line.338"></a>
+<span class="sourceLineNo">339</span>                                        addToResolveWorklist(t, SootClass.SIGNATURES);<a name="line.339"></a>
+<span class="sourceLineNo">340</span>                                }<a name="line.340"></a>
+<span class="sourceLineNo">341</span>                        }<a name="line.341"></a>
+<span class="sourceLineNo">342</span>                }<a name="line.342"></a>
+<span class="sourceLineNo">343</span>        }<a name="line.343"></a>
+<span class="sourceLineNo">344</span><a name="line.344"></a>
+<span class="sourceLineNo">345</span>        public void reResolve(SootClass cl, int newResolvingLevel) {<a name="line.345"></a>
+<span class="sourceLineNo">346</span>                int resolvingLevel = cl.resolvingLevel();<a name="line.346"></a>
+<span class="sourceLineNo">347</span>                if (resolvingLevel &gt;= newResolvingLevel)<a name="line.347"></a>
+<span class="sourceLineNo">348</span>                        return;<a name="line.348"></a>
+<span class="sourceLineNo">349</span>                reResolveHierarchy(cl);<a name="line.349"></a>
+<span class="sourceLineNo">350</span>                cl.setResolvingLevel(newResolvingLevel);<a name="line.350"></a>
+<span class="sourceLineNo">351</span>                addToResolveWorklist(cl, resolvingLevel);<a name="line.351"></a>
+<span class="sourceLineNo">352</span>                processResolveWorklist();<a name="line.352"></a>
+<span class="sourceLineNo">353</span>        }<a name="line.353"></a>
+<span class="sourceLineNo">354</span><a name="line.354"></a>
+<span class="sourceLineNo">355</span>        public void reResolve(SootClass cl) {<a name="line.355"></a>
+<span class="sourceLineNo">356</span>                reResolve(cl, SootClass.HIERARCHY);<a name="line.356"></a>
+<span class="sourceLineNo">357</span>        }<a name="line.357"></a>
+<span class="sourceLineNo">358</span><a name="line.358"></a>
+<span class="sourceLineNo">359</span>        public Program getProgram() {<a name="line.359"></a>
+<span class="sourceLineNo">360</span>                return program;<a name="line.360"></a>
+<span class="sourceLineNo">361</span>        }<a name="line.361"></a>
+<span class="sourceLineNo">362</span><a name="line.362"></a>
+<span class="sourceLineNo">363</span>        private class SootClassNotFoundException extends RuntimeException {<a name="line.363"></a>
+<span class="sourceLineNo">364</span>                /**<a name="line.364"></a>
+<span class="sourceLineNo">365</span>                 * <a name="line.365"></a>
+<span class="sourceLineNo">366</span>                 */<a name="line.366"></a>
+<span class="sourceLineNo">367</span>                private static final long serialVersionUID = 1563461446590293827L;<a name="line.367"></a>
+<span class="sourceLineNo">368</span><a name="line.368"></a>
+<span class="sourceLineNo">369</span>                private SootClassNotFoundException(String s) {<a name="line.369"></a>
+<span class="sourceLineNo">370</span>                        super(s);<a name="line.370"></a>
+<span class="sourceLineNo">371</span>                }<a name="line.371"></a>
+<span class="sourceLineNo">372</span>        }<a name="line.372"></a>
+<span class="sourceLineNo">373</span>}<a name="line.373"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

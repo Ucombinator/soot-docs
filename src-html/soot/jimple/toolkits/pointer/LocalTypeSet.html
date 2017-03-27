@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2003 Ondrej Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.jimple.toolkits.pointer;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import soot.*;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.*;<a name="line.22"></a>
+<span class="sourceLineNo">023</span><a name="line.23"></a>
+<span class="sourceLineNo">024</span>/** Represents a set of (local,type) pairs using a bit-vector. */<a name="line.24"></a>
+<span class="sourceLineNo">025</span>class LocalTypeSet extends java.util.BitSet {<a name="line.25"></a>
+<span class="sourceLineNo">026</span>    protected List&lt;Local&gt; locals;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>    protected List&lt;Type&gt; types;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>    /** Constructs a new empty set given a list of all locals and types that may<a name="line.29"></a>
+<span class="sourceLineNo">030</span>     * ever be in the set. */<a name="line.30"></a>
+<span class="sourceLineNo">031</span>    public LocalTypeSet( List&lt;Local&gt; locals, List&lt;Type&gt; types ) {<a name="line.31"></a>
+<span class="sourceLineNo">032</span>        super( locals.size() * types.size() );<a name="line.32"></a>
+<span class="sourceLineNo">033</span>        this.locals = locals;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>        this.types = types;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>        if( !Scene.v().hasFastHierarchy() ) {<a name="line.35"></a>
+<span class="sourceLineNo">036</span>            Scene.v().setFastHierarchy( new FastHierarchy() );<a name="line.36"></a>
+<span class="sourceLineNo">037</span>        }<a name="line.37"></a>
+<span class="sourceLineNo">038</span>    }<a name="line.38"></a>
+<span class="sourceLineNo">039</span>    /** Returns the number of the bit corresponding to the pair (l,t). */<a name="line.39"></a>
+<span class="sourceLineNo">040</span>    protected int indexOf( Local l, RefType t ) {<a name="line.40"></a>
+<span class="sourceLineNo">041</span>        if( locals.indexOf( l ) == -1 || types.indexOf( t ) == -1 ) {<a name="line.41"></a>
+<span class="sourceLineNo">042</span>            throw new RuntimeException( "Invalid local or type in LocalTypeSet" );<a name="line.42"></a>
+<span class="sourceLineNo">043</span>        }<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        return locals.indexOf( l ) * types.size() + types.indexOf( t );<a name="line.44"></a>
+<span class="sourceLineNo">045</span>    }<a name="line.45"></a>
+<span class="sourceLineNo">046</span>    /** Removes all pairs corresponding to local l from the set. */<a name="line.46"></a>
+<span class="sourceLineNo">047</span>    public void killLocal( Local l ) {<a name="line.47"></a>
+<span class="sourceLineNo">048</span>        int base = types.size() * locals.indexOf( l );<a name="line.48"></a>
+<span class="sourceLineNo">049</span>        for( int i = 0; i &lt; types.size(); i++ ) {<a name="line.49"></a>
+<span class="sourceLineNo">050</span>            clear( i + base );<a name="line.50"></a>
+<span class="sourceLineNo">051</span>        }<a name="line.51"></a>
+<span class="sourceLineNo">052</span>    }<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    /** For each pair (from,t), adds a pair (to,t). */<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    public void localCopy( Local to, Local from ) {<a name="line.54"></a>
+<span class="sourceLineNo">055</span>        int baseTo = types.size() * locals.indexOf( to );<a name="line.55"></a>
+<span class="sourceLineNo">056</span>        int baseFrom = types.size() * locals.indexOf( from );<a name="line.56"></a>
+<span class="sourceLineNo">057</span>        for( int i = 0; i &lt; types.size(); i++ ) {<a name="line.57"></a>
+<span class="sourceLineNo">058</span>            if( get( i+baseFrom ) ) {<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                set( i+baseTo );<a name="line.59"></a>
+<span class="sourceLineNo">060</span>            } else {<a name="line.60"></a>
+<span class="sourceLineNo">061</span>                clear( i+baseTo );<a name="line.61"></a>
+<span class="sourceLineNo">062</span>            }<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        }<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    }<a name="line.64"></a>
+<span class="sourceLineNo">065</span>    /** Empties the set. */<a name="line.65"></a>
+<span class="sourceLineNo">066</span>    public void clearAllBits() {<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        for( int i = 0; i &lt; types.size() * locals.size(); i++ ) {<a name="line.67"></a>
+<span class="sourceLineNo">068</span>            clear( i );<a name="line.68"></a>
+<span class="sourceLineNo">069</span>        }<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    }<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    /** Fills the set to contain all possible (local,type) pairs. */<a name="line.71"></a>
+<span class="sourceLineNo">072</span>    public void setAllBits() {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>        for( int i = 0; i &lt; types.size() * locals.size(); i++ ) {<a name="line.73"></a>
+<span class="sourceLineNo">074</span>            set( i );<a name="line.74"></a>
+<span class="sourceLineNo">075</span>        }<a name="line.75"></a>
+<span class="sourceLineNo">076</span>    }<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    /** Adds to the set all pairs (l,type) where type is any supertype of t. */<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    public void localMustBeSubtypeOf( Local l, RefType t ) {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>        FastHierarchy fh = Scene.v().getFastHierarchy();<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        for (Type type : types) {<a name="line.80"></a>
+<span class="sourceLineNo">081</span>            RefType supertype = (RefType) type;<a name="line.81"></a>
+<span class="sourceLineNo">082</span>            if( fh.canStoreType( t, supertype ) ) {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>                set( indexOf( l, supertype ) );<a name="line.83"></a>
+<span class="sourceLineNo">084</span>            }<a name="line.84"></a>
+<span class="sourceLineNo">085</span>        }<a name="line.85"></a>
+<span class="sourceLineNo">086</span>    }<a name="line.86"></a>
+<span class="sourceLineNo">087</span><a name="line.87"></a>
+<span class="sourceLineNo">088</span>    public String toString(){<a name="line.88"></a>
+<span class="sourceLineNo">089</span>        StringBuffer sb = new StringBuffer();<a name="line.89"></a>
+<span class="sourceLineNo">090</span>        Iterator&lt;Local&gt; localsIt = locals.iterator();<a name="line.90"></a>
+<span class="sourceLineNo">091</span>        while (localsIt.hasNext()){<a name="line.91"></a>
+<span class="sourceLineNo">092</span>            Local l = localsIt.next();<a name="line.92"></a>
+<span class="sourceLineNo">093</span>            Iterator&lt;Type&gt; typesIt = types.iterator();<a name="line.93"></a>
+<span class="sourceLineNo">094</span>            while (typesIt.hasNext()){<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                RefType t = (RefType)typesIt.next();<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                int index = indexOf(l, t);<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                //G.v().out.println("for: "+l+" and type: "+t+" at: "+index);<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                if (get(index)) {<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                    sb.append("(("+l+","+t+") -&gt; elim cast check) ");<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                }<a name="line.100"></a>
+<span class="sourceLineNo">101</span>            }<a name="line.101"></a>
+<span class="sourceLineNo">102</span>            <a name="line.102"></a>
+<span class="sourceLineNo">103</span>        }<a name="line.103"></a>
+<span class="sourceLineNo">104</span>        return sb.toString(); <a name="line.104"></a>
+<span class="sourceLineNo">105</span>    }<a name="line.105"></a>
+<span class="sourceLineNo">106</span>}<a name="line.106"></a>
+<span class="sourceLineNo">107</span><a name="line.107"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

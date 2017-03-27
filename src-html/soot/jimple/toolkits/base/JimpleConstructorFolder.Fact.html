@@ -1,0 +1,323 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2006 Ondrej Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>/*<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Modified by the Sable Research Group and others 1997-1999.  <a name="line.21"></a>
+<span class="sourceLineNo">022</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.22"></a>
+<span class="sourceLineNo">023</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.23"></a>
+<span class="sourceLineNo">024</span> */<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span> <a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span><a name="line.30"></a>
+<span class="sourceLineNo">031</span>package soot.jimple.toolkits.base;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.options.*;<a name="line.32"></a>
+<span class="sourceLineNo">033</span><a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.*;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.toolkits.scalar.*;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.jimple.*;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.toolkits.graph.*;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.util.*;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import java.util.*;<a name="line.39"></a>
+<span class="sourceLineNo">040</span><a name="line.40"></a>
+<span class="sourceLineNo">041</span>public class JimpleConstructorFolder extends BodyTransformer<a name="line.41"></a>
+<span class="sourceLineNo">042</span>{<a name="line.42"></a>
+<span class="sourceLineNo">043</span>    static boolean isNew(Stmt s) {<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        if(!(s instanceof AssignStmt)) return false;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>        if(!(rhs(s) instanceof NewExpr)) return false;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>        return true;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>    }<a name="line.47"></a>
+<span class="sourceLineNo">048</span>    static boolean isConstructor(Stmt s) {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>        if(!(s instanceof InvokeStmt)) return false;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>        InvokeStmt is = (InvokeStmt) s;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>        InvokeExpr expr = is.getInvokeExpr();<a name="line.51"></a>
+<span class="sourceLineNo">052</span>        if(!(expr instanceof SpecialInvokeExpr)) return false;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>        SpecialInvokeExpr sie = (SpecialInvokeExpr) expr;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>        if(!sie.getMethodRef().name().equals(SootMethod.constructorName))<a name="line.54"></a>
+<span class="sourceLineNo">055</span>                return false;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>        return true;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>    }<a name="line.57"></a>
+<span class="sourceLineNo">058</span>    static Local base(Stmt s) {<a name="line.58"></a>
+<span class="sourceLineNo">059</span>        InvokeStmt is = (InvokeStmt) s;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        InstanceInvokeExpr expr = (InstanceInvokeExpr) is.getInvokeExpr();<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        return (Local) expr.getBase();<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    }<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    static void setBase(Stmt s, Local l) {<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        InvokeStmt is = (InvokeStmt) s;<a name="line.64"></a>
+<span class="sourceLineNo">065</span>        InstanceInvokeExpr expr = (InstanceInvokeExpr) is.getInvokeExpr();<a name="line.65"></a>
+<span class="sourceLineNo">066</span>        expr.getBaseBox().setValue(l);<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    }<a name="line.67"></a>
+<span class="sourceLineNo">068</span>    static boolean isCopy(Stmt s) {<a name="line.68"></a>
+<span class="sourceLineNo">069</span>        if(!(s instanceof AssignStmt)) return false;<a name="line.69"></a>
+<span class="sourceLineNo">070</span>        if(!(rhs(s) instanceof Local)) return false;<a name="line.70"></a>
+<span class="sourceLineNo">071</span>        if(!(lhs(s) instanceof Local)) return false;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        return true;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    }<a name="line.73"></a>
+<span class="sourceLineNo">074</span>    static Value rhs(Stmt s) {<a name="line.74"></a>
+<span class="sourceLineNo">075</span>        AssignStmt as = (AssignStmt) s;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        return as.getRightOp();<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    }<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    static Value lhs(Stmt s) {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>        AssignStmt as = (AssignStmt) s;<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        return as.getLeftOp();<a name="line.80"></a>
+<span class="sourceLineNo">081</span>    }<a name="line.81"></a>
+<span class="sourceLineNo">082</span>    static Local rhsLocal(Stmt s) { return (Local) rhs(s); }<a name="line.82"></a>
+<span class="sourceLineNo">083</span>    static Local lhsLocal(Stmt s) { return (Local) lhs(s); }<a name="line.83"></a>
+<span class="sourceLineNo">084</span>    <a name="line.84"></a>
+<span class="sourceLineNo">085</span>    private class Fact {<a name="line.85"></a>
+<span class="sourceLineNo">086</span>        private Map&lt;Local, Stmt&gt; varToStmt = new HashMap&lt;Local, Stmt&gt;();<a name="line.86"></a>
+<span class="sourceLineNo">087</span>        private MultiMap&lt;Stmt,Local&gt; stmtToVar = new HashMultiMap&lt;Stmt,Local&gt;();<a name="line.87"></a>
+<span class="sourceLineNo">088</span>        private Stmt alloc = null;<a name="line.88"></a>
+<span class="sourceLineNo">089</span>        public void add(Local l, Stmt s) {<a name="line.89"></a>
+<span class="sourceLineNo">090</span>            varToStmt.put(l, s);<a name="line.90"></a>
+<span class="sourceLineNo">091</span>            stmtToVar.put(s, l);<a name="line.91"></a>
+<span class="sourceLineNo">092</span>        }<a name="line.92"></a>
+<span class="sourceLineNo">093</span>        public Stmt get(Local l) {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>            return varToStmt.get(l);<a name="line.94"></a>
+<span class="sourceLineNo">095</span>        }<a name="line.95"></a>
+<span class="sourceLineNo">096</span>        public Set&lt;Local&gt; get(Stmt s) {<a name="line.96"></a>
+<span class="sourceLineNo">097</span>            return stmtToVar.get(s);<a name="line.97"></a>
+<span class="sourceLineNo">098</span>        }<a name="line.98"></a>
+<span class="sourceLineNo">099</span>        public void removeAll(Stmt s) {<a name="line.99"></a>
+<span class="sourceLineNo">100</span>            for (Local var : stmtToVar.get(s)) {<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                varToStmt.remove(var);<a name="line.101"></a>
+<span class="sourceLineNo">102</span>            }<a name="line.102"></a>
+<span class="sourceLineNo">103</span>            <a name="line.103"></a>
+<span class="sourceLineNo">104</span>            stmtToVar.remove(s);<a name="line.104"></a>
+<span class="sourceLineNo">105</span>        }<a name="line.105"></a>
+<span class="sourceLineNo">106</span>        public void copyFrom(Fact in) {<a name="line.106"></a>
+<span class="sourceLineNo">107</span>            varToStmt = new HashMap&lt;Local, Stmt&gt;(in.varToStmt);<a name="line.107"></a>
+<span class="sourceLineNo">108</span>            stmtToVar = new HashMultiMap&lt;Stmt,Local&gt;(in.stmtToVar);<a name="line.108"></a>
+<span class="sourceLineNo">109</span>            alloc = in.alloc;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>        }<a name="line.110"></a>
+<span class="sourceLineNo">111</span>        public void mergeFrom(Fact in1, Fact in2) {<a name="line.111"></a>
+<span class="sourceLineNo">112</span>            varToStmt = new HashMap&lt;Local, Stmt&gt;();<a name="line.112"></a>
+<span class="sourceLineNo">113</span><a name="line.113"></a>
+<span class="sourceLineNo">114</span>            for (Map.Entry&lt;Local, Stmt&gt; e : in1.varToStmt.entrySet()) {<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                Local l = e.getKey();<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                Stmt newStmt = e.getValue();<a name="line.116"></a>
+<span class="sourceLineNo">117</span>                if(in2.varToStmt.containsKey(l)) {<a name="line.117"></a>
+<span class="sourceLineNo">118</span>                    Stmt newStmt2 = in2.varToStmt.get(l);<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                    if(!newStmt.equals(newStmt2)) {<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                        throw new RuntimeException("Merge of different uninitialized values; are you sure this bytecode is verifiable?");<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                    }<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                }<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                add(l, newStmt);<a name="line.123"></a>
+<span class="sourceLineNo">124</span>            }<a name="line.124"></a>
+<span class="sourceLineNo">125</span>            for (Map.Entry&lt;Local, Stmt&gt; e : in2.varToStmt.entrySet()) {<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                Local l = e.getKey();<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                Stmt newStmt = e.getValue();<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                add(l, newStmt);<a name="line.128"></a>
+<span class="sourceLineNo">129</span>            }            <a name="line.129"></a>
+<span class="sourceLineNo">130</span>            if(in1.alloc != null &amp;&amp; in1.alloc.equals(in2.alloc)) {<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                alloc = in1.alloc;<a name="line.131"></a>
+<span class="sourceLineNo">132</span>            } else {<a name="line.132"></a>
+<span class="sourceLineNo">133</span>                alloc = null;<a name="line.133"></a>
+<span class="sourceLineNo">134</span>            }<a name="line.134"></a>
+<span class="sourceLineNo">135</span>        }<a name="line.135"></a>
+<span class="sourceLineNo">136</span>        public boolean equals(Object other) {<a name="line.136"></a>
+<span class="sourceLineNo">137</span>            if(!(other instanceof Fact)) return false;<a name="line.137"></a>
+<span class="sourceLineNo">138</span>            Fact o = (Fact) other;<a name="line.138"></a>
+<span class="sourceLineNo">139</span>            if(!stmtToVar.equals(o.stmtToVar)) return false;<a name="line.139"></a>
+<span class="sourceLineNo">140</span>            if(alloc == null &amp;&amp; o.alloc != null) return false;<a name="line.140"></a>
+<span class="sourceLineNo">141</span>            if(alloc != null &amp;&amp; o.alloc == null) return false;<a name="line.141"></a>
+<span class="sourceLineNo">142</span>            if(alloc != null &amp;&amp; !alloc.equals(o.alloc)) return false;<a name="line.142"></a>
+<span class="sourceLineNo">143</span>            return true;<a name="line.143"></a>
+<span class="sourceLineNo">144</span>        }<a name="line.144"></a>
+<span class="sourceLineNo">145</span>        public Stmt alloc() { return alloc; }<a name="line.145"></a>
+<span class="sourceLineNo">146</span>        public void setAlloc(Stmt newAlloc) { alloc = newAlloc; }<a name="line.146"></a>
+<span class="sourceLineNo">147</span>    }<a name="line.147"></a>
+<span class="sourceLineNo">148</span>    <a name="line.148"></a>
+<span class="sourceLineNo">149</span>    private class Analysis extends ForwardFlowAnalysis&lt;Unit, Fact&gt; {<a name="line.149"></a>
+<span class="sourceLineNo">150</span>        public Analysis(DirectedGraph&lt;Unit&gt; graph) {<a name="line.150"></a>
+<span class="sourceLineNo">151</span>            super(graph);<a name="line.151"></a>
+<span class="sourceLineNo">152</span>            doAnalysis();<a name="line.152"></a>
+<span class="sourceLineNo">153</span>        }<a name="line.153"></a>
+<span class="sourceLineNo">154</span>        <a name="line.154"></a>
+<span class="sourceLineNo">155</span>        protected Fact newInitialFlow() {<a name="line.155"></a>
+<span class="sourceLineNo">156</span>            return new Fact();<a name="line.156"></a>
+<span class="sourceLineNo">157</span>        }<a name="line.157"></a>
+<span class="sourceLineNo">158</span>        <a name="line.158"></a>
+<span class="sourceLineNo">159</span>        public void flowThrough(Fact in, Unit u, Fact out) {<a name="line.159"></a>
+<span class="sourceLineNo">160</span>                Stmt s  = (Stmt) u;<a name="line.160"></a>
+<span class="sourceLineNo">161</span>            copy(in, out);<a name="line.161"></a>
+<span class="sourceLineNo">162</span>            out.setAlloc(null);<a name="line.162"></a>
+<span class="sourceLineNo">163</span><a name="line.163"></a>
+<span class="sourceLineNo">164</span>            if(isNew(s)) {<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                out.add(lhsLocal(s), s);<a name="line.165"></a>
+<span class="sourceLineNo">166</span>            } else if(isCopy(s)) {<a name="line.166"></a>
+<span class="sourceLineNo">167</span>                Stmt newStmt = out.get(rhsLocal(s));<a name="line.167"></a>
+<span class="sourceLineNo">168</span>                if(newStmt != null) out.add(lhsLocal(s), newStmt);<a name="line.168"></a>
+<span class="sourceLineNo">169</span>            } else if(isConstructor(s)) {<a name="line.169"></a>
+<span class="sourceLineNo">170</span>                Stmt newStmt = out.get(base(s));<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                if(newStmt != null) {<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                    out.removeAll(newStmt);<a name="line.172"></a>
+<span class="sourceLineNo">173</span>                    out.setAlloc(newStmt);<a name="line.173"></a>
+<span class="sourceLineNo">174</span>                }<a name="line.174"></a>
+<span class="sourceLineNo">175</span>            }<a name="line.175"></a>
+<span class="sourceLineNo">176</span>        }<a name="line.176"></a>
+<span class="sourceLineNo">177</span>        public void copy(Fact source, Fact dest) {<a name="line.177"></a>
+<span class="sourceLineNo">178</span>                dest.copyFrom(source);<a name="line.178"></a>
+<span class="sourceLineNo">179</span>        }<a name="line.179"></a>
+<span class="sourceLineNo">180</span>        public void merge(Fact in1, Fact in2, Fact out) {<a name="line.180"></a>
+<span class="sourceLineNo">181</span>                out.mergeFrom(in1, in2);<a name="line.181"></a>
+<span class="sourceLineNo">182</span>        }<a name="line.182"></a>
+<span class="sourceLineNo">183</span>    }<a name="line.183"></a>
+<span class="sourceLineNo">184</span>    /** This method pushes all newExpr down to be the stmt directly before every<a name="line.184"></a>
+<span class="sourceLineNo">185</span>     * invoke of the init */<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    public void internalTransform(Body b, String phaseName, Map&lt;String, String&gt; options)<a name="line.186"></a>
+<span class="sourceLineNo">187</span>    {<a name="line.187"></a>
+<span class="sourceLineNo">188</span>        JimpleBody body = (JimpleBody)b;<a name="line.188"></a>
+<span class="sourceLineNo">189</span><a name="line.189"></a>
+<span class="sourceLineNo">190</span>        //PhaseDumper.v().dumpBody(body, "constructorfolder.in");<a name="line.190"></a>
+<span class="sourceLineNo">191</span><a name="line.191"></a>
+<span class="sourceLineNo">192</span>        if(Options.v().verbose())<a name="line.192"></a>
+<span class="sourceLineNo">193</span>            G.v().out.println("[" + body.getMethod().getName() +<a name="line.193"></a>
+<span class="sourceLineNo">194</span>                "] Folding Jimple constructors...");<a name="line.194"></a>
+<span class="sourceLineNo">195</span><a name="line.195"></a>
+<span class="sourceLineNo">196</span>        Analysis analysis = new Analysis(new BriefUnitGraph(body));<a name="line.196"></a>
+<span class="sourceLineNo">197</span><a name="line.197"></a>
+<span class="sourceLineNo">198</span>        Chain&lt;Unit&gt; units = body.getUnits();<a name="line.198"></a>
+<span class="sourceLineNo">199</span>        List&lt;Unit&gt; stmtList = new ArrayList&lt;Unit&gt;();<a name="line.199"></a>
+<span class="sourceLineNo">200</span>        stmtList.addAll(units);<a name="line.200"></a>
+<span class="sourceLineNo">201</span><a name="line.201"></a>
+<span class="sourceLineNo">202</span>        for (Unit u : stmtList) {<a name="line.202"></a>
+<span class="sourceLineNo">203</span>                Stmt s = (Stmt) u;<a name="line.203"></a>
+<span class="sourceLineNo">204</span>            if(isCopy(s)) continue;<a name="line.204"></a>
+<span class="sourceLineNo">205</span>            if(isConstructor(s)) continue;<a name="line.205"></a>
+<span class="sourceLineNo">206</span>            Fact before = analysis.getFlowBefore(s);<a name="line.206"></a>
+<span class="sourceLineNo">207</span>            for (ValueBox usebox : s.getUseBoxes()) {<a name="line.207"></a>
+<span class="sourceLineNo">208</span>                Value value = usebox.getValue();<a name="line.208"></a>
+<span class="sourceLineNo">209</span>                if(!(value instanceof Local)) continue;<a name="line.209"></a>
+<span class="sourceLineNo">210</span>                Local local = (Local) value;<a name="line.210"></a>
+<span class="sourceLineNo">211</span>                if(before.get(local) != null)<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                    throw new RuntimeException("Use of an unitialized value "<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                            +"before constructor call; are you sure this "<a name="line.213"></a>
+<span class="sourceLineNo">214</span>                            +"bytecode is verifiable?\n"+s);<a name="line.214"></a>
+<span class="sourceLineNo">215</span>            }<a name="line.215"></a>
+<span class="sourceLineNo">216</span>        }<a name="line.216"></a>
+<span class="sourceLineNo">217</span><a name="line.217"></a>
+<span class="sourceLineNo">218</span>        // throw out all new statements<a name="line.218"></a>
+<span class="sourceLineNo">219</span>        for (Unit u : stmtList) {<a name="line.219"></a>
+<span class="sourceLineNo">220</span>            Stmt s = (Stmt) u;<a name="line.220"></a>
+<span class="sourceLineNo">221</span>            if(isNew(s)) {<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                units.remove(s);<a name="line.222"></a>
+<span class="sourceLineNo">223</span>            }<a name="line.223"></a>
+<span class="sourceLineNo">224</span>        }<a name="line.224"></a>
+<span class="sourceLineNo">225</span><a name="line.225"></a>
+<span class="sourceLineNo">226</span><a name="line.226"></a>
+<span class="sourceLineNo">227</span>        for (Unit u : stmtList) {<a name="line.227"></a>
+<span class="sourceLineNo">228</span>            Stmt s = (Stmt) u;<a name="line.228"></a>
+<span class="sourceLineNo">229</span>            Fact before = analysis.getFlowBefore(s);<a name="line.229"></a>
+<span class="sourceLineNo">230</span>            Fact after = analysis.getFlowAfter(s);<a name="line.230"></a>
+<span class="sourceLineNo">231</span><a name="line.231"></a>
+<span class="sourceLineNo">232</span>            // throw out copies of uninitialized variables<a name="line.232"></a>
+<span class="sourceLineNo">233</span>            if(isCopy(s)) {<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                Stmt newStmt = before.get(rhsLocal(s));<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                if(newStmt != null) units.remove(s);<a name="line.235"></a>
+<span class="sourceLineNo">236</span>            } else if(after.alloc() != null) {<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                // insert the new just before the constructor<a name="line.237"></a>
+<span class="sourceLineNo">238</span>                Stmt newStmt = before.get(base(s));<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                setBase(s, lhsLocal(newStmt));<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                units.insertBefore(newStmt, s);<a name="line.240"></a>
+<span class="sourceLineNo">241</span><a name="line.241"></a>
+<span class="sourceLineNo">242</span>                // add necessary copies<a name="line.242"></a>
+<span class="sourceLineNo">243</span>                for (Local l : before.get(newStmt)) {<a name="line.243"></a>
+<span class="sourceLineNo">244</span>                    if(l.equals(base(s))) continue;<a name="line.244"></a>
+<span class="sourceLineNo">245</span>                    units.insertAfter(Jimple.v().newAssignStmt(l, base(s)), s);<a name="line.245"></a>
+<span class="sourceLineNo">246</span>                }<a name="line.246"></a>
+<span class="sourceLineNo">247</span>            }<a name="line.247"></a>
+<span class="sourceLineNo">248</span>        }<a name="line.248"></a>
+<span class="sourceLineNo">249</span>        //PhaseDumper.v().dumpBody(body, "constructorfolder.out");<a name="line.249"></a>
+<span class="sourceLineNo">250</span>    }  <a name="line.250"></a>
+<span class="sourceLineNo">251</span>}<a name="line.251"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

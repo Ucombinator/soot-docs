@@ -1,0 +1,238 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1997 Clark Verbrugge<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>/*<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Modified by the Sable Research Group and others 1997-1999.  <a name="line.21"></a>
+<span class="sourceLineNo">022</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.22"></a>
+<span class="sourceLineNo">023</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.23"></a>
+<span class="sourceLineNo">024</span> */<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span><a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>package soot.coffi;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.*;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>/** Instruction subclasses are used to represent parsed bytecode; each<a name="line.34"></a>
+<span class="sourceLineNo">035</span> * bytecode operation has a corresponding subclass of Instruction.<a name="line.35"></a>
+<span class="sourceLineNo">036</span> * &lt;p&gt;<a name="line.36"></a>
+<span class="sourceLineNo">037</span> * Each subclass is derived from one of<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * &lt;ul&gt;&lt;li&gt;Instruction&lt;/li&gt;<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * &lt;li&gt;Instruction_noargs (an Instruction with no embedded arguments)&lt;/li&gt;<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * &lt;li&gt;Instruction_byte (an Instruction with a single byte data argument)&lt;/li&gt;<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * &lt;li&gt;Instruction_bytevar (a byte argument specifying a local variable)&lt;/li&gt;<a name="line.41"></a>
+<span class="sourceLineNo">042</span> * &lt;li&gt;Instruction_byteindex (a byte argument specifying a constant pool index)&lt;/li&gt;<a name="line.42"></a>
+<span class="sourceLineNo">043</span> * &lt;li&gt;Instruction_int (an Instruction with a single short data argument)&lt;/li&gt;<a name="line.43"></a>
+<span class="sourceLineNo">044</span> * &lt;li&gt;Instruction_intvar (a short argument specifying a local variable)&lt;/li&gt;<a name="line.44"></a>
+<span class="sourceLineNo">045</span> * &lt;li&gt;Instruction_intindex (a short argument specifying a constant pool index)&lt;/li&gt;<a name="line.45"></a>
+<span class="sourceLineNo">046</span> * &lt;li&gt;Instruction_intbranch (a short argument specifying a code offset)&lt;/li&gt;<a name="line.46"></a>
+<span class="sourceLineNo">047</span> * &lt;li&gt;Instruction_longbranch (an int argument specifying a code offset)&lt;/li&gt;<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * &lt;/ul&gt;<a name="line.48"></a>
+<span class="sourceLineNo">049</span> * @author Clark Verbrugge<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * @see Instruction<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * @see Instruction_noargs<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * @see Instruction_byte<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * @see Instruction_bytevar<a name="line.53"></a>
+<span class="sourceLineNo">054</span> * @see Instruction_byteindex<a name="line.54"></a>
+<span class="sourceLineNo">055</span> * @see Instruction_int<a name="line.55"></a>
+<span class="sourceLineNo">056</span> * @see Instruction_intvar<a name="line.56"></a>
+<span class="sourceLineNo">057</span> * @see Instruction_intindex<a name="line.57"></a>
+<span class="sourceLineNo">058</span> * @see Instruction_intbranch<a name="line.58"></a>
+<span class="sourceLineNo">059</span> * @see Instruction_longbranch<a name="line.59"></a>
+<span class="sourceLineNo">060</span> * @see Instruction_Unknown<a name="line.60"></a>
+<span class="sourceLineNo">061</span> */<a name="line.61"></a>
+<span class="sourceLineNo">062</span>class Instruction_Lookupswitch extends Instruction {<a name="line.62"></a>
+<span class="sourceLineNo">063</span>   public Instruction_Lookupswitch() { super((byte)ByteCode.LOOKUPSWITCH); name = "lookupswitch"; branches = true; }<a name="line.63"></a>
+<span class="sourceLineNo">064</span>   public byte pad;  // number of bytes used for padding<a name="line.64"></a>
+<span class="sourceLineNo">065</span>   public int default_offset;<a name="line.65"></a>
+<span class="sourceLineNo">066</span>   public int npairs;<a name="line.66"></a>
+<span class="sourceLineNo">067</span>   public int match_offsets[];<a name="line.67"></a>
+<span class="sourceLineNo">068</span>   public Instruction default_inst;<a name="line.68"></a>
+<span class="sourceLineNo">069</span>   public Instruction match_insts[];<a name="line.69"></a>
+<span class="sourceLineNo">070</span>   public String toString(cp_info constant_pool[]) {<a name="line.70"></a>
+<span class="sourceLineNo">071</span>      // first figure out padding to next 4-byte quantity<a name="line.71"></a>
+<span class="sourceLineNo">072</span>      String args;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>      int i;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>      args = super.toString(constant_pool) + argsep + "(" +<a name="line.74"></a>
+<span class="sourceLineNo">075</span>         Integer.toString(pad) + ")";<a name="line.75"></a>
+<span class="sourceLineNo">076</span>      args = args + argsep + Integer.toString(default_inst.label);<a name="line.76"></a>
+<span class="sourceLineNo">077</span>      args = args + argsep + Integer.toString(npairs) + ": ";<a name="line.77"></a>
+<span class="sourceLineNo">078</span>      for (i=0;i&lt;npairs;i++)<a name="line.78"></a>
+<span class="sourceLineNo">079</span>         args = args + "case " + Integer.toString(match_offsets[i*2]) +<a name="line.79"></a>
+<span class="sourceLineNo">080</span>            ": label_" + Integer.toString(match_insts[i].label);<a name="line.80"></a>
+<span class="sourceLineNo">081</span>      return args;<a name="line.81"></a>
+<span class="sourceLineNo">082</span>   }<a name="line.82"></a>
+<span class="sourceLineNo">083</span>   public int parse(byte bc[],int index) {<a name="line.83"></a>
+<span class="sourceLineNo">084</span>      // first figure out padding to next 4-byte quantity<a name="line.84"></a>
+<span class="sourceLineNo">085</span>      int i,j;<a name="line.85"></a>
+<span class="sourceLineNo">086</span>      i = index % 4;<a name="line.86"></a>
+<span class="sourceLineNo">087</span>      if (i != 0)<a name="line.87"></a>
+<span class="sourceLineNo">088</span>         pad = (byte)(4 - i);<a name="line.88"></a>
+<span class="sourceLineNo">089</span>      else<a name="line.89"></a>
+<span class="sourceLineNo">090</span>         pad = (byte)0;<a name="line.90"></a>
+<span class="sourceLineNo">091</span>      index += pad;<a name="line.91"></a>
+<span class="sourceLineNo">092</span>      default_offset = getInt(bc,index);<a name="line.92"></a>
+<span class="sourceLineNo">093</span>      index += 4;<a name="line.93"></a>
+<span class="sourceLineNo">094</span>      npairs = getInt(bc,index);<a name="line.94"></a>
+<span class="sourceLineNo">095</span>      index += 4;<a name="line.95"></a>
+<span class="sourceLineNo">096</span>      if (npairs&gt;0) {<a name="line.96"></a>
+<span class="sourceLineNo">097</span>         match_offsets = new int[npairs*2];<a name="line.97"></a>
+<span class="sourceLineNo">098</span>         j = 0;<a name="line.98"></a>
+<span class="sourceLineNo">099</span>         do {<a name="line.99"></a>
+<span class="sourceLineNo">100</span>            match_offsets[j] = getInt(bc,index);<a name="line.100"></a>
+<span class="sourceLineNo">101</span>            j++;<a name="line.101"></a>
+<span class="sourceLineNo">102</span>            index += 4;<a name="line.102"></a>
+<span class="sourceLineNo">103</span>            match_offsets[j] = getInt(bc,index);<a name="line.103"></a>
+<span class="sourceLineNo">104</span>            index += 4;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>            j++;<a name="line.105"></a>
+<span class="sourceLineNo">106</span>         } while(j&lt;npairs*2);<a name="line.106"></a>
+<span class="sourceLineNo">107</span>      }<a name="line.107"></a>
+<span class="sourceLineNo">108</span>      return index;<a name="line.108"></a>
+<span class="sourceLineNo">109</span>   }<a name="line.109"></a>
+<span class="sourceLineNo">110</span>   public int nextOffset(int curr) {<a name="line.110"></a>
+<span class="sourceLineNo">111</span>      int i,siz=0;<a name="line.111"></a>
+<span class="sourceLineNo">112</span>      i = (curr+1) % 4;<a name="line.112"></a>
+<span class="sourceLineNo">113</span>      if (i != 0)<a name="line.113"></a>
+<span class="sourceLineNo">114</span>         siz = (4 - i);<a name="line.114"></a>
+<span class="sourceLineNo">115</span>      return (curr + siz + 9 + npairs*8);<a name="line.115"></a>
+<span class="sourceLineNo">116</span>   }<a name="line.116"></a>
+<span class="sourceLineNo">117</span>   public int compile(byte bc[],int index) {<a name="line.117"></a>
+<span class="sourceLineNo">118</span>      int i;<a name="line.118"></a>
+<span class="sourceLineNo">119</span>      bc[index++] = code;<a name="line.119"></a>
+<span class="sourceLineNo">120</span>      // insert padding so next instruction is on a 4-byte boundary<a name="line.120"></a>
+<span class="sourceLineNo">121</span>      for (i=0;i&lt;pad;i++)<a name="line.121"></a>
+<span class="sourceLineNo">122</span>         bc[index++] = 0;<a name="line.122"></a>
+<span class="sourceLineNo">123</span>      if (default_inst!=null)<a name="line.123"></a>
+<span class="sourceLineNo">124</span>         index = intToBytes(default_inst.label-label,bc,index);<a name="line.124"></a>
+<span class="sourceLineNo">125</span>      else<a name="line.125"></a>
+<span class="sourceLineNo">126</span>         index = intToBytes(default_offset,bc,index);<a name="line.126"></a>
+<span class="sourceLineNo">127</span>      index = intToBytes(npairs,bc,index);<a name="line.127"></a>
+<span class="sourceLineNo">128</span>      for (i=0;i&lt;npairs;i++) {<a name="line.128"></a>
+<span class="sourceLineNo">129</span>         index = intToBytes(match_offsets[i*2],bc,index);<a name="line.129"></a>
+<span class="sourceLineNo">130</span>         if (match_insts[i]!=null)<a name="line.130"></a>
+<span class="sourceLineNo">131</span>            index = intToBytes((match_insts[i]).label-label,bc,index);<a name="line.131"></a>
+<span class="sourceLineNo">132</span>         else<a name="line.132"></a>
+<span class="sourceLineNo">133</span>            index = intToBytes(match_offsets[i*2+1],bc,index);<a name="line.133"></a>
+<span class="sourceLineNo">134</span>      }<a name="line.134"></a>
+<span class="sourceLineNo">135</span>      return index;<a name="line.135"></a>
+<span class="sourceLineNo">136</span>   }<a name="line.136"></a>
+<span class="sourceLineNo">137</span>   public void offsetToPointer(ByteCode bc) {<a name="line.137"></a>
+<span class="sourceLineNo">138</span>      int i;<a name="line.138"></a>
+<span class="sourceLineNo">139</span>      default_inst = bc.locateInst(default_offset+label);<a name="line.139"></a>
+<span class="sourceLineNo">140</span>      if (default_inst==null) {<a name="line.140"></a>
+<span class="sourceLineNo">141</span>         G.v().out.println("Warning: can't locate target of instruction");<a name="line.141"></a>
+<span class="sourceLineNo">142</span>         G.v().out.println(" which should be at byte address " + (label+default_offset));<a name="line.142"></a>
+<span class="sourceLineNo">143</span>      } else<a name="line.143"></a>
+<span class="sourceLineNo">144</span>         default_inst.labelled = true;<a name="line.144"></a>
+<span class="sourceLineNo">145</span>      if (npairs&gt;0) {<a name="line.145"></a>
+<span class="sourceLineNo">146</span>         match_insts = new Instruction[npairs];<a name="line.146"></a>
+<span class="sourceLineNo">147</span>         for (i=0;i&lt;npairs;i++) {<a name="line.147"></a>
+<span class="sourceLineNo">148</span>            match_insts[i] = bc.locateInst(match_offsets[i*2+1]+label);<a name="line.148"></a>
+<span class="sourceLineNo">149</span>            if (match_insts[i]==null) {<a name="line.149"></a>
+<span class="sourceLineNo">150</span>               G.v().out.println("Warning: can't locate target of instruction");<a name="line.150"></a>
+<span class="sourceLineNo">151</span>               G.v().out.println(" which should be at byte address " +<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                                  (label+match_offsets[i*2+1]));<a name="line.152"></a>
+<span class="sourceLineNo">153</span>            } else<a name="line.153"></a>
+<span class="sourceLineNo">154</span>               match_insts[i].labelled = true;<a name="line.154"></a>
+<span class="sourceLineNo">155</span>         }<a name="line.155"></a>
+<span class="sourceLineNo">156</span>      }<a name="line.156"></a>
+<span class="sourceLineNo">157</span>   }<a name="line.157"></a>
+<span class="sourceLineNo">158</span>   public Instruction[] branchpoints(Instruction next) {<a name="line.158"></a>
+<span class="sourceLineNo">159</span>      Instruction i[] = new Instruction[npairs+1];<a name="line.159"></a>
+<span class="sourceLineNo">160</span>      int j;<a name="line.160"></a>
+<span class="sourceLineNo">161</span>      i[0] = default_inst;<a name="line.161"></a>
+<span class="sourceLineNo">162</span>      for (j=1;j&lt;npairs+1;j++)<a name="line.162"></a>
+<span class="sourceLineNo">163</span>         i[j] = match_insts[j-1];<a name="line.163"></a>
+<span class="sourceLineNo">164</span>      return i;<a name="line.164"></a>
+<span class="sourceLineNo">165</span>   }<a name="line.165"></a>
+<span class="sourceLineNo">166</span>}<a name="line.166"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>
