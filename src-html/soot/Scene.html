@@ -1,0 +1,1862 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1997-1999 Raja Vallee-Rai<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * Copyright (C) 2004 Ondrej Lhotak<a name="line.3"></a>
+<span class="sourceLineNo">004</span> *<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * This library is free software; you can redistribute it and/or<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * modify it under the terms of the GNU Lesser General Public<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * License as published by the Free Software Foundation; either<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * This library is distributed in the hope that it will be useful,<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * Lesser General Public License for more details.<a name="line.13"></a>
+<span class="sourceLineNo">014</span> *<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * You should have received a copy of the GNU Lesser General Public<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * License along with this library; if not, write to the<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.17"></a>
+<span class="sourceLineNo">018</span> * Boston, MA 02111-1307, USA.<a name="line.18"></a>
+<span class="sourceLineNo">019</span> */<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>/*<a name="line.21"></a>
+<span class="sourceLineNo">022</span> * Modified by the Sable Research Group and others 1997-1999.  <a name="line.22"></a>
+<span class="sourceLineNo">023</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.23"></a>
+<span class="sourceLineNo">024</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.24"></a>
+<span class="sourceLineNo">025</span> */<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>package soot;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.io.BufferedReader;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.io.File;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import java.io.FileInputStream;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import java.io.IOException;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import java.io.InputStream;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import java.io.InputStreamReader;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import java.util.ArrayList;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import java.util.Arrays;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import java.util.Collection;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import java.util.Collections;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import java.util.Enumeration;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import java.util.HashMap;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import java.util.HashSet;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import java.util.Iterator;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import java.util.LinkedList;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import java.util.List;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import java.util.Map;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import java.util.Set;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import java.util.regex.Matcher;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import java.util.regex.Pattern;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import java.util.zip.ZipEntry;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>import java.util.zip.ZipFile;<a name="line.50"></a>
+<span class="sourceLineNo">051</span><a name="line.51"></a>
+<span class="sourceLineNo">052</span>import org.xmlpull.v1.XmlPullParser;<a name="line.52"></a>
+<span class="sourceLineNo">053</span><a name="line.53"></a>
+<span class="sourceLineNo">054</span>import soot.jimple.spark.internal.ClientAccessibilityOracle;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>import soot.jimple.spark.internal.PublicAndProtectedAccessibility;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>import soot.jimple.spark.pag.SparkField;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>import soot.jimple.toolkits.callgraph.CallGraph;<a name="line.57"></a>
+<span class="sourceLineNo">058</span>import soot.jimple.toolkits.callgraph.ContextSensitiveCallGraph;<a name="line.58"></a>
+<span class="sourceLineNo">059</span>import soot.jimple.toolkits.callgraph.ReachableMethods;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>import soot.jimple.toolkits.pointer.DumbPointerAnalysis;<a name="line.60"></a>
+<span class="sourceLineNo">061</span>import soot.jimple.toolkits.pointer.SideEffectAnalysis;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>import soot.options.CGOptions;<a name="line.62"></a>
+<span class="sourceLineNo">063</span>import soot.options.Options;<a name="line.63"></a>
+<span class="sourceLineNo">064</span>import soot.toolkits.exceptions.PedanticThrowAnalysis;<a name="line.64"></a>
+<span class="sourceLineNo">065</span>import soot.toolkits.exceptions.ThrowAnalysis;<a name="line.65"></a>
+<span class="sourceLineNo">066</span>import soot.toolkits.exceptions.UnitThrowAnalysis;<a name="line.66"></a>
+<span class="sourceLineNo">067</span>import soot.util.ArrayNumberer;<a name="line.67"></a>
+<span class="sourceLineNo">068</span>import soot.util.Chain;<a name="line.68"></a>
+<span class="sourceLineNo">069</span>import soot.util.HashChain;<a name="line.69"></a>
+<span class="sourceLineNo">070</span>import soot.util.MapNumberer;<a name="line.70"></a>
+<span class="sourceLineNo">071</span>import soot.util.Numberer;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>import soot.util.StringNumberer;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>import test.AXMLPrinter;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>import android.content.res.AXmlResourceParser;<a name="line.74"></a>
+<span class="sourceLineNo">075</span><a name="line.75"></a>
+<span class="sourceLineNo">076</span>/** Manages the SootClasses of the application being analyzed. */<a name="line.76"></a>
+<span class="sourceLineNo">077</span>public class Scene  //extends AbstractHost<a name="line.77"></a>
+<span class="sourceLineNo">078</span>{<a name="line.78"></a>
+<span class="sourceLineNo">079</span>        <a name="line.79"></a>
+<span class="sourceLineNo">080</span>        private final int defaultSdkVersion = 15;<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        private final Map&lt;String, Integer&gt; maxAPIs = new HashMap&lt;String, Integer&gt;();<a name="line.81"></a>
+<span class="sourceLineNo">082</span><a name="line.82"></a>
+<span class="sourceLineNo">083</span>        public Scene ( Singletons.Global g )<a name="line.83"></a>
+<span class="sourceLineNo">084</span>    {<a name="line.84"></a>
+<span class="sourceLineNo">085</span>        setReservedNames();<a name="line.85"></a>
+<span class="sourceLineNo">086</span>        <a name="line.86"></a>
+<span class="sourceLineNo">087</span>        // load soot.class.path system property, if defined<a name="line.87"></a>
+<span class="sourceLineNo">088</span>        String scp = System.getProperty("soot.class.path");<a name="line.88"></a>
+<span class="sourceLineNo">089</span><a name="line.89"></a>
+<span class="sourceLineNo">090</span>        if (scp != null)<a name="line.90"></a>
+<span class="sourceLineNo">091</span>            setSootClassPath(scp);<a name="line.91"></a>
+<span class="sourceLineNo">092</span><a name="line.92"></a>
+<span class="sourceLineNo">093</span>        kindNumberer = new ArrayNumberer&lt;Kind&gt;(new Kind[] {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                Kind.INVALID,<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                Kind.STATIC,<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                Kind.VIRTUAL,<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                Kind.INTERFACE,<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                Kind.SPECIAL,<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                Kind.CLINIT,<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                Kind.THREAD,<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                Kind.EXECUTOR,<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                Kind.ASYNCTASK,<a name="line.102"></a>
+<span class="sourceLineNo">103</span>                Kind.FINALIZE,<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                Kind.INVOKE_FINALIZE,<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                Kind.PRIVILEGED,<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                Kind.NEWINSTANCE});<a name="line.106"></a>
+<span class="sourceLineNo">107</span>        <a name="line.107"></a>
+<span class="sourceLineNo">108</span>        addSootBasicClasses();<a name="line.108"></a>
+<span class="sourceLineNo">109</span>        <a name="line.109"></a>
+<span class="sourceLineNo">110</span>        determineExcludedPackages();<a name="line.110"></a>
+<span class="sourceLineNo">111</span>    }<a name="line.111"></a>
+<span class="sourceLineNo">112</span>        private void determineExcludedPackages() {<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                excludedPackages = new LinkedList&lt;String&gt;();<a name="line.113"></a>
+<span class="sourceLineNo">114</span>        if (Options.v().exclude() != null)<a name="line.114"></a>
+<span class="sourceLineNo">115</span>            excludedPackages.addAll(Options.v().exclude());<a name="line.115"></a>
+<span class="sourceLineNo">116</span><a name="line.116"></a>
+<span class="sourceLineNo">117</span>        // do not kill contents of the APK if we want a working new APK afterwards<a name="line.117"></a>
+<span class="sourceLineNo">118</span>        if( !Options.v().include_all()<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                        &amp;&amp; Options.v().output_format() != Options.output_format_dex<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                        &amp;&amp; Options.v().output_format() != Options.output_format_force_dex) {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>            excludedPackages.add("java.*");<a name="line.121"></a>
+<span class="sourceLineNo">122</span>            excludedPackages.add("sun.*");<a name="line.122"></a>
+<span class="sourceLineNo">123</span>            excludedPackages.add("javax.*");<a name="line.123"></a>
+<span class="sourceLineNo">124</span>            excludedPackages.add("com.sun.*");<a name="line.124"></a>
+<span class="sourceLineNo">125</span>            excludedPackages.add("com.ibm.*");<a name="line.125"></a>
+<span class="sourceLineNo">126</span>            excludedPackages.add("org.xml.*");<a name="line.126"></a>
+<span class="sourceLineNo">127</span>            excludedPackages.add("org.w3c.*");<a name="line.127"></a>
+<span class="sourceLineNo">128</span>            excludedPackages.add("apple.awt.*");<a name="line.128"></a>
+<span class="sourceLineNo">129</span>            excludedPackages.add("com.apple.*");<a name="line.129"></a>
+<span class="sourceLineNo">130</span>        }<a name="line.130"></a>
+<span class="sourceLineNo">131</span>        }<a name="line.131"></a>
+<span class="sourceLineNo">132</span>    public static Scene  v() { return G.v().soot_Scene (); }<a name="line.132"></a>
+<span class="sourceLineNo">133</span>    <a name="line.133"></a>
+<span class="sourceLineNo">134</span>    Chain&lt;SootClass&gt; classes = new HashChain&lt;SootClass&gt;();<a name="line.134"></a>
+<span class="sourceLineNo">135</span>    Chain&lt;SootClass&gt; applicationClasses = new HashChain&lt;SootClass&gt;();<a name="line.135"></a>
+<span class="sourceLineNo">136</span>    Chain&lt;SootClass&gt; libraryClasses = new HashChain&lt;SootClass&gt;();<a name="line.136"></a>
+<span class="sourceLineNo">137</span>    Chain&lt;SootClass&gt; phantomClasses = new HashChain&lt;SootClass&gt;();<a name="line.137"></a>
+<span class="sourceLineNo">138</span>    <a name="line.138"></a>
+<span class="sourceLineNo">139</span>    private final Map&lt;String,RefType&gt; nameToClass = new HashMap&lt;String,RefType&gt;();<a name="line.139"></a>
+<span class="sourceLineNo">140</span><a name="line.140"></a>
+<span class="sourceLineNo">141</span>    final ArrayNumberer&lt;Kind&gt; kindNumberer;<a name="line.141"></a>
+<span class="sourceLineNo">142</span>    ArrayNumberer&lt;Type&gt; typeNumberer = new ArrayNumberer&lt;Type&gt;();<a name="line.142"></a>
+<span class="sourceLineNo">143</span>    ArrayNumberer&lt;SootMethod&gt; methodNumberer = new ArrayNumberer&lt;SootMethod&gt;();<a name="line.143"></a>
+<span class="sourceLineNo">144</span>    Numberer&lt;Unit&gt; unitNumberer = new MapNumberer&lt;Unit&gt;();<a name="line.144"></a>
+<span class="sourceLineNo">145</span>    Numberer&lt;Context&gt; contextNumberer = null;<a name="line.145"></a>
+<span class="sourceLineNo">146</span>    Numberer&lt;SparkField&gt; fieldNumberer = new ArrayNumberer&lt;SparkField&gt;();<a name="line.146"></a>
+<span class="sourceLineNo">147</span>    ArrayNumberer&lt;SootClass&gt; classNumberer = new ArrayNumberer&lt;SootClass&gt;();<a name="line.147"></a>
+<span class="sourceLineNo">148</span>    StringNumberer subSigNumberer = new StringNumberer();<a name="line.148"></a>
+<span class="sourceLineNo">149</span>    ArrayNumberer&lt;Local&gt; localNumberer = new ArrayNumberer&lt;Local&gt;();<a name="line.149"></a>
+<span class="sourceLineNo">150</span><a name="line.150"></a>
+<span class="sourceLineNo">151</span>    private Hierarchy activeHierarchy;<a name="line.151"></a>
+<span class="sourceLineNo">152</span>    private FastHierarchy activeFastHierarchy;<a name="line.152"></a>
+<span class="sourceLineNo">153</span>    private CallGraph activeCallGraph;<a name="line.153"></a>
+<span class="sourceLineNo">154</span>    private ReachableMethods reachableMethods;<a name="line.154"></a>
+<span class="sourceLineNo">155</span>    private PointsToAnalysis activePointsToAnalysis;<a name="line.155"></a>
+<span class="sourceLineNo">156</span>    private SideEffectAnalysis activeSideEffectAnalysis;<a name="line.156"></a>
+<span class="sourceLineNo">157</span>    private List&lt;SootMethod&gt; entryPoints;<a name="line.157"></a>
+<span class="sourceLineNo">158</span>    private ClientAccessibilityOracle accessibilityOracle;<a name="line.158"></a>
+<span class="sourceLineNo">159</span><a name="line.159"></a>
+<span class="sourceLineNo">160</span>    boolean allowsPhantomRefs = false;<a name="line.160"></a>
+<span class="sourceLineNo">161</span><a name="line.161"></a>
+<span class="sourceLineNo">162</span>    SootClass mainClass;<a name="line.162"></a>
+<span class="sourceLineNo">163</span>    String sootClassPath = null;<a name="line.163"></a>
+<span class="sourceLineNo">164</span><a name="line.164"></a>
+<span class="sourceLineNo">165</span>    // Two default values for constructing ExceptionalUnitGraphs:<a name="line.165"></a>
+<span class="sourceLineNo">166</span>    private ThrowAnalysis defaultThrowAnalysis = null;<a name="line.166"></a>
+<span class="sourceLineNo">167</span>    <a name="line.167"></a>
+<span class="sourceLineNo">168</span>    private int androidAPIVersion = -1;<a name="line.168"></a>
+<span class="sourceLineNo">169</span>    <a name="line.169"></a>
+<span class="sourceLineNo">170</span>    public void setMainClass(SootClass m)<a name="line.170"></a>
+<span class="sourceLineNo">171</span>    {<a name="line.171"></a>
+<span class="sourceLineNo">172</span>        mainClass = m;<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        if(!m.declaresMethod(getSubSigNumberer().findOrAdd( "void main(java.lang.String[])" ))) {<a name="line.173"></a>
+<span class="sourceLineNo">174</span>                throw new RuntimeException("Main-class has no main method!");<a name="line.174"></a>
+<span class="sourceLineNo">175</span>        }<a name="line.175"></a>
+<span class="sourceLineNo">176</span>    }<a name="line.176"></a>
+<span class="sourceLineNo">177</span>    <a name="line.177"></a>
+<span class="sourceLineNo">178</span>    Set&lt;String&gt; reservedNames = new HashSet&lt;String&gt;();<a name="line.178"></a>
+<span class="sourceLineNo">179</span>    <a name="line.179"></a>
+<span class="sourceLineNo">180</span>    /**<a name="line.180"></a>
+<span class="sourceLineNo">181</span>        Returns a set of tokens which are reserved.  Any field, class, method, or local variable with such a name will be quoted.<a name="line.181"></a>
+<span class="sourceLineNo">182</span>     */<a name="line.182"></a>
+<span class="sourceLineNo">183</span>     <a name="line.183"></a>
+<span class="sourceLineNo">184</span>    public Set&lt;String&gt; getReservedNames()<a name="line.184"></a>
+<span class="sourceLineNo">185</span>    {<a name="line.185"></a>
+<span class="sourceLineNo">186</span>        return reservedNames;<a name="line.186"></a>
+<span class="sourceLineNo">187</span>    }<a name="line.187"></a>
+<span class="sourceLineNo">188</span>    <a name="line.188"></a>
+<span class="sourceLineNo">189</span>    /**<a name="line.189"></a>
+<span class="sourceLineNo">190</span>     * If this name is in the set of reserved names, then return a quoted<a name="line.190"></a>
+<span class="sourceLineNo">191</span>     * version of it.  Else pass it through. If the name consists of multiple<a name="line.191"></a>
+<span class="sourceLineNo">192</span>     * parts separated by dots, the individual names are checked as well.<a name="line.192"></a>
+<span class="sourceLineNo">193</span>     */<a name="line.193"></a>
+<span class="sourceLineNo">194</span>    public String quotedNameOf(String s)<a name="line.194"></a>
+<span class="sourceLineNo">195</span>    {<a name="line.195"></a>
+<span class="sourceLineNo">196</span>        // Pre-check: Is there a chance that we need to escape something?<a name="line.196"></a>
+<span class="sourceLineNo">197</span>        // If not, skip the transformation altogether.<a name="line.197"></a>
+<span class="sourceLineNo">198</span>        boolean found = s.contains("-");<a name="line.198"></a>
+<span class="sourceLineNo">199</span>        for (String token : reservedNames)<a name="line.199"></a>
+<span class="sourceLineNo">200</span>                if (s.contains(token)) {<a name="line.200"></a>
+<span class="sourceLineNo">201</span>                        found = true;<a name="line.201"></a>
+<span class="sourceLineNo">202</span>                        break;<a name="line.202"></a>
+<span class="sourceLineNo">203</span>                }<a name="line.203"></a>
+<span class="sourceLineNo">204</span>        if (!found)<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                return s;<a name="line.205"></a>
+<span class="sourceLineNo">206</span>        <a name="line.206"></a>
+<span class="sourceLineNo">207</span>        StringBuilder res = new StringBuilder(s.length());<a name="line.207"></a>
+<span class="sourceLineNo">208</span>        for (String part : s.split("\\.")) {<a name="line.208"></a>
+<span class="sourceLineNo">209</span>                if (res.length() &gt; 0)<a name="line.209"></a>
+<span class="sourceLineNo">210</span>                        res.append('.');<a name="line.210"></a>
+<span class="sourceLineNo">211</span>                if(part.startsWith("-") || reservedNames.contains(part)) {<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                    res.append('\'');<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                    res.append(part);<a name="line.213"></a>
+<span class="sourceLineNo">214</span>                    res.append('\'');<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                }<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                else<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                    res.append(part);<a name="line.217"></a>
+<span class="sourceLineNo">218</span>        }<a name="line.218"></a>
+<span class="sourceLineNo">219</span>        return res.toString();<a name="line.219"></a>
+<span class="sourceLineNo">220</span>    }<a name="line.220"></a>
+<span class="sourceLineNo">221</span>    <a name="line.221"></a>
+<span class="sourceLineNo">222</span>    /**<a name="line.222"></a>
+<span class="sourceLineNo">223</span>     * This method is the inverse of quotedNameOf(). It takes a possible escaped<a name="line.223"></a>
+<span class="sourceLineNo">224</span>     * class and reconstructs the original version of it.<a name="line.224"></a>
+<span class="sourceLineNo">225</span>     * @param s The possibly escaped name<a name="line.225"></a>
+<span class="sourceLineNo">226</span>     * @return The original, non-escaped name<a name="line.226"></a>
+<span class="sourceLineNo">227</span>     */<a name="line.227"></a>
+<span class="sourceLineNo">228</span>    public String unescapeName(String s) {<a name="line.228"></a>
+<span class="sourceLineNo">229</span>        // If the name is not escaped, there is nothing to do here<a name="line.229"></a>
+<span class="sourceLineNo">230</span>        if (!s.contains("'"))<a name="line.230"></a>
+<span class="sourceLineNo">231</span>                return s;<a name="line.231"></a>
+<span class="sourceLineNo">232</span>        <a name="line.232"></a>
+<span class="sourceLineNo">233</span>        StringBuilder res = new StringBuilder(s.length());<a name="line.233"></a>
+<span class="sourceLineNo">234</span>        for (String part : s.split("\\.")) {<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                if (res.length() &gt; 0)<a name="line.235"></a>
+<span class="sourceLineNo">236</span>                        res.append('.');<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                if(part.startsWith("'") &amp;&amp; part.endsWith("'")) {<a name="line.237"></a>
+<span class="sourceLineNo">238</span>                    res.append(part.substring(1, part.length() - 1));<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                }<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                else<a name="line.240"></a>
+<span class="sourceLineNo">241</span>                    res.append(part);<a name="line.241"></a>
+<span class="sourceLineNo">242</span>        }<a name="line.242"></a>
+<span class="sourceLineNo">243</span>        return res.toString();<a name="line.243"></a>
+<span class="sourceLineNo">244</span>    }<a name="line.244"></a>
+<span class="sourceLineNo">245</span>    <a name="line.245"></a>
+<span class="sourceLineNo">246</span>    public boolean hasMainClass() {<a name="line.246"></a>
+<span class="sourceLineNo">247</span>        if(mainClass == null) {<a name="line.247"></a>
+<span class="sourceLineNo">248</span>                setMainClassFromOptions();<a name="line.248"></a>
+<span class="sourceLineNo">249</span>        }<a name="line.249"></a>
+<span class="sourceLineNo">250</span>        return mainClass!=null;<a name="line.250"></a>
+<span class="sourceLineNo">251</span>    }<a name="line.251"></a>
+<span class="sourceLineNo">252</span>    <a name="line.252"></a>
+<span class="sourceLineNo">253</span>    public SootClass getMainClass()<a name="line.253"></a>
+<span class="sourceLineNo">254</span>    {<a name="line.254"></a>
+<span class="sourceLineNo">255</span>        if(!hasMainClass())<a name="line.255"></a>
+<span class="sourceLineNo">256</span>            throw new RuntimeException("There is no main class set!");<a name="line.256"></a>
+<span class="sourceLineNo">257</span>            <a name="line.257"></a>
+<span class="sourceLineNo">258</span>        return mainClass;<a name="line.258"></a>
+<span class="sourceLineNo">259</span>    }<a name="line.259"></a>
+<span class="sourceLineNo">260</span>    <a name="line.260"></a>
+<span class="sourceLineNo">261</span>    public SootMethod getMainMethod() {<a name="line.261"></a>
+<span class="sourceLineNo">262</span>        if(!hasMainClass()) {<a name="line.262"></a>
+<span class="sourceLineNo">263</span>            throw new RuntimeException("There is no main class set!");<a name="line.263"></a>
+<span class="sourceLineNo">264</span>        }<a name="line.264"></a>
+<span class="sourceLineNo">265</span>        <a name="line.265"></a>
+<span class="sourceLineNo">266</span>        SootMethod mainMethod = mainClass.getMethodUnsafe("main",<a name="line.266"></a>
+<span class="sourceLineNo">267</span>                        Collections.&lt;Type&gt;singletonList( ArrayType.v(RefType.v("java.lang.String"), 1) ),<a name="line.267"></a>
+<span class="sourceLineNo">268</span>                        VoidType.v());<a name="line.268"></a>
+<span class="sourceLineNo">269</span>        if (mainMethod == null) {<a name="line.269"></a>
+<span class="sourceLineNo">270</span>            throw new RuntimeException("Main class declares no main method!");<a name="line.270"></a>
+<span class="sourceLineNo">271</span>        }<a name="line.271"></a>
+<span class="sourceLineNo">272</span>        return mainMethod;   <a name="line.272"></a>
+<span class="sourceLineNo">273</span>    }<a name="line.273"></a>
+<span class="sourceLineNo">274</span>    <a name="line.274"></a>
+<span class="sourceLineNo">275</span>    <a name="line.275"></a>
+<span class="sourceLineNo">276</span>    public void setSootClassPath(String p)<a name="line.276"></a>
+<span class="sourceLineNo">277</span>    {<a name="line.277"></a>
+<span class="sourceLineNo">278</span>        sootClassPath = p;<a name="line.278"></a>
+<span class="sourceLineNo">279</span>        SourceLocator.v().invalidateClassPath();<a name="line.279"></a>
+<span class="sourceLineNo">280</span>    }<a name="line.280"></a>
+<span class="sourceLineNo">281</span>    <a name="line.281"></a>
+<span class="sourceLineNo">282</span>    public String getSootClassPath()<a name="line.282"></a>
+<span class="sourceLineNo">283</span>    {<a name="line.283"></a>
+<span class="sourceLineNo">284</span>        if( sootClassPath == null ) {<a name="line.284"></a>
+<span class="sourceLineNo">285</span>            String optionscp = Options.v().soot_classpath();<a name="line.285"></a>
+<span class="sourceLineNo">286</span>            if( optionscp != null &amp;&amp; optionscp.length() &gt; 0 )<a name="line.286"></a>
+<span class="sourceLineNo">287</span>                sootClassPath = optionscp;<a name="line.287"></a>
+<span class="sourceLineNo">288</span>            <a name="line.288"></a>
+<span class="sourceLineNo">289</span>                //if no classpath is given on the command line, take the default<a name="line.289"></a>
+<span class="sourceLineNo">290</span>                if( sootClassPath == null || sootClassPath.isEmpty() ) {<a name="line.290"></a>
+<span class="sourceLineNo">291</span>                        sootClassPath = defaultClassPath();<a name="line.291"></a>
+<span class="sourceLineNo">292</span>                } else {<a name="line.292"></a>
+<span class="sourceLineNo">293</span>                        //if one is given...<a name="line.293"></a>
+<span class="sourceLineNo">294</span>                    if(Options.v().prepend_classpath()) {<a name="line.294"></a>
+<span class="sourceLineNo">295</span>                        //if the prepend flag is set, append the default classpath<a name="line.295"></a>
+<span class="sourceLineNo">296</span>                        sootClassPath += File.pathSeparator + defaultClassPath();<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                    } <a name="line.297"></a>
+<span class="sourceLineNo">298</span>                    //else, leave it as it is<a name="line.298"></a>
+<span class="sourceLineNo">299</span>                }   <a name="line.299"></a>
+<span class="sourceLineNo">300</span>                <a name="line.300"></a>
+<span class="sourceLineNo">301</span>                //add process-dirs<a name="line.301"></a>
+<span class="sourceLineNo">302</span>                List&lt;String&gt; process_dir = Options.v().process_dir();<a name="line.302"></a>
+<span class="sourceLineNo">303</span>                StringBuffer pds = new StringBuffer();<a name="line.303"></a>
+<span class="sourceLineNo">304</span>                for (String path : process_dir) {<a name="line.304"></a>
+<span class="sourceLineNo">305</span>                        if(!sootClassPath.contains(path)) {<a name="line.305"></a>
+<span class="sourceLineNo">306</span>                                pds.append(path);<a name="line.306"></a>
+<span class="sourceLineNo">307</span>                                pds.append(File.pathSeparator);<a name="line.307"></a>
+<span class="sourceLineNo">308</span>                        }<a name="line.308"></a>
+<span class="sourceLineNo">309</span>                        }<a name="line.309"></a>
+<span class="sourceLineNo">310</span>                sootClassPath = pds + sootClassPath;<a name="line.310"></a>
+<span class="sourceLineNo">311</span>        }<a name="line.311"></a>
+<span class="sourceLineNo">312</span><a name="line.312"></a>
+<span class="sourceLineNo">313</span><a name="line.313"></a>
+<span class="sourceLineNo">314</span><a name="line.314"></a>
+<span class="sourceLineNo">315</span>        return sootClassPath;<a name="line.315"></a>
+<span class="sourceLineNo">316</span>    }<a name="line.316"></a>
+<span class="sourceLineNo">317</span><a name="line.317"></a>
+<span class="sourceLineNo">318</span>    /**<a name="line.318"></a>
+<span class="sourceLineNo">319</span>     * Returns the max Android API version number available<a name="line.319"></a>
+<span class="sourceLineNo">320</span>     * in directory 'dir'<a name="line.320"></a>
+<span class="sourceLineNo">321</span>     * @param dir<a name="line.321"></a>
+<span class="sourceLineNo">322</span>     * @return<a name="line.322"></a>
+<span class="sourceLineNo">323</span>     */<a name="line.323"></a>
+<span class="sourceLineNo">324</span>    private int getMaxAPIAvailable(String dir) {<a name="line.324"></a>
+<span class="sourceLineNo">325</span>        Integer mapi = this.maxAPIs.get(dir);<a name="line.325"></a>
+<span class="sourceLineNo">326</span>        if (mapi != null)<a name="line.326"></a>
+<span class="sourceLineNo">327</span>                return mapi;<a name="line.327"></a>
+<span class="sourceLineNo">328</span>        <a name="line.328"></a>
+<span class="sourceLineNo">329</span>        File d = new File(dir);<a name="line.329"></a>
+<span class="sourceLineNo">330</span>        if (!d.exists())<a name="line.330"></a>
+<span class="sourceLineNo">331</span>                throw new RuntimeException("The Android platform directory you have"<a name="line.331"></a>
+<span class="sourceLineNo">332</span>                                + "specified (" + dir + ") does not exist. Please check.");<a name="line.332"></a>
+<span class="sourceLineNo">333</span>        <a name="line.333"></a>
+<span class="sourceLineNo">334</span>        File[] files = d.listFiles();<a name="line.334"></a>
+<span class="sourceLineNo">335</span>        if (files == null)<a name="line.335"></a>
+<span class="sourceLineNo">336</span>                return -1;<a name="line.336"></a>
+<span class="sourceLineNo">337</span>        <a name="line.337"></a>
+<span class="sourceLineNo">338</span>        int maxApi = -1;<a name="line.338"></a>
+<span class="sourceLineNo">339</span>        for (File f: files) {<a name="line.339"></a>
+<span class="sourceLineNo">340</span>            String name = f.getName();<a name="line.340"></a>
+<span class="sourceLineNo">341</span>            if (f.isDirectory() &amp;&amp; name.startsWith("android-")) {<a name="line.341"></a>
+<span class="sourceLineNo">342</span>                try {<a name="line.342"></a>
+<span class="sourceLineNo">343</span>                int v = Integer.decode(name.split("android-")[1]);<a name="line.343"></a>
+<span class="sourceLineNo">344</span>                if (v &gt; maxApi)<a name="line.344"></a>
+<span class="sourceLineNo">345</span>                    maxApi = v;<a name="line.345"></a>
+<span class="sourceLineNo">346</span>                }<a name="line.346"></a>
+<span class="sourceLineNo">347</span>                catch (NumberFormatException ex) {<a name="line.347"></a>
+<span class="sourceLineNo">348</span>                        // We simply ignore directories that do not follow the<a name="line.348"></a>
+<span class="sourceLineNo">349</span>                        // Android naming structure<a name="line.349"></a>
+<span class="sourceLineNo">350</span>                }<a name="line.350"></a>
+<span class="sourceLineNo">351</span>            }<a name="line.351"></a>
+<span class="sourceLineNo">352</span>        }<a name="line.352"></a>
+<span class="sourceLineNo">353</span>        this.maxAPIs.put(dir, maxApi);<a name="line.353"></a>
+<span class="sourceLineNo">354</span>        return maxApi;<a name="line.354"></a>
+<span class="sourceLineNo">355</span>    }<a name="line.355"></a>
+<span class="sourceLineNo">356</span><a name="line.356"></a>
+<span class="sourceLineNo">357</span>        public String getAndroidJarPath(String jars, String apk) {<a name="line.357"></a>
+<span class="sourceLineNo">358</span>                int APIVersion = getAndroidAPIVersion(jars,apk);<a name="line.358"></a>
+<span class="sourceLineNo">359</span><a name="line.359"></a>
+<span class="sourceLineNo">360</span>                String jarPath = jars + File.separator + "android-" + APIVersion + File.separator + "android.jar";<a name="line.360"></a>
+<span class="sourceLineNo">361</span><a name="line.361"></a>
+<span class="sourceLineNo">362</span>                // check that jar exists<a name="line.362"></a>
+<span class="sourceLineNo">363</span>                File f = new File(jarPath);<a name="line.363"></a>
+<span class="sourceLineNo">364</span>                if (!f.isFile())<a name="line.364"></a>
+<span class="sourceLineNo">365</span>                    throw new RuntimeException("error: target android.jar ("+ jarPath +") does not exist.");<a name="line.365"></a>
+<span class="sourceLineNo">366</span><a name="line.366"></a>
+<span class="sourceLineNo">367</span>                return jarPath;<a name="line.367"></a>
+<span class="sourceLineNo">368</span>        }<a name="line.368"></a>
+<span class="sourceLineNo">369</span>        <a name="line.369"></a>
+<span class="sourceLineNo">370</span>        public int getAndroidAPIVersion() {<a name="line.370"></a>
+<span class="sourceLineNo">371</span>                return androidAPIVersion &gt; 0 ? androidAPIVersion : (Options.v().android_api_version() &gt; 0 <a name="line.371"></a>
+<span class="sourceLineNo">372</span>                                ? Options.v().android_api_version() : defaultSdkVersion);<a name="line.372"></a>
+<span class="sourceLineNo">373</span>        }<a name="line.373"></a>
+<span class="sourceLineNo">374</span><a name="line.374"></a>
+<span class="sourceLineNo">375</span>        private int getAndroidAPIVersion(String jars, String apk) {<a name="line.375"></a>
+<span class="sourceLineNo">376</span>                // Do we already have an API version?<a name="line.376"></a>
+<span class="sourceLineNo">377</span>                if (androidAPIVersion &gt; 0)<a name="line.377"></a>
+<span class="sourceLineNo">378</span>                        return androidAPIVersion;<a name="line.378"></a>
+<span class="sourceLineNo">379</span>                <a name="line.379"></a>
+<span class="sourceLineNo">380</span>                // get path to appropriate android.jar<a name="line.380"></a>
+<span class="sourceLineNo">381</span>                File jarsF = new File(jars);<a name="line.381"></a>
+<span class="sourceLineNo">382</span>                File apkF = apk == null ? null : new File(apk);<a name="line.382"></a>
+<span class="sourceLineNo">383</span><a name="line.383"></a>
+<span class="sourceLineNo">384</span>                if (!jarsF.exists())<a name="line.384"></a>
+<span class="sourceLineNo">385</span>                        throw new RuntimeException("file '" + jars + "' does not exist!");<a name="line.385"></a>
+<span class="sourceLineNo">386</span><a name="line.386"></a>
+<span class="sourceLineNo">387</span>                if (apkF != null &amp;&amp; !apkF.exists())<a name="line.387"></a>
+<span class="sourceLineNo">388</span>                        throw new RuntimeException("file '" + apk + "' does not exist!");<a name="line.388"></a>
+<span class="sourceLineNo">389</span><a name="line.389"></a>
+<span class="sourceLineNo">390</span>                // Use the default if we don't have any other information<a name="line.390"></a>
+<span class="sourceLineNo">391</span>                androidAPIVersion = defaultSdkVersion;<a name="line.391"></a>
+<span class="sourceLineNo">392</span><a name="line.392"></a>
+<span class="sourceLineNo">393</span>                // Do we have an explicit API version?<a name="line.393"></a>
+<span class="sourceLineNo">394</span>                if (Options.v().android_api_version() &gt; 0)<a name="line.394"></a>
+<span class="sourceLineNo">395</span>                        androidAPIVersion = Options.v().android_api_version();<a name="line.395"></a>
+<span class="sourceLineNo">396</span>                // Look into the manifest file<a name="line.396"></a>
+<span class="sourceLineNo">397</span>                else if (apk != null)<a name="line.397"></a>
+<span class="sourceLineNo">398</span>                        if (apk.toLowerCase().endsWith(".apk"))<a name="line.398"></a>
+<span class="sourceLineNo">399</span>                                androidAPIVersion = getTargetSDKVersion(apk, jars);<a name="line.399"></a>
+<span class="sourceLineNo">400</span>                <a name="line.400"></a>
+<span class="sourceLineNo">401</span>                // If we don't have that API version installed, we take the most recent<a name="line.401"></a>
+<span class="sourceLineNo">402</span>                // one we have<a name="line.402"></a>
+<span class="sourceLineNo">403</span>                final int maxAPI = getMaxAPIAvailable(jars);<a name="line.403"></a>
+<span class="sourceLineNo">404</span>                if (androidAPIVersion &gt; maxAPI)<a name="line.404"></a>
+<span class="sourceLineNo">405</span>                        androidAPIVersion = maxAPI;<a name="line.405"></a>
+<span class="sourceLineNo">406</span>                <a name="line.406"></a>
+<span class="sourceLineNo">407</span>                return androidAPIVersion;<a name="line.407"></a>
+<span class="sourceLineNo">408</span>        }<a name="line.408"></a>
+<span class="sourceLineNo">409</span>        <a name="line.409"></a>
+<span class="sourceLineNo">410</span>        private int getTargetSDKVersion(String apkFile, String platformJARs) {<a name="line.410"></a>
+<span class="sourceLineNo">411</span>                // get AndroidManifest<a name="line.411"></a>
+<span class="sourceLineNo">412</span>                InputStream manifestIS = null;<a name="line.412"></a>
+<span class="sourceLineNo">413</span>                ZipFile archive = null;<a name="line.413"></a>
+<span class="sourceLineNo">414</span>                try {<a name="line.414"></a>
+<span class="sourceLineNo">415</span>                        try {<a name="line.415"></a>
+<span class="sourceLineNo">416</span>                                archive = new ZipFile(apkFile);<a name="line.416"></a>
+<span class="sourceLineNo">417</span>                                for (Enumeration&lt;? extends ZipEntry&gt; entries = archive.entries(); entries.hasMoreElements();) {<a name="line.417"></a>
+<span class="sourceLineNo">418</span>                                        ZipEntry entry = entries.nextElement();<a name="line.418"></a>
+<span class="sourceLineNo">419</span>                                        String entryName = entry.getName();<a name="line.419"></a>
+<span class="sourceLineNo">420</span>                                        // We are dealing with the Android manifest<a name="line.420"></a>
+<span class="sourceLineNo">421</span>                                        if (entryName.equals("AndroidManifest.xml")) {<a name="line.421"></a>
+<span class="sourceLineNo">422</span>                                                manifestIS = archive.getInputStream(entry);<a name="line.422"></a>
+<span class="sourceLineNo">423</span>                                                break;<a name="line.423"></a>
+<span class="sourceLineNo">424</span>                                        }<a name="line.424"></a>
+<span class="sourceLineNo">425</span>                                }<a name="line.425"></a>
+<span class="sourceLineNo">426</span>                        } catch (Exception e) {<a name="line.426"></a>
+<span class="sourceLineNo">427</span>                                throw new RuntimeException("Error when looking for manifest in apk: " + e);<a name="line.427"></a>
+<span class="sourceLineNo">428</span>                        }<a name="line.428"></a>
+<span class="sourceLineNo">429</span>                <a name="line.429"></a>
+<span class="sourceLineNo">430</span>                if (manifestIS == null) {<a name="line.430"></a>
+<span class="sourceLineNo">431</span>                        G.v().out.println("Could not find sdk version in Android manifest! Using default: "+defaultSdkVersion);<a name="line.431"></a>
+<span class="sourceLineNo">432</span>                        return defaultSdkVersion;<a name="line.432"></a>
+<span class="sourceLineNo">433</span>                }<a name="line.433"></a>
+<span class="sourceLineNo">434</span>                <a name="line.434"></a>
+<span class="sourceLineNo">435</span>                // process AndroidManifest.xml<a name="line.435"></a>
+<span class="sourceLineNo">436</span>                int maxAPI = getMaxAPIAvailable(platformJARs);<a name="line.436"></a>
+<span class="sourceLineNo">437</span>                int sdkTargetVersion = -1;<a name="line.437"></a>
+<span class="sourceLineNo">438</span>                int minSdkVersion = -1;<a name="line.438"></a>
+<span class="sourceLineNo">439</span>                int platformBuildVersionCode = -1;<a name="line.439"></a>
+<span class="sourceLineNo">440</span>                try {<a name="line.440"></a>
+<span class="sourceLineNo">441</span>                        AXmlResourceParser parser = new AXmlResourceParser();<a name="line.441"></a>
+<span class="sourceLineNo">442</span>                        parser.open(manifestIS);<a name="line.442"></a>
+<span class="sourceLineNo">443</span>                        int depth = 0;<a name="line.443"></a>
+<span class="sourceLineNo">444</span>                        loop: while (true) {<a name="line.444"></a>
+<span class="sourceLineNo">445</span>                                int type = parser.next();<a name="line.445"></a>
+<span class="sourceLineNo">446</span>                                switch (type) {<a name="line.446"></a>
+<span class="sourceLineNo">447</span>                                        case XmlPullParser.START_DOCUMENT: {<a name="line.447"></a>
+<span class="sourceLineNo">448</span>                                                break;<a name="line.448"></a>
+<span class="sourceLineNo">449</span>                                        }<a name="line.449"></a>
+<span class="sourceLineNo">450</span>                                        case XmlPullParser.END_DOCUMENT:<a name="line.450"></a>
+<span class="sourceLineNo">451</span>                                                break loop;<a name="line.451"></a>
+<span class="sourceLineNo">452</span>                                        case XmlPullParser.START_TAG: {<a name="line.452"></a>
+<span class="sourceLineNo">453</span>                                                depth++;<a name="line.453"></a>
+<span class="sourceLineNo">454</span>                                                String tagName = parser.getName();<a name="line.454"></a>
+<span class="sourceLineNo">455</span>                                                if (depth == 1 &amp;&amp; tagName.equals("manifest")) {<a name="line.455"></a>
+<span class="sourceLineNo">456</span>                                                        for (int i = 0; i != parser.getAttributeCount(); ++i) {<a name="line.456"></a>
+<span class="sourceLineNo">457</span>                                                                String attributeName = parser.getAttributeName(i);<a name="line.457"></a>
+<span class="sourceLineNo">458</span>                                                                String attributeValue = AXMLPrinter.getAttributeValue(parser, i);<a name="line.458"></a>
+<span class="sourceLineNo">459</span>                                                                if (attributeName.equals("platformBuildVersionCode")) {<a name="line.459"></a>
+<span class="sourceLineNo">460</span>                                                                        platformBuildVersionCode = Integer.parseInt(attributeValue);<a name="line.460"></a>
+<span class="sourceLineNo">461</span>                                                                }<a name="line.461"></a>
+<span class="sourceLineNo">462</span>                                                        }<a name="line.462"></a>
+<span class="sourceLineNo">463</span>                                                }<a name="line.463"></a>
+<span class="sourceLineNo">464</span>                                                else if (depth == 2 &amp;&amp; tagName.equals("uses-sdk")) {<a name="line.464"></a>
+<span class="sourceLineNo">465</span>                                                        for (int i = 0; i != parser.getAttributeCount(); ++i) {<a name="line.465"></a>
+<span class="sourceLineNo">466</span>                                                                String attributeName = parser.getAttributeName(i);<a name="line.466"></a>
+<span class="sourceLineNo">467</span>                                                                String attributeValue = AXMLPrinter.getAttributeValue(parser, i);<a name="line.467"></a>
+<span class="sourceLineNo">468</span>                                                                if (attributeName.equals("targetSdkVersion")) {<a name="line.468"></a>
+<span class="sourceLineNo">469</span>                                                                        sdkTargetVersion = Integer.parseInt(attributeValue);<a name="line.469"></a>
+<span class="sourceLineNo">470</span>                                                                } else if (attributeName.equals("minSdkVersion")) {<a name="line.470"></a>
+<span class="sourceLineNo">471</span>                                                                        minSdkVersion = Integer.parseInt(attributeValue);<a name="line.471"></a>
+<span class="sourceLineNo">472</span>                                                                }<a name="line.472"></a>
+<span class="sourceLineNo">473</span>                                                        }<a name="line.473"></a>
+<span class="sourceLineNo">474</span>                                                }<a name="line.474"></a>
+<span class="sourceLineNo">475</span>                                                break;<a name="line.475"></a>
+<span class="sourceLineNo">476</span>                                        }<a name="line.476"></a>
+<span class="sourceLineNo">477</span>                                        case XmlPullParser.END_TAG:<a name="line.477"></a>
+<span class="sourceLineNo">478</span>                                                depth--;<a name="line.478"></a>
+<span class="sourceLineNo">479</span>                                                break;<a name="line.479"></a>
+<span class="sourceLineNo">480</span>                                        case XmlPullParser.TEXT:<a name="line.480"></a>
+<span class="sourceLineNo">481</span>                                                break;<a name="line.481"></a>
+<span class="sourceLineNo">482</span>                                        }<a name="line.482"></a>
+<span class="sourceLineNo">483</span>                                }<a name="line.483"></a>
+<span class="sourceLineNo">484</span>                        } catch (Exception e) {<a name="line.484"></a>
+<span class="sourceLineNo">485</span>                                e.printStackTrace();<a name="line.485"></a>
+<span class="sourceLineNo">486</span>                        }<a name="line.486"></a>
+<span class="sourceLineNo">487</span>                <a name="line.487"></a>
+<span class="sourceLineNo">488</span>                        int APIVersion = -1;<a name="line.488"></a>
+<span class="sourceLineNo">489</span>                        if (sdkTargetVersion != -1) {<a name="line.489"></a>
+<span class="sourceLineNo">490</span>                            if (sdkTargetVersion &gt; maxAPI<a name="line.490"></a>
+<span class="sourceLineNo">491</span>                                    &amp;&amp; minSdkVersion != -1<a name="line.491"></a>
+<span class="sourceLineNo">492</span>                                    &amp;&amp; minSdkVersion &lt;= maxAPI) {<a name="line.492"></a>
+<span class="sourceLineNo">493</span>                                G.v().out.println("warning: Android API version '"+ sdkTargetVersion +"' not available, using minApkVersion '"+ minSdkVersion +"' instead");<a name="line.493"></a>
+<span class="sourceLineNo">494</span>                                APIVersion = minSdkVersion;<a name="line.494"></a>
+<span class="sourceLineNo">495</span>                            } else {<a name="line.495"></a>
+<span class="sourceLineNo">496</span>                                APIVersion = sdkTargetVersion;<a name="line.496"></a>
+<span class="sourceLineNo">497</span>                            }<a name="line.497"></a>
+<span class="sourceLineNo">498</span>                        } else if (platformBuildVersionCode != -1) {<a name="line.498"></a>
+<span class="sourceLineNo">499</span>                            if (platformBuildVersionCode &gt; maxAPI<a name="line.499"></a>
+<span class="sourceLineNo">500</span>                                    &amp;&amp; minSdkVersion != -1<a name="line.500"></a>
+<span class="sourceLineNo">501</span>                                    &amp;&amp; minSdkVersion &lt;= maxAPI) {<a name="line.501"></a>
+<span class="sourceLineNo">502</span>                                G.v().out.println("warning: Android API version '"+ platformBuildVersionCode +"' not available, using minApkVersion '"+ minSdkVersion +"' instead");<a name="line.502"></a>
+<span class="sourceLineNo">503</span>                                APIVersion = minSdkVersion;<a name="line.503"></a>
+<span class="sourceLineNo">504</span>                            } else {<a name="line.504"></a>
+<span class="sourceLineNo">505</span>                                APIVersion = platformBuildVersionCode;<a name="line.505"></a>
+<span class="sourceLineNo">506</span>                            }<a name="line.506"></a>
+<span class="sourceLineNo">507</span>                        } else if (minSdkVersion != -1) {<a name="line.507"></a>
+<span class="sourceLineNo">508</span>                                APIVersion = minSdkVersion;<a name="line.508"></a>
+<span class="sourceLineNo">509</span>                        } else {<a name="line.509"></a>
+<span class="sourceLineNo">510</span>                                G.v().out.println("Could not find sdk version in Android manifest! Using default: "+defaultSdkVersion);<a name="line.510"></a>
+<span class="sourceLineNo">511</span>                                APIVersion = defaultSdkVersion;<a name="line.511"></a>
+<span class="sourceLineNo">512</span>                        }<a name="line.512"></a>
+<span class="sourceLineNo">513</span>                        <a name="line.513"></a>
+<span class="sourceLineNo">514</span>                        if (APIVersion &lt;= 2)<a name="line.514"></a>
+<span class="sourceLineNo">515</span>                                        APIVersion = 3;<a name="line.515"></a>
+<span class="sourceLineNo">516</span>                        return APIVersion;<a name="line.516"></a>
+<span class="sourceLineNo">517</span>                }<a name="line.517"></a>
+<span class="sourceLineNo">518</span>                finally {<a name="line.518"></a>
+<span class="sourceLineNo">519</span>                        if (archive != null)<a name="line.519"></a>
+<span class="sourceLineNo">520</span>                                try {<a name="line.520"></a>
+<span class="sourceLineNo">521</span>                                        archive.close();<a name="line.521"></a>
+<span class="sourceLineNo">522</span>                                } catch (IOException e) {<a name="line.522"></a>
+<span class="sourceLineNo">523</span>                                        throw new RuntimeException("Error when looking for manifest in apk: " + e);<a name="line.523"></a>
+<span class="sourceLineNo">524</span>                                }<a name="line.524"></a>
+<span class="sourceLineNo">525</span>                }<a name="line.525"></a>
+<span class="sourceLineNo">526</span>        }<a name="line.526"></a>
+<span class="sourceLineNo">527</span><a name="line.527"></a>
+<span class="sourceLineNo">528</span>        public String defaultClassPath() {<a name="line.528"></a>
+<span class="sourceLineNo">529</span>                // If we have an apk file on the process dir and do not have a src-prec option<a name="line.529"></a>
+<span class="sourceLineNo">530</span>                // that loads APK files, we give a warning<a name="line.530"></a>
+<span class="sourceLineNo">531</span>                if (Options.v().src_prec() != Options.src_prec_apk) {<a name="line.531"></a>
+<span class="sourceLineNo">532</span>                        for (String entry : Options.v().process_dir()) {<a name="line.532"></a>
+<span class="sourceLineNo">533</span>                                if (entry.toLowerCase().endsWith(".apk")) {<a name="line.533"></a>
+<span class="sourceLineNo">534</span>                                        System.err.println("APK file on process dir, but chosen src-prec does not support loading APKs");<a name="line.534"></a>
+<span class="sourceLineNo">535</span>                                        break;<a name="line.535"></a>
+<span class="sourceLineNo">536</span>                                }<a name="line.536"></a>
+<span class="sourceLineNo">537</span>                        }<a name="line.537"></a>
+<span class="sourceLineNo">538</span>                }<a name="line.538"></a>
+<span class="sourceLineNo">539</span>                <a name="line.539"></a>
+<span class="sourceLineNo">540</span>                if (Options.v().src_prec() == Options.src_prec_apk)<a name="line.540"></a>
+<span class="sourceLineNo">541</span>                        return defaultAndroidClassPath();<a name="line.541"></a>
+<span class="sourceLineNo">542</span>                else<a name="line.542"></a>
+<span class="sourceLineNo">543</span>                        return defaultJavaClassPath();<a name="line.543"></a>
+<span class="sourceLineNo">544</span>        }<a name="line.544"></a>
+<span class="sourceLineNo">545</span><a name="line.545"></a>
+<span class="sourceLineNo">546</span><a name="line.546"></a>
+<span class="sourceLineNo">547</span>    private String defaultAndroidClassPath() {<a name="line.547"></a>
+<span class="sourceLineNo">548</span>                // check that android.jar is not in classpath<a name="line.548"></a>
+<span class="sourceLineNo">549</span>                String androidJars = Options.v().android_jars();<a name="line.549"></a>
+<span class="sourceLineNo">550</span>                String forceAndroidJar = Options.v().force_android_jar();<a name="line.550"></a>
+<span class="sourceLineNo">551</span>                if ((androidJars == null || androidJars.equals(""))<a name="line.551"></a>
+<span class="sourceLineNo">552</span>                                &amp;&amp; (forceAndroidJar == null || forceAndroidJar.equals(""))) {<a name="line.552"></a>
+<span class="sourceLineNo">553</span>                        throw new RuntimeException("You are analyzing an Android application but did "<a name="line.553"></a>
+<span class="sourceLineNo">554</span>                                        + "not define android.jar. Options -android-jars or -force-android-jar should be used.");<a name="line.554"></a>
+<span class="sourceLineNo">555</span>                }<a name="line.555"></a>
+<span class="sourceLineNo">556</span>                <a name="line.556"></a>
+<span class="sourceLineNo">557</span>                // Get the platform JAR file. It either directly specified, or<a name="line.557"></a>
+<span class="sourceLineNo">558</span>                // we detect it from the target version of the APK we are<a name="line.558"></a>
+<span class="sourceLineNo">559</span>                // analyzing<a name="line.559"></a>
+<span class="sourceLineNo">560</span>                String jarPath = "";<a name="line.560"></a>
+<span class="sourceLineNo">561</span>                if (forceAndroidJar != null &amp;&amp; !forceAndroidJar.isEmpty()) {<a name="line.561"></a>
+<span class="sourceLineNo">562</span>                        jarPath = forceAndroidJar;<a name="line.562"></a>
+<span class="sourceLineNo">563</span>                        <a name="line.563"></a>
+<span class="sourceLineNo">564</span>                        if (Options.v().android_api_version() &gt; 0)<a name="line.564"></a>
+<span class="sourceLineNo">565</span>                                androidAPIVersion = Options.v().android_api_version();<a name="line.565"></a>
+<span class="sourceLineNo">566</span>                        else if (forceAndroidJar.contains("android-")) {<a name="line.566"></a>
+<span class="sourceLineNo">567</span>                                Pattern pt = Pattern.compile("\\" + File.separatorChar + "android-(\\d+)"<a name="line.567"></a>
+<span class="sourceLineNo">568</span>                                                + "\\" + File.separatorChar);<a name="line.568"></a>
+<span class="sourceLineNo">569</span>                                Matcher m = pt.matcher(forceAndroidJar);<a name="line.569"></a>
+<span class="sourceLineNo">570</span>                                if (m.find())<a name="line.570"></a>
+<span class="sourceLineNo">571</span>                                        androidAPIVersion = Integer.valueOf(m.group(1));<a name="line.571"></a>
+<span class="sourceLineNo">572</span>                        }<a name="line.572"></a>
+<span class="sourceLineNo">573</span>                        else<a name="line.573"></a>
+<span class="sourceLineNo">574</span>                                androidAPIVersion = defaultSdkVersion;<a name="line.574"></a>
+<span class="sourceLineNo">575</span>                }<a name="line.575"></a>
+<span class="sourceLineNo">576</span>                else if (androidJars != null &amp;&amp; !androidJars.isEmpty()) {<a name="line.576"></a>
+<span class="sourceLineNo">577</span>                        List&lt;String&gt; classPathEntries = new LinkedList&lt;String&gt;(Arrays.asList(<a name="line.577"></a>
+<span class="sourceLineNo">578</span>                                        Options.v().soot_classpath().split(File.pathSeparator)));<a name="line.578"></a>
+<span class="sourceLineNo">579</span>                        classPathEntries.addAll(Options.v().process_dir());<a name="line.579"></a>
+<span class="sourceLineNo">580</span>                        <a name="line.580"></a>
+<span class="sourceLineNo">581</span>                        String targetApk = "";<a name="line.581"></a>
+<span class="sourceLineNo">582</span>                        Set&lt;String&gt; targetDexs = new HashSet&lt;String&gt;();<a name="line.582"></a>
+<span class="sourceLineNo">583</span>                        for (String entry : classPathEntries) {<a name="line.583"></a>
+<span class="sourceLineNo">584</span>                                if(entry.toLowerCase().endsWith(".apk")) {      // on Windows, file names are case-insensitive<a name="line.584"></a>
+<span class="sourceLineNo">585</span>                                        // We cannot have multiple APKs, because this would give us multiple<a name="line.585"></a>
+<span class="sourceLineNo">586</span>                                        // manifests which we do not support right now<a name="line.586"></a>
+<span class="sourceLineNo">587</span>                                        if (targetApk != null &amp;&amp; !targetApk.isEmpty())<a name="line.587"></a>
+<span class="sourceLineNo">588</span>                                                throw new RuntimeException("only one Android application can be analyzed when using option -android-jars.");<a name="line.588"></a>
+<span class="sourceLineNo">589</span>                                        targetApk = entry;<a name="line.589"></a>
+<span class="sourceLineNo">590</span>                                }<a name="line.590"></a>
+<span class="sourceLineNo">591</span>                                if(entry.toLowerCase().endsWith(".dex"))        // on Windows, file names are case-insensitive<a name="line.591"></a>
+<span class="sourceLineNo">592</span>                                        targetDexs.add(entry);<a name="line.592"></a>
+<span class="sourceLineNo">593</span>                        }<a name="line.593"></a>
+<span class="sourceLineNo">594</span>                        <a name="line.594"></a>
+<span class="sourceLineNo">595</span>                        // We need at least one file to process<a name="line.595"></a>
+<span class="sourceLineNo">596</span>                        if (targetApk == null || targetApk.isEmpty()) {<a name="line.596"></a>
+<span class="sourceLineNo">597</span>                                if (targetDexs.isEmpty())<a name="line.597"></a>
+<span class="sourceLineNo">598</span>                                        throw new RuntimeException("no apk file given");<a name="line.598"></a>
+<span class="sourceLineNo">599</span>                                jarPath = getAndroidJarPath(androidJars, null);<a name="line.599"></a>
+<span class="sourceLineNo">600</span>                        }<a name="line.600"></a>
+<span class="sourceLineNo">601</span>                        else<a name="line.601"></a>
+<span class="sourceLineNo">602</span>                                jarPath = getAndroidJarPath(androidJars, targetApk);<a name="line.602"></a>
+<span class="sourceLineNo">603</span>                }<a name="line.603"></a>
+<span class="sourceLineNo">604</span>                <a name="line.604"></a>
+<span class="sourceLineNo">605</span>                // We must have a platform JAR file when analyzing Android apps<a name="line.605"></a>
+<span class="sourceLineNo">606</span>                if (jarPath.equals(""))<a name="line.606"></a>
+<span class="sourceLineNo">607</span>                        throw new RuntimeException("android.jar not found.");<a name="line.607"></a>
+<span class="sourceLineNo">608</span>                <a name="line.608"></a>
+<span class="sourceLineNo">609</span>                // Check the platform JAR file<a name="line.609"></a>
+<span class="sourceLineNo">610</span>                File f = new File (jarPath);<a name="line.610"></a>
+<span class="sourceLineNo">611</span>                if (!f.exists())<a name="line.611"></a>
+<span class="sourceLineNo">612</span>                        throw new RuntimeException("file '"+ jarPath +"' does not exist!");<a name="line.612"></a>
+<span class="sourceLineNo">613</span>                else<a name="line.613"></a>
+<span class="sourceLineNo">614</span>                        G.v().out.println("Using '"+ jarPath +"' as android.jar");<a name="line.614"></a>
+<span class="sourceLineNo">615</span>                <a name="line.615"></a>
+<span class="sourceLineNo">616</span>                return jarPath;<a name="line.616"></a>
+<span class="sourceLineNo">617</span>        }<a name="line.617"></a>
+<span class="sourceLineNo">618</span>    <a name="line.618"></a>
+<span class="sourceLineNo">619</span>        private String defaultJavaClassPath() {<a name="line.619"></a>
+<span class="sourceLineNo">620</span>                StringBuilder sb = new StringBuilder();<a name="line.620"></a>
+<span class="sourceLineNo">621</span>        if(System.getProperty("os.name").equals("Mac OS X")) {<a name="line.621"></a>
+<span class="sourceLineNo">622</span>                //in older Mac OS X versions, rt.jar was split into classes.jar and ui.jar<a name="line.622"></a>
+<span class="sourceLineNo">623</span>                sb.append(System.getProperty("java.home"));<a name="line.623"></a>
+<span class="sourceLineNo">624</span>                sb.append(File.separator);<a name="line.624"></a>
+<span class="sourceLineNo">625</span>                sb.append("..");<a name="line.625"></a>
+<span class="sourceLineNo">626</span>                sb.append(File.separator);<a name="line.626"></a>
+<span class="sourceLineNo">627</span>                sb.append("Classes");<a name="line.627"></a>
+<span class="sourceLineNo">628</span>                sb.append(File.separator);<a name="line.628"></a>
+<span class="sourceLineNo">629</span>                sb.append("classes.jar");<a name="line.629"></a>
+<span class="sourceLineNo">630</span>        <a name="line.630"></a>
+<span class="sourceLineNo">631</span>                sb.append(File.pathSeparator);<a name="line.631"></a>
+<span class="sourceLineNo">632</span>                sb.append(System.getProperty("java.home"));<a name="line.632"></a>
+<span class="sourceLineNo">633</span>                sb.append(File.separator);<a name="line.633"></a>
+<span class="sourceLineNo">634</span>                sb.append("..");<a name="line.634"></a>
+<span class="sourceLineNo">635</span>                sb.append(File.separator);<a name="line.635"></a>
+<span class="sourceLineNo">636</span>                sb.append("Classes");<a name="line.636"></a>
+<span class="sourceLineNo">637</span>                sb.append(File.separator);<a name="line.637"></a>
+<span class="sourceLineNo">638</span>                sb.append("ui.jar");<a name="line.638"></a>
+<span class="sourceLineNo">639</span>                sb.append(File.pathSeparator);<a name="line.639"></a>
+<span class="sourceLineNo">640</span>        }<a name="line.640"></a>
+<span class="sourceLineNo">641</span><a name="line.641"></a>
+<span class="sourceLineNo">642</span>        File rtJar = new File(System.getProperty("java.home") + File.separator + "lib" + File.separator + "rt.jar");<a name="line.642"></a>
+<span class="sourceLineNo">643</span>        if (rtJar.exists() &amp;&amp; rtJar.isFile()) {<a name="line.643"></a>
+<span class="sourceLineNo">644</span>            // G.v().out.println("Using JRE runtime: " + rtJar.getAbsolutePath());<a name="line.644"></a>
+<span class="sourceLineNo">645</span>            sb.append(rtJar.getAbsolutePath());<a name="line.645"></a>
+<span class="sourceLineNo">646</span>        } else {<a name="line.646"></a>
+<span class="sourceLineNo">647</span>            // in case we're not in JRE environment, try JDK<a name="line.647"></a>
+<span class="sourceLineNo">648</span>            rtJar = new File(System.getProperty("java.home") + File.separator + "jre" + File.separator + "lib" + File.separator + "rt.jar");<a name="line.648"></a>
+<span class="sourceLineNo">649</span>            if (rtJar.exists() &amp;&amp; rtJar.isFile()) {<a name="line.649"></a>
+<span class="sourceLineNo">650</span>                // G.v().out.println("Using JDK runtime: " + rtJar.getAbsolutePath());<a name="line.650"></a>
+<span class="sourceLineNo">651</span>                sb.append(rtJar.getAbsolutePath());<a name="line.651"></a>
+<span class="sourceLineNo">652</span>            } else {<a name="line.652"></a>
+<span class="sourceLineNo">653</span>                // not in JDK either<a name="line.653"></a>
+<span class="sourceLineNo">654</span>                throw new RuntimeException("Error: cannot find rt.jar.");<a name="line.654"></a>
+<span class="sourceLineNo">655</span>            }<a name="line.655"></a>
+<span class="sourceLineNo">656</span>        }<a name="line.656"></a>
+<span class="sourceLineNo">657</span><a name="line.657"></a>
+<span class="sourceLineNo">658</span>                if(Options.v().whole_program() || Options.v().output_format()==Options.output_format_dava) {<a name="line.658"></a>
+<span class="sourceLineNo">659</span>                        //add jce.jar, which is necessary for whole program mode<a name="line.659"></a>
+<span class="sourceLineNo">660</span>                        //(java.security.Signature from rt.jar import javax.crypto.Cipher from jce.jar                  <a name="line.660"></a>
+<span class="sourceLineNo">661</span>                        sb.append(File.pathSeparator+<a name="line.661"></a>
+<span class="sourceLineNo">662</span>                                System.getProperty("java.home")+File.separator+"lib"+File.separator+"jce.jar");<a name="line.662"></a>
+<span class="sourceLineNo">663</span>                }<a name="line.663"></a>
+<span class="sourceLineNo">664</span>                <a name="line.664"></a>
+<span class="sourceLineNo">665</span>                return sb.toString();<a name="line.665"></a>
+<span class="sourceLineNo">666</span>        }<a name="line.666"></a>
+<span class="sourceLineNo">667</span><a name="line.667"></a>
+<span class="sourceLineNo">668</span>        private int stateCount;<a name="line.668"></a>
+<span class="sourceLineNo">669</span>    public int getState() { return this.stateCount; }<a name="line.669"></a>
+<span class="sourceLineNo">670</span>    private void modifyHierarchy() {<a name="line.670"></a>
+<span class="sourceLineNo">671</span>        stateCount++;<a name="line.671"></a>
+<span class="sourceLineNo">672</span>        activeHierarchy = null;<a name="line.672"></a>
+<span class="sourceLineNo">673</span>        activeFastHierarchy = null;<a name="line.673"></a>
+<span class="sourceLineNo">674</span>        activeSideEffectAnalysis = null;<a name="line.674"></a>
+<span class="sourceLineNo">675</span>        activePointsToAnalysis = null;<a name="line.675"></a>
+<span class="sourceLineNo">676</span>    }<a name="line.676"></a>
+<span class="sourceLineNo">677</span><a name="line.677"></a>
+<span class="sourceLineNo">678</span>    public void addClass(SootClass c) <a name="line.678"></a>
+<span class="sourceLineNo">679</span>    {<a name="line.679"></a>
+<span class="sourceLineNo">680</span>        if(c.isInScene())<a name="line.680"></a>
+<span class="sourceLineNo">681</span>            throw new RuntimeException("already managed: "+c.getName());<a name="line.681"></a>
+<span class="sourceLineNo">682</span><a name="line.682"></a>
+<span class="sourceLineNo">683</span>        if(containsClass(c.getName()))<a name="line.683"></a>
+<span class="sourceLineNo">684</span>            throw new RuntimeException("duplicate class: "+c.getName());<a name="line.684"></a>
+<span class="sourceLineNo">685</span><a name="line.685"></a>
+<span class="sourceLineNo">686</span>        classes.add(c);<a name="line.686"></a>
+<span class="sourceLineNo">687</span>        c.setLibraryClass();<a name="line.687"></a>
+<span class="sourceLineNo">688</span><a name="line.688"></a>
+<span class="sourceLineNo">689</span>        nameToClass.put(c.getName(), c.getType());<a name="line.689"></a>
+<span class="sourceLineNo">690</span>        c.getType().setSootClass(c);<a name="line.690"></a>
+<span class="sourceLineNo">691</span>        c.setInScene(true);<a name="line.691"></a>
+<span class="sourceLineNo">692</span>        <a name="line.692"></a>
+<span class="sourceLineNo">693</span>        // Phantom classes are not really part of the hierarchy anyway, so<a name="line.693"></a>
+<span class="sourceLineNo">694</span>        // we can keep the old one<a name="line.694"></a>
+<span class="sourceLineNo">695</span>        if (!c.isPhantom)<a name="line.695"></a>
+<span class="sourceLineNo">696</span>                modifyHierarchy();<a name="line.696"></a>
+<span class="sourceLineNo">697</span>    }<a name="line.697"></a>
+<span class="sourceLineNo">698</span><a name="line.698"></a>
+<span class="sourceLineNo">699</span>    public void removeClass(SootClass c)<a name="line.699"></a>
+<span class="sourceLineNo">700</span>    {<a name="line.700"></a>
+<span class="sourceLineNo">701</span>        if(!c.isInScene())<a name="line.701"></a>
+<span class="sourceLineNo">702</span>            throw new RuntimeException();<a name="line.702"></a>
+<span class="sourceLineNo">703</span><a name="line.703"></a>
+<span class="sourceLineNo">704</span>        classes.remove(c);<a name="line.704"></a>
+<span class="sourceLineNo">705</span>        <a name="line.705"></a>
+<span class="sourceLineNo">706</span>        if(c.isLibraryClass()) {<a name="line.706"></a>
+<span class="sourceLineNo">707</span>            libraryClasses.remove(c);<a name="line.707"></a>
+<span class="sourceLineNo">708</span>        } else if(c.isPhantomClass()) {<a name="line.708"></a>
+<span class="sourceLineNo">709</span>            phantomClasses.remove(c);<a name="line.709"></a>
+<span class="sourceLineNo">710</span>        } else if(c.isApplicationClass()) {<a name="line.710"></a>
+<span class="sourceLineNo">711</span>            applicationClasses.remove(c);<a name="line.711"></a>
+<span class="sourceLineNo">712</span>        }<a name="line.712"></a>
+<span class="sourceLineNo">713</span>        <a name="line.713"></a>
+<span class="sourceLineNo">714</span>        c.getType().setSootClass(null);<a name="line.714"></a>
+<span class="sourceLineNo">715</span>        c.setInScene(false);<a name="line.715"></a>
+<span class="sourceLineNo">716</span>        modifyHierarchy();<a name="line.716"></a>
+<span class="sourceLineNo">717</span>    }<a name="line.717"></a>
+<span class="sourceLineNo">718</span><a name="line.718"></a>
+<span class="sourceLineNo">719</span>    public boolean containsClass(String className)<a name="line.719"></a>
+<span class="sourceLineNo">720</span>    {<a name="line.720"></a>
+<span class="sourceLineNo">721</span>        RefType type = nameToClass.get(className);<a name="line.721"></a>
+<span class="sourceLineNo">722</span>        if( type == null ) return false;<a name="line.722"></a>
+<span class="sourceLineNo">723</span>        if( !type.hasSootClass() ) return false;<a name="line.723"></a>
+<span class="sourceLineNo">724</span>        SootClass c = type.getSootClass();<a name="line.724"></a>
+<span class="sourceLineNo">725</span>        return c.isInScene();<a name="line.725"></a>
+<span class="sourceLineNo">726</span>    }<a name="line.726"></a>
+<span class="sourceLineNo">727</span>    <a name="line.727"></a>
+<span class="sourceLineNo">728</span>    public boolean containsType(String className)<a name="line.728"></a>
+<span class="sourceLineNo">729</span>    {<a name="line.729"></a>
+<span class="sourceLineNo">730</span>        return nameToClass.containsKey(className);<a name="line.730"></a>
+<span class="sourceLineNo">731</span>    }<a name="line.731"></a>
+<span class="sourceLineNo">732</span><a name="line.732"></a>
+<span class="sourceLineNo">733</span>    public String signatureToClass(String sig) {<a name="line.733"></a>
+<span class="sourceLineNo">734</span>        if( sig.charAt(0) != '&lt;' ) throw new RuntimeException("oops "+sig);<a name="line.734"></a>
+<span class="sourceLineNo">735</span>        if( sig.charAt(sig.length()-1) != '&gt;' ) throw new RuntimeException("oops "+sig);<a name="line.735"></a>
+<span class="sourceLineNo">736</span>        int index = sig.indexOf( ":" );<a name="line.736"></a>
+<span class="sourceLineNo">737</span>        if( index &lt; 0 ) throw new RuntimeException("oops "+sig);<a name="line.737"></a>
+<span class="sourceLineNo">738</span>        return sig.substring(1,index);<a name="line.738"></a>
+<span class="sourceLineNo">739</span>    }<a name="line.739"></a>
+<span class="sourceLineNo">740</span><a name="line.740"></a>
+<span class="sourceLineNo">741</span>    public String signatureToSubsignature(String sig) {<a name="line.741"></a>
+<span class="sourceLineNo">742</span>        if( sig.charAt(0) != '&lt;' ) throw new RuntimeException("oops "+sig);<a name="line.742"></a>
+<span class="sourceLineNo">743</span>        if( sig.charAt(sig.length()-1) != '&gt;' ) throw new RuntimeException("oops "+sig);<a name="line.743"></a>
+<span class="sourceLineNo">744</span>        int index = sig.indexOf( ":" );<a name="line.744"></a>
+<span class="sourceLineNo">745</span>        if( index &lt; 0 ) throw new RuntimeException("oops "+sig);<a name="line.745"></a>
+<span class="sourceLineNo">746</span>        return sig.substring(index+2,sig.length()-1);<a name="line.746"></a>
+<span class="sourceLineNo">747</span>    }<a name="line.747"></a>
+<span class="sourceLineNo">748</span><a name="line.748"></a>
+<span class="sourceLineNo">749</span>    public SootField grabField(String fieldSignature)<a name="line.749"></a>
+<span class="sourceLineNo">750</span>    {<a name="line.750"></a>
+<span class="sourceLineNo">751</span>        String cname = signatureToClass( fieldSignature );<a name="line.751"></a>
+<span class="sourceLineNo">752</span>        String fname = signatureToSubsignature( fieldSignature );<a name="line.752"></a>
+<span class="sourceLineNo">753</span>        if( !containsClass(cname) ) return null;<a name="line.753"></a>
+<span class="sourceLineNo">754</span>        SootClass c = getSootClass(cname);<a name="line.754"></a>
+<span class="sourceLineNo">755</span>        return c.getFieldUnsafe( fname );<a name="line.755"></a>
+<span class="sourceLineNo">756</span>    }<a name="line.756"></a>
+<span class="sourceLineNo">757</span><a name="line.757"></a>
+<span class="sourceLineNo">758</span>    public boolean containsField(String fieldSignature)<a name="line.758"></a>
+<span class="sourceLineNo">759</span>    {<a name="line.759"></a>
+<span class="sourceLineNo">760</span>        return grabField(fieldSignature) != null;<a name="line.760"></a>
+<span class="sourceLineNo">761</span>    }<a name="line.761"></a>
+<span class="sourceLineNo">762</span>    <a name="line.762"></a>
+<span class="sourceLineNo">763</span>    public SootMethod grabMethod(String methodSignature)<a name="line.763"></a>
+<span class="sourceLineNo">764</span>    {<a name="line.764"></a>
+<span class="sourceLineNo">765</span>        String cname = signatureToClass( methodSignature );<a name="line.765"></a>
+<span class="sourceLineNo">766</span>        String mname = signatureToSubsignature( methodSignature );<a name="line.766"></a>
+<span class="sourceLineNo">767</span>        if( !containsClass(cname) ) return null;<a name="line.767"></a>
+<span class="sourceLineNo">768</span>        SootClass c = getSootClass(cname);<a name="line.768"></a>
+<span class="sourceLineNo">769</span>        if( !c.declaresMethod( mname ) ) return null;<a name="line.769"></a>
+<span class="sourceLineNo">770</span>        return c.getMethod( mname );<a name="line.770"></a>
+<span class="sourceLineNo">771</span>    }<a name="line.771"></a>
+<span class="sourceLineNo">772</span><a name="line.772"></a>
+<span class="sourceLineNo">773</span>    public boolean containsMethod(String methodSignature)<a name="line.773"></a>
+<span class="sourceLineNo">774</span>    {<a name="line.774"></a>
+<span class="sourceLineNo">775</span>        return grabMethod(methodSignature) != null;<a name="line.775"></a>
+<span class="sourceLineNo">776</span>    }<a name="line.776"></a>
+<span class="sourceLineNo">777</span><a name="line.777"></a>
+<span class="sourceLineNo">778</span>    public SootField getField(String fieldSignature)<a name="line.778"></a>
+<span class="sourceLineNo">779</span>    {<a name="line.779"></a>
+<span class="sourceLineNo">780</span>        SootField f = grabField( fieldSignature );<a name="line.780"></a>
+<span class="sourceLineNo">781</span>        if (f != null)<a name="line.781"></a>
+<span class="sourceLineNo">782</span>            return f;<a name="line.782"></a>
+<span class="sourceLineNo">783</span><a name="line.783"></a>
+<span class="sourceLineNo">784</span>        throw new RuntimeException("tried to get nonexistent field "+fieldSignature);<a name="line.784"></a>
+<span class="sourceLineNo">785</span>    }<a name="line.785"></a>
+<span class="sourceLineNo">786</span><a name="line.786"></a>
+<span class="sourceLineNo">787</span>    public SootMethod getMethod(String methodSignature)<a name="line.787"></a>
+<span class="sourceLineNo">788</span>    {<a name="line.788"></a>
+<span class="sourceLineNo">789</span>        SootMethod m = grabMethod( methodSignature );<a name="line.789"></a>
+<span class="sourceLineNo">790</span>        if (m != null)<a name="line.790"></a>
+<span class="sourceLineNo">791</span>            return m;<a name="line.791"></a>
+<span class="sourceLineNo">792</span>        throw new RuntimeException("tried to get nonexistent method "+methodSignature);<a name="line.792"></a>
+<span class="sourceLineNo">793</span>    }<a name="line.793"></a>
+<span class="sourceLineNo">794</span><a name="line.794"></a>
+<span class="sourceLineNo">795</span>    /** <a name="line.795"></a>
+<span class="sourceLineNo">796</span>     * Attempts to load the given class and all of the required support classes.<a name="line.796"></a>
+<span class="sourceLineNo">797</span>     * Returns the original class if it was loaded, or null otherwise.<a name="line.797"></a>
+<span class="sourceLineNo">798</span>     */<a name="line.798"></a>
+<span class="sourceLineNo">799</span>     <a name="line.799"></a>
+<span class="sourceLineNo">800</span>    public SootClass tryLoadClass(String className, int desiredLevel) <a name="line.800"></a>
+<span class="sourceLineNo">801</span>    {   <a name="line.801"></a>
+<span class="sourceLineNo">802</span>        /*<a name="line.802"></a>
+<span class="sourceLineNo">803</span>        if(Options.v().time())<a name="line.803"></a>
+<span class="sourceLineNo">804</span>            Main.v().resolveTimer.start();<a name="line.804"></a>
+<span class="sourceLineNo">805</span>        */<a name="line.805"></a>
+<span class="sourceLineNo">806</span>        <a name="line.806"></a>
+<span class="sourceLineNo">807</span>        setPhantomRefs(true);<a name="line.807"></a>
+<span class="sourceLineNo">808</span>        ClassSource source = SourceLocator.v().getClassSource(className);<a name="line.808"></a>
+<span class="sourceLineNo">809</span>        try {<a name="line.809"></a>
+<span class="sourceLineNo">810</span>                if( !getPhantomRefs() &amp;&amp; source == null) {<a name="line.810"></a>
+<span class="sourceLineNo">811</span>                    setPhantomRefs(false);<a name="line.811"></a>
+<span class="sourceLineNo">812</span>                    return null;<a name="line.812"></a>
+<span class="sourceLineNo">813</span>                }<a name="line.813"></a>
+<span class="sourceLineNo">814</span>        }<a name="line.814"></a>
+<span class="sourceLineNo">815</span>        finally {<a name="line.815"></a>
+<span class="sourceLineNo">816</span>                if (source != null)<a name="line.816"></a>
+<span class="sourceLineNo">817</span>                        source.close();<a name="line.817"></a>
+<span class="sourceLineNo">818</span>        }<a name="line.818"></a>
+<span class="sourceLineNo">819</span>        SootResolver resolver = SootResolver.v();<a name="line.819"></a>
+<span class="sourceLineNo">820</span>        SootClass toReturn = resolver.resolveClass(className, desiredLevel);<a name="line.820"></a>
+<span class="sourceLineNo">821</span>        setPhantomRefs(false);<a name="line.821"></a>
+<span class="sourceLineNo">822</span><a name="line.822"></a>
+<span class="sourceLineNo">823</span>        return toReturn;<a name="line.823"></a>
+<span class="sourceLineNo">824</span>        <a name="line.824"></a>
+<span class="sourceLineNo">825</span>        /*<a name="line.825"></a>
+<span class="sourceLineNo">826</span>        if(Options.v().time())<a name="line.826"></a>
+<span class="sourceLineNo">827</span>            Main.v().resolveTimer.end(); */<a name="line.827"></a>
+<span class="sourceLineNo">828</span>    }<a name="line.828"></a>
+<span class="sourceLineNo">829</span>    <a name="line.829"></a>
+<span class="sourceLineNo">830</span>    /** <a name="line.830"></a>
+<span class="sourceLineNo">831</span>     * Loads the given class and all of the required support classes.  Returns the first class.<a name="line.831"></a>
+<span class="sourceLineNo">832</span>     */<a name="line.832"></a>
+<span class="sourceLineNo">833</span>     <a name="line.833"></a>
+<span class="sourceLineNo">834</span>    public SootClass loadClassAndSupport(String className) <a name="line.834"></a>
+<span class="sourceLineNo">835</span>    {<a name="line.835"></a>
+<span class="sourceLineNo">836</span>        SootClass ret = loadClass(className, SootClass.SIGNATURES);<a name="line.836"></a>
+<span class="sourceLineNo">837</span>        if( !ret.isPhantom() ) ret = loadClass(className, SootClass.BODIES);<a name="line.837"></a>
+<span class="sourceLineNo">838</span>        return ret;<a name="line.838"></a>
+<span class="sourceLineNo">839</span>    }<a name="line.839"></a>
+<span class="sourceLineNo">840</span><a name="line.840"></a>
+<span class="sourceLineNo">841</span>    public SootClass loadClass(String className, int desiredLevel) <a name="line.841"></a>
+<span class="sourceLineNo">842</span>    {   <a name="line.842"></a>
+<span class="sourceLineNo">843</span>        /*<a name="line.843"></a>
+<span class="sourceLineNo">844</span>        if(Options.v().time())<a name="line.844"></a>
+<span class="sourceLineNo">845</span>            Main.v().resolveTimer.start();<a name="line.845"></a>
+<span class="sourceLineNo">846</span>        */<a name="line.846"></a>
+<span class="sourceLineNo">847</span>        <a name="line.847"></a>
+<span class="sourceLineNo">848</span>        setPhantomRefs(true);<a name="line.848"></a>
+<span class="sourceLineNo">849</span>        //SootResolver resolver = new SootResolver();<a name="line.849"></a>
+<span class="sourceLineNo">850</span>        SootResolver resolver = SootResolver.v();<a name="line.850"></a>
+<span class="sourceLineNo">851</span>        SootClass toReturn = resolver.resolveClass(className, desiredLevel);<a name="line.851"></a>
+<span class="sourceLineNo">852</span>        setPhantomRefs(false);<a name="line.852"></a>
+<span class="sourceLineNo">853</span><a name="line.853"></a>
+<span class="sourceLineNo">854</span>        return toReturn;<a name="line.854"></a>
+<span class="sourceLineNo">855</span>        <a name="line.855"></a>
+<span class="sourceLineNo">856</span>        /*<a name="line.856"></a>
+<span class="sourceLineNo">857</span>        if(Options.v().time())<a name="line.857"></a>
+<span class="sourceLineNo">858</span>            Main.v().resolveTimer.end(); */<a name="line.858"></a>
+<span class="sourceLineNo">859</span>    }<a name="line.859"></a>
+<span class="sourceLineNo">860</span>    <a name="line.860"></a>
+<span class="sourceLineNo">861</span>    /**<a name="line.861"></a>
+<span class="sourceLineNo">862</span>     * Returns the RefType with the given class name or primitive type.  <a name="line.862"></a>
+<span class="sourceLineNo">863</span>     * @throws RuntimeException if the Type for this name cannot be found.<a name="line.863"></a>
+<span class="sourceLineNo">864</span>     * Use {@link #getRefTypeUnsafe(String)} to check if type is an registered RefType.<a name="line.864"></a>
+<span class="sourceLineNo">865</span>     */<a name="line.865"></a>
+<span class="sourceLineNo">866</span>    public Type getType(String arg) {<a name="line.866"></a>
+<span class="sourceLineNo">867</span>        String type = arg.replaceAll("([^\\[\\]]*)(.*)", "$1");<a name="line.867"></a>
+<span class="sourceLineNo">868</span>        int arrayCount = arg.contains("[") ? arg.replaceAll("([^\\[\\]]*)(.*)", "$2").length() / 2 : 0;<a name="line.868"></a>
+<span class="sourceLineNo">869</span>        <a name="line.869"></a>
+<span class="sourceLineNo">870</span>        Type result = getRefTypeUnsafe(type);<a name="line.870"></a>
+<span class="sourceLineNo">871</span>        <a name="line.871"></a>
+<span class="sourceLineNo">872</span>        if (result == null) {<a name="line.872"></a>
+<span class="sourceLineNo">873</span>                if (type.equals("long"))<a name="line.873"></a>
+<span class="sourceLineNo">874</span>              result = LongType.v();<a name="line.874"></a>
+<span class="sourceLineNo">875</span>                else if (type.equals("short"))<a name="line.875"></a>
+<span class="sourceLineNo">876</span>              result = ShortType.v();<a name="line.876"></a>
+<span class="sourceLineNo">877</span>                else if (type.equals("double"))<a name="line.877"></a>
+<span class="sourceLineNo">878</span>              result = DoubleType.v();<a name="line.878"></a>
+<span class="sourceLineNo">879</span>                else if (type.equals("int"))<a name="line.879"></a>
+<span class="sourceLineNo">880</span>              result = IntType.v();<a name="line.880"></a>
+<span class="sourceLineNo">881</span>                else if (type.equals("float"))<a name="line.881"></a>
+<span class="sourceLineNo">882</span>              result = FloatType.v();<a name="line.882"></a>
+<span class="sourceLineNo">883</span>                else if (type.equals("byte"))<a name="line.883"></a>
+<span class="sourceLineNo">884</span>              result = ByteType.v();<a name="line.884"></a>
+<span class="sourceLineNo">885</span>                else if (type.equals("char"))<a name="line.885"></a>
+<span class="sourceLineNo">886</span>              result = CharType.v();<a name="line.886"></a>
+<span class="sourceLineNo">887</span>                else if (type.equals("void"))<a name="line.887"></a>
+<span class="sourceLineNo">888</span>              result = VoidType.v();<a name="line.888"></a>
+<span class="sourceLineNo">889</span>                else if (type.equals("boolean"))<a name="line.889"></a>
+<span class="sourceLineNo">890</span>              result = BooleanType.v();<a name="line.890"></a>
+<span class="sourceLineNo">891</span>                else<a name="line.891"></a>
+<span class="sourceLineNo">892</span>              throw new RuntimeException("unknown type: '" + type + "'");<a name="line.892"></a>
+<span class="sourceLineNo">893</span>        }<a name="line.893"></a>
+<span class="sourceLineNo">894</span>        <a name="line.894"></a>
+<span class="sourceLineNo">895</span>        if (arrayCount != 0) {<a name="line.895"></a>
+<span class="sourceLineNo">896</span>                result = ArrayType.v(result, arrayCount);<a name="line.896"></a>
+<span class="sourceLineNo">897</span>        }<a name="line.897"></a>
+<span class="sourceLineNo">898</span>        return result;<a name="line.898"></a>
+<span class="sourceLineNo">899</span>    }<a name="line.899"></a>
+<span class="sourceLineNo">900</span>    <a name="line.900"></a>
+<span class="sourceLineNo">901</span>    /**<a name="line.901"></a>
+<span class="sourceLineNo">902</span>     * Returns the RefType with the given className.  <a name="line.902"></a>
+<span class="sourceLineNo">903</span>     * @throws IllegalStateException if the RefType for this class cannot be found.<a name="line.903"></a>
+<span class="sourceLineNo">904</span>     * Use {@link #containsType(String)} to check if type is registered<a name="line.904"></a>
+<span class="sourceLineNo">905</span>     */<a name="line.905"></a>
+<span class="sourceLineNo">906</span>    public RefType getRefType(String className) <a name="line.906"></a>
+<span class="sourceLineNo">907</span>    {<a name="line.907"></a>
+<span class="sourceLineNo">908</span>        RefType refType = getRefTypeUnsafe(className);<a name="line.908"></a>
+<span class="sourceLineNo">909</span>        if(refType==null) {<a name="line.909"></a>
+<span class="sourceLineNo">910</span>                throw new IllegalStateException("RefType "+className+" not loaded. " +<a name="line.910"></a>
+<span class="sourceLineNo">911</span>                                "If you tried to get the RefType of a library class, did you call loadNecessaryClasses()? " +<a name="line.911"></a>
+<span class="sourceLineNo">912</span>                                "Otherwise please check Soot's classpath.");<a name="line.912"></a>
+<span class="sourceLineNo">913</span>        }<a name="line.913"></a>
+<span class="sourceLineNo">914</span>                return refType;<a name="line.914"></a>
+<span class="sourceLineNo">915</span>    }<a name="line.915"></a>
+<span class="sourceLineNo">916</span>    <a name="line.916"></a>
+<span class="sourceLineNo">917</span>    /**<a name="line.917"></a>
+<span class="sourceLineNo">918</span>     * Returns the RefType with the given className. Returns null if no type<a name="line.918"></a>
+<span class="sourceLineNo">919</span>     * with the given name can be found.<a name="line.919"></a>
+<span class="sourceLineNo">920</span>     */<a name="line.920"></a>
+<span class="sourceLineNo">921</span>    public RefType getRefTypeUnsafe(String className) <a name="line.921"></a>
+<span class="sourceLineNo">922</span>    {<a name="line.922"></a>
+<span class="sourceLineNo">923</span>        RefType refType = nameToClass.get(unescapeName(className));<a name="line.923"></a>
+<span class="sourceLineNo">924</span>                return refType;<a name="line.924"></a>
+<span class="sourceLineNo">925</span>    }<a name="line.925"></a>
+<span class="sourceLineNo">926</span>    <a name="line.926"></a>
+<span class="sourceLineNo">927</span>    /**<a name="line.927"></a>
+<span class="sourceLineNo">928</span>     * Returns the {@link RefType} for {@link Object}.<a name="line.928"></a>
+<span class="sourceLineNo">929</span>     */<a name="line.929"></a>
+<span class="sourceLineNo">930</span>    public RefType getObjectType() {<a name="line.930"></a>
+<span class="sourceLineNo">931</span>        return getRefType("java.lang.Object");<a name="line.931"></a>
+<span class="sourceLineNo">932</span>    }<a name="line.932"></a>
+<span class="sourceLineNo">933</span><a name="line.933"></a>
+<span class="sourceLineNo">934</span>    /**<a name="line.934"></a>
+<span class="sourceLineNo">935</span>     * Returns the RefType with the given className.  <a name="line.935"></a>
+<span class="sourceLineNo">936</span>     */<a name="line.936"></a>
+<span class="sourceLineNo">937</span>    public void addRefType(RefType type) <a name="line.937"></a>
+<span class="sourceLineNo">938</span>    {<a name="line.938"></a>
+<span class="sourceLineNo">939</span>        nameToClass.put(type.getClassName(), type);<a name="line.939"></a>
+<span class="sourceLineNo">940</span>    }<a name="line.940"></a>
+<span class="sourceLineNo">941</span><a name="line.941"></a>
+<span class="sourceLineNo">942</span>    /**<a name="line.942"></a>
+<span class="sourceLineNo">943</span>     * Returns the SootClass with the given className. If no class with the<a name="line.943"></a>
+<span class="sourceLineNo">944</span>     * given name exists, null is returned<a name="line.944"></a>
+<span class="sourceLineNo">945</span>     * @param className The name of the class to get<a name="line.945"></a>
+<span class="sourceLineNo">946</span>     * @return The class if it exists, otherwise null  <a name="line.946"></a>
+<span class="sourceLineNo">947</span>     */<a name="line.947"></a>
+<span class="sourceLineNo">948</span>        public SootClass getSootClassUnsafe(String className) {<a name="line.948"></a>
+<span class="sourceLineNo">949</span>                RefType type = nameToClass.get(className);<a name="line.949"></a>
+<span class="sourceLineNo">950</span>                if (type != null) {<a name="line.950"></a>
+<span class="sourceLineNo">951</span>                        SootClass tsc = type.getSootClass();<a name="line.951"></a>
+<span class="sourceLineNo">952</span>                        if (tsc != null)<a name="line.952"></a>
+<span class="sourceLineNo">953</span>                                return tsc;<a name="line.953"></a>
+<span class="sourceLineNo">954</span>                }<a name="line.954"></a>
+<span class="sourceLineNo">955</span>                <a name="line.955"></a>
+<span class="sourceLineNo">956</span>                if (allowsPhantomRefs() ||<a name="line.956"></a>
+<span class="sourceLineNo">957</span>                                   className.equals(SootClass.INVOKEDYNAMIC_DUMMY_CLASS_NAME)) {<a name="line.957"></a>
+<span class="sourceLineNo">958</span>                        SootClass c = new SootClass(className);<a name="line.958"></a>
+<span class="sourceLineNo">959</span>                        addClass(c);<a name="line.959"></a>
+<span class="sourceLineNo">960</span>            c.setPhantom(true);<a name="line.960"></a>
+<span class="sourceLineNo">961</span>                        return c;<a name="line.961"></a>
+<span class="sourceLineNo">962</span>                }<a name="line.962"></a>
+<span class="sourceLineNo">963</span>                <a name="line.963"></a>
+<span class="sourceLineNo">964</span>                return null;<a name="line.964"></a>
+<span class="sourceLineNo">965</span>        }<a name="line.965"></a>
+<span class="sourceLineNo">966</span>        <a name="line.966"></a>
+<span class="sourceLineNo">967</span>    /**<a name="line.967"></a>
+<span class="sourceLineNo">968</span>     * Returns the SootClass with the given className.  <a name="line.968"></a>
+<span class="sourceLineNo">969</span>     */<a name="line.969"></a>
+<span class="sourceLineNo">970</span>        public SootClass getSootClass(String className) {<a name="line.970"></a>
+<span class="sourceLineNo">971</span>                SootClass sc = getSootClassUnsafe(className);<a name="line.971"></a>
+<span class="sourceLineNo">972</span>                if (sc != null)<a name="line.972"></a>
+<span class="sourceLineNo">973</span>                        return sc;<a name="line.973"></a>
+<span class="sourceLineNo">974</span>                <a name="line.974"></a>
+<span class="sourceLineNo">975</span>                throw new RuntimeException(System.getProperty("line.separator")<a name="line.975"></a>
+<span class="sourceLineNo">976</span>                                + "Aborting: can't find classfile " + className);<a name="line.976"></a>
+<span class="sourceLineNo">977</span>        }<a name="line.977"></a>
+<span class="sourceLineNo">978</span><a name="line.978"></a>
+<span class="sourceLineNo">979</span>    /**<a name="line.979"></a>
+<span class="sourceLineNo">980</span>     * Returns an backed chain of the classes in this manager.<a name="line.980"></a>
+<span class="sourceLineNo">981</span>     */<a name="line.981"></a>
+<span class="sourceLineNo">982</span>     <a name="line.982"></a>
+<span class="sourceLineNo">983</span>    public Chain&lt;SootClass&gt; getClasses()<a name="line.983"></a>
+<span class="sourceLineNo">984</span>    {<a name="line.984"></a>
+<span class="sourceLineNo">985</span>        return classes;<a name="line.985"></a>
+<span class="sourceLineNo">986</span>    }<a name="line.986"></a>
+<span class="sourceLineNo">987</span><a name="line.987"></a>
+<span class="sourceLineNo">988</span>    /* The four following chains are mutually disjoint. */<a name="line.988"></a>
+<span class="sourceLineNo">989</span><a name="line.989"></a>
+<span class="sourceLineNo">990</span>    /**<a name="line.990"></a>
+<span class="sourceLineNo">991</span>     * Returns a chain of the application classes in this scene.<a name="line.991"></a>
+<span class="sourceLineNo">992</span>     * These classes are the ones which can be freely analysed &amp; modified.<a name="line.992"></a>
+<span class="sourceLineNo">993</span>     */<a name="line.993"></a>
+<span class="sourceLineNo">994</span>    public Chain&lt;SootClass&gt; getApplicationClasses()<a name="line.994"></a>
+<span class="sourceLineNo">995</span>    {<a name="line.995"></a>
+<span class="sourceLineNo">996</span>        return applicationClasses;<a name="line.996"></a>
+<span class="sourceLineNo">997</span>    }<a name="line.997"></a>
+<span class="sourceLineNo">998</span><a name="line.998"></a>
+<span class="sourceLineNo">999</span>    /**<a name="line.999"></a>
+<span class="sourceLineNo">1000</span>     * Returns a chain of the library classes in this scene.<a name="line.1000"></a>
+<span class="sourceLineNo">1001</span>     * These classes can be analysed but not modified.<a name="line.1001"></a>
+<span class="sourceLineNo">1002</span>     */<a name="line.1002"></a>
+<span class="sourceLineNo">1003</span>    public Chain&lt;SootClass&gt; getLibraryClasses()<a name="line.1003"></a>
+<span class="sourceLineNo">1004</span>    {<a name="line.1004"></a>
+<span class="sourceLineNo">1005</span>        return libraryClasses;<a name="line.1005"></a>
+<span class="sourceLineNo">1006</span>    }<a name="line.1006"></a>
+<span class="sourceLineNo">1007</span><a name="line.1007"></a>
+<span class="sourceLineNo">1008</span>    /**<a name="line.1008"></a>
+<span class="sourceLineNo">1009</span>     * Returns a chain of the phantom classes in this scene.<a name="line.1009"></a>
+<span class="sourceLineNo">1010</span>     * These classes are referred to by other classes, but cannot be loaded.<a name="line.1010"></a>
+<span class="sourceLineNo">1011</span>     */<a name="line.1011"></a>
+<span class="sourceLineNo">1012</span>    public Chain&lt;SootClass&gt; getPhantomClasses()<a name="line.1012"></a>
+<span class="sourceLineNo">1013</span>    {<a name="line.1013"></a>
+<span class="sourceLineNo">1014</span>        return phantomClasses;<a name="line.1014"></a>
+<span class="sourceLineNo">1015</span>    }<a name="line.1015"></a>
+<span class="sourceLineNo">1016</span><a name="line.1016"></a>
+<span class="sourceLineNo">1017</span>    Chain&lt;SootClass&gt; getContainingChain(SootClass c)<a name="line.1017"></a>
+<span class="sourceLineNo">1018</span>    {<a name="line.1018"></a>
+<span class="sourceLineNo">1019</span>        if (c.isApplicationClass())<a name="line.1019"></a>
+<span class="sourceLineNo">1020</span>            return getApplicationClasses();<a name="line.1020"></a>
+<span class="sourceLineNo">1021</span>        else if (c.isLibraryClass())<a name="line.1021"></a>
+<span class="sourceLineNo">1022</span>            return getLibraryClasses();<a name="line.1022"></a>
+<span class="sourceLineNo">1023</span>        else if (c.isPhantomClass())<a name="line.1023"></a>
+<span class="sourceLineNo">1024</span>            return getPhantomClasses();<a name="line.1024"></a>
+<span class="sourceLineNo">1025</span><a name="line.1025"></a>
+<span class="sourceLineNo">1026</span>        return null;<a name="line.1026"></a>
+<span class="sourceLineNo">1027</span>    }<a name="line.1027"></a>
+<span class="sourceLineNo">1028</span><a name="line.1028"></a>
+<span class="sourceLineNo">1029</span>    /****************************************************************************/<a name="line.1029"></a>
+<span class="sourceLineNo">1030</span>    /**<a name="line.1030"></a>
+<span class="sourceLineNo">1031</span>        Retrieves the active side-effect analysis<a name="line.1031"></a>
+<span class="sourceLineNo">1032</span>     */<a name="line.1032"></a>
+<span class="sourceLineNo">1033</span><a name="line.1033"></a>
+<span class="sourceLineNo">1034</span>    public SideEffectAnalysis getSideEffectAnalysis() <a name="line.1034"></a>
+<span class="sourceLineNo">1035</span>    {<a name="line.1035"></a>
+<span class="sourceLineNo">1036</span>        if(!hasSideEffectAnalysis()) {<a name="line.1036"></a>
+<span class="sourceLineNo">1037</span>                setSideEffectAnalysis( new SideEffectAnalysis(<a name="line.1037"></a>
+<span class="sourceLineNo">1038</span>                                getPointsToAnalysis(),<a name="line.1038"></a>
+<span class="sourceLineNo">1039</span>                                getCallGraph() ) );<a name="line.1039"></a>
+<span class="sourceLineNo">1040</span>        }<a name="line.1040"></a>
+<span class="sourceLineNo">1041</span>            <a name="line.1041"></a>
+<span class="sourceLineNo">1042</span>        return activeSideEffectAnalysis;<a name="line.1042"></a>
+<span class="sourceLineNo">1043</span>    }<a name="line.1043"></a>
+<span class="sourceLineNo">1044</span>    <a name="line.1044"></a>
+<span class="sourceLineNo">1045</span>    /**<a name="line.1045"></a>
+<span class="sourceLineNo">1046</span>        Sets the active side-effect analysis<a name="line.1046"></a>
+<span class="sourceLineNo">1047</span>     */<a name="line.1047"></a>
+<span class="sourceLineNo">1048</span>     <a name="line.1048"></a>
+<span class="sourceLineNo">1049</span>    public void setSideEffectAnalysis(SideEffectAnalysis sea)<a name="line.1049"></a>
+<span class="sourceLineNo">1050</span>    {<a name="line.1050"></a>
+<span class="sourceLineNo">1051</span>        activeSideEffectAnalysis = sea;<a name="line.1051"></a>
+<span class="sourceLineNo">1052</span>    }<a name="line.1052"></a>
+<span class="sourceLineNo">1053</span><a name="line.1053"></a>
+<span class="sourceLineNo">1054</span>    public boolean hasSideEffectAnalysis()<a name="line.1054"></a>
+<span class="sourceLineNo">1055</span>    {<a name="line.1055"></a>
+<span class="sourceLineNo">1056</span>        return activeSideEffectAnalysis != null;<a name="line.1056"></a>
+<span class="sourceLineNo">1057</span>    }<a name="line.1057"></a>
+<span class="sourceLineNo">1058</span>    <a name="line.1058"></a>
+<span class="sourceLineNo">1059</span>    public void releaseSideEffectAnalysis()<a name="line.1059"></a>
+<span class="sourceLineNo">1060</span>    {<a name="line.1060"></a>
+<span class="sourceLineNo">1061</span>        activeSideEffectAnalysis = null;<a name="line.1061"></a>
+<span class="sourceLineNo">1062</span>    }<a name="line.1062"></a>
+<span class="sourceLineNo">1063</span><a name="line.1063"></a>
+<span class="sourceLineNo">1064</span>    /****************************************************************************/<a name="line.1064"></a>
+<span class="sourceLineNo">1065</span>    /**<a name="line.1065"></a>
+<span class="sourceLineNo">1066</span>        Retrieves the active pointer analysis<a name="line.1066"></a>
+<span class="sourceLineNo">1067</span>     */<a name="line.1067"></a>
+<span class="sourceLineNo">1068</span>    <a name="line.1068"></a>
+<span class="sourceLineNo">1069</span>    public PointsToAnalysis getPointsToAnalysis() <a name="line.1069"></a>
+<span class="sourceLineNo">1070</span>    {<a name="line.1070"></a>
+<span class="sourceLineNo">1071</span>        if(!hasPointsToAnalysis()) {<a name="line.1071"></a>
+<span class="sourceLineNo">1072</span>                return DumbPointerAnalysis.v();<a name="line.1072"></a>
+<span class="sourceLineNo">1073</span>        }<a name="line.1073"></a>
+<span class="sourceLineNo">1074</span>            <a name="line.1074"></a>
+<span class="sourceLineNo">1075</span>        return activePointsToAnalysis;<a name="line.1075"></a>
+<span class="sourceLineNo">1076</span>    }<a name="line.1076"></a>
+<span class="sourceLineNo">1077</span>    <a name="line.1077"></a>
+<span class="sourceLineNo">1078</span>    /**<a name="line.1078"></a>
+<span class="sourceLineNo">1079</span>        Sets the active pointer analysis<a name="line.1079"></a>
+<span class="sourceLineNo">1080</span>     */<a name="line.1080"></a>
+<span class="sourceLineNo">1081</span>     <a name="line.1081"></a>
+<span class="sourceLineNo">1082</span>    public void setPointsToAnalysis(PointsToAnalysis pa)<a name="line.1082"></a>
+<span class="sourceLineNo">1083</span>    {<a name="line.1083"></a>
+<span class="sourceLineNo">1084</span>        activePointsToAnalysis = pa;<a name="line.1084"></a>
+<span class="sourceLineNo">1085</span>    }<a name="line.1085"></a>
+<span class="sourceLineNo">1086</span><a name="line.1086"></a>
+<span class="sourceLineNo">1087</span>    public boolean hasPointsToAnalysis()<a name="line.1087"></a>
+<span class="sourceLineNo">1088</span>    {<a name="line.1088"></a>
+<span class="sourceLineNo">1089</span>        return activePointsToAnalysis != null;<a name="line.1089"></a>
+<span class="sourceLineNo">1090</span>    }<a name="line.1090"></a>
+<span class="sourceLineNo">1091</span>    <a name="line.1091"></a>
+<span class="sourceLineNo">1092</span>    public void releasePointsToAnalysis()<a name="line.1092"></a>
+<span class="sourceLineNo">1093</span>    {<a name="line.1093"></a>
+<span class="sourceLineNo">1094</span>        activePointsToAnalysis = null;<a name="line.1094"></a>
+<span class="sourceLineNo">1095</span>    }<a name="line.1095"></a>
+<span class="sourceLineNo">1096</span><a name="line.1096"></a>
+<span class="sourceLineNo">1097</span>    /****************************************************************************/<a name="line.1097"></a>
+<span class="sourceLineNo">1098</span>    /**<a name="line.1098"></a>
+<span class="sourceLineNo">1099</span>     * Retrieves the active client accessibility oracle<a name="line.1099"></a>
+<span class="sourceLineNo">1100</span>     */<a name="line.1100"></a>
+<span class="sourceLineNo">1101</span>    public ClientAccessibilityOracle getClientAccessibilityOracle() {<a name="line.1101"></a>
+<span class="sourceLineNo">1102</span>        if (!hasClientAccessibilityOracle()) {<a name="line.1102"></a>
+<span class="sourceLineNo">1103</span>                return PublicAndProtectedAccessibility.v();<a name="line.1103"></a>
+<span class="sourceLineNo">1104</span>        }<a name="line.1104"></a>
+<span class="sourceLineNo">1105</span>        <a name="line.1105"></a>
+<span class="sourceLineNo">1106</span>        return accessibilityOracle;<a name="line.1106"></a>
+<span class="sourceLineNo">1107</span>    }<a name="line.1107"></a>
+<span class="sourceLineNo">1108</span>    <a name="line.1108"></a>
+<span class="sourceLineNo">1109</span>    public boolean hasClientAccessibilityOracle() {<a name="line.1109"></a>
+<span class="sourceLineNo">1110</span>        return accessibilityOracle != null;<a name="line.1110"></a>
+<span class="sourceLineNo">1111</span>    }<a name="line.1111"></a>
+<span class="sourceLineNo">1112</span>    <a name="line.1112"></a>
+<span class="sourceLineNo">1113</span>    public void setClientAccessibilityOracle(ClientAccessibilityOracle oracle) {<a name="line.1113"></a>
+<span class="sourceLineNo">1114</span>        accessibilityOracle = oracle;<a name="line.1114"></a>
+<span class="sourceLineNo">1115</span>    }<a name="line.1115"></a>
+<span class="sourceLineNo">1116</span>    <a name="line.1116"></a>
+<span class="sourceLineNo">1117</span>    public void releaseClientAccessibilityOracle() {<a name="line.1117"></a>
+<span class="sourceLineNo">1118</span>        accessibilityOracle = null;<a name="line.1118"></a>
+<span class="sourceLineNo">1119</span>    }<a name="line.1119"></a>
+<span class="sourceLineNo">1120</span>    /****************************************************************************/<a name="line.1120"></a>
+<span class="sourceLineNo">1121</span>    /** Makes a new fast hierarchy is none is active, and returns the active<a name="line.1121"></a>
+<span class="sourceLineNo">1122</span>     * fast hierarchy. */<a name="line.1122"></a>
+<span class="sourceLineNo">1123</span>    public FastHierarchy getOrMakeFastHierarchy() {<a name="line.1123"></a>
+<span class="sourceLineNo">1124</span>        if(!hasFastHierarchy() ) {<a name="line.1124"></a>
+<span class="sourceLineNo">1125</span>            setFastHierarchy( new FastHierarchy() );<a name="line.1125"></a>
+<span class="sourceLineNo">1126</span>        }<a name="line.1126"></a>
+<span class="sourceLineNo">1127</span>        return getFastHierarchy();<a name="line.1127"></a>
+<span class="sourceLineNo">1128</span>    }<a name="line.1128"></a>
+<span class="sourceLineNo">1129</span>    /**<a name="line.1129"></a>
+<span class="sourceLineNo">1130</span>        Retrieves the active fast hierarchy<a name="line.1130"></a>
+<span class="sourceLineNo">1131</span>     */<a name="line.1131"></a>
+<span class="sourceLineNo">1132</span><a name="line.1132"></a>
+<span class="sourceLineNo">1133</span>    public FastHierarchy getFastHierarchy() <a name="line.1133"></a>
+<span class="sourceLineNo">1134</span>    {<a name="line.1134"></a>
+<span class="sourceLineNo">1135</span>        if(!hasFastHierarchy())<a name="line.1135"></a>
+<span class="sourceLineNo">1136</span>            throw new RuntimeException("no active FastHierarchy present for scene");<a name="line.1136"></a>
+<span class="sourceLineNo">1137</span>            <a name="line.1137"></a>
+<span class="sourceLineNo">1138</span>        return activeFastHierarchy;<a name="line.1138"></a>
+<span class="sourceLineNo">1139</span>    }<a name="line.1139"></a>
+<span class="sourceLineNo">1140</span>    <a name="line.1140"></a>
+<span class="sourceLineNo">1141</span>    /**<a name="line.1141"></a>
+<span class="sourceLineNo">1142</span>        Sets the active hierarchy<a name="line.1142"></a>
+<span class="sourceLineNo">1143</span>     */<a name="line.1143"></a>
+<span class="sourceLineNo">1144</span>     <a name="line.1144"></a>
+<span class="sourceLineNo">1145</span>    public void setFastHierarchy(FastHierarchy hierarchy)<a name="line.1145"></a>
+<span class="sourceLineNo">1146</span>    {<a name="line.1146"></a>
+<span class="sourceLineNo">1147</span>        activeFastHierarchy = hierarchy;<a name="line.1147"></a>
+<span class="sourceLineNo">1148</span>    }<a name="line.1148"></a>
+<span class="sourceLineNo">1149</span><a name="line.1149"></a>
+<span class="sourceLineNo">1150</span>    public boolean hasFastHierarchy()<a name="line.1150"></a>
+<span class="sourceLineNo">1151</span>    {<a name="line.1151"></a>
+<span class="sourceLineNo">1152</span>        return activeFastHierarchy != null;<a name="line.1152"></a>
+<span class="sourceLineNo">1153</span>    }<a name="line.1153"></a>
+<span class="sourceLineNo">1154</span>    <a name="line.1154"></a>
+<span class="sourceLineNo">1155</span>    public void releaseFastHierarchy()<a name="line.1155"></a>
+<span class="sourceLineNo">1156</span>    {<a name="line.1156"></a>
+<span class="sourceLineNo">1157</span>        activeFastHierarchy = null;<a name="line.1157"></a>
+<span class="sourceLineNo">1158</span>    }<a name="line.1158"></a>
+<span class="sourceLineNo">1159</span><a name="line.1159"></a>
+<span class="sourceLineNo">1160</span>    /****************************************************************************/<a name="line.1160"></a>
+<span class="sourceLineNo">1161</span>    /**<a name="line.1161"></a>
+<span class="sourceLineNo">1162</span>        Retrieves the active hierarchy<a name="line.1162"></a>
+<span class="sourceLineNo">1163</span>     */<a name="line.1163"></a>
+<span class="sourceLineNo">1164</span><a name="line.1164"></a>
+<span class="sourceLineNo">1165</span>    public Hierarchy getActiveHierarchy() <a name="line.1165"></a>
+<span class="sourceLineNo">1166</span>    {<a name="line.1166"></a>
+<span class="sourceLineNo">1167</span>        if(!hasActiveHierarchy())<a name="line.1167"></a>
+<span class="sourceLineNo">1168</span>            //throw new RuntimeException("no active Hierarchy present for scene");<a name="line.1168"></a>
+<span class="sourceLineNo">1169</span>            setActiveHierarchy( new Hierarchy() );<a name="line.1169"></a>
+<span class="sourceLineNo">1170</span>            <a name="line.1170"></a>
+<span class="sourceLineNo">1171</span>        return activeHierarchy;<a name="line.1171"></a>
+<span class="sourceLineNo">1172</span>    }<a name="line.1172"></a>
+<span class="sourceLineNo">1173</span>    <a name="line.1173"></a>
+<span class="sourceLineNo">1174</span>    /**<a name="line.1174"></a>
+<span class="sourceLineNo">1175</span>        Sets the active hierarchy<a name="line.1175"></a>
+<span class="sourceLineNo">1176</span>     */<a name="line.1176"></a>
+<span class="sourceLineNo">1177</span>     <a name="line.1177"></a>
+<span class="sourceLineNo">1178</span>    public void setActiveHierarchy(Hierarchy hierarchy)<a name="line.1178"></a>
+<span class="sourceLineNo">1179</span>    {<a name="line.1179"></a>
+<span class="sourceLineNo">1180</span>        activeHierarchy = hierarchy;<a name="line.1180"></a>
+<span class="sourceLineNo">1181</span>    }<a name="line.1181"></a>
+<span class="sourceLineNo">1182</span><a name="line.1182"></a>
+<span class="sourceLineNo">1183</span>    public boolean hasActiveHierarchy()<a name="line.1183"></a>
+<span class="sourceLineNo">1184</span>    {<a name="line.1184"></a>
+<span class="sourceLineNo">1185</span>        return activeHierarchy != null;<a name="line.1185"></a>
+<span class="sourceLineNo">1186</span>    }<a name="line.1186"></a>
+<span class="sourceLineNo">1187</span>    <a name="line.1187"></a>
+<span class="sourceLineNo">1188</span>    public void releaseActiveHierarchy()<a name="line.1188"></a>
+<span class="sourceLineNo">1189</span>    {<a name="line.1189"></a>
+<span class="sourceLineNo">1190</span>        activeHierarchy = null;<a name="line.1190"></a>
+<span class="sourceLineNo">1191</span>    }<a name="line.1191"></a>
+<span class="sourceLineNo">1192</span><a name="line.1192"></a>
+<span class="sourceLineNo">1193</span>    public boolean hasCustomEntryPoints() {<a name="line.1193"></a>
+<span class="sourceLineNo">1194</span>        return entryPoints!=null;<a name="line.1194"></a>
+<span class="sourceLineNo">1195</span>    }<a name="line.1195"></a>
+<span class="sourceLineNo">1196</span>    <a name="line.1196"></a>
+<span class="sourceLineNo">1197</span>    /** Get the set of entry points that are used to build the call graph. */<a name="line.1197"></a>
+<span class="sourceLineNo">1198</span>    public List&lt;SootMethod&gt; getEntryPoints() {<a name="line.1198"></a>
+<span class="sourceLineNo">1199</span>        if( entryPoints == null ) {<a name="line.1199"></a>
+<span class="sourceLineNo">1200</span>            entryPoints = EntryPoints.v().all();<a name="line.1200"></a>
+<span class="sourceLineNo">1201</span>        }<a name="line.1201"></a>
+<span class="sourceLineNo">1202</span>        return entryPoints;<a name="line.1202"></a>
+<span class="sourceLineNo">1203</span>    }<a name="line.1203"></a>
+<span class="sourceLineNo">1204</span><a name="line.1204"></a>
+<span class="sourceLineNo">1205</span>    /** Change the set of entry point methods used to build the call graph. */<a name="line.1205"></a>
+<span class="sourceLineNo">1206</span>    public void setEntryPoints( List&lt;SootMethod&gt; entryPoints ) {<a name="line.1206"></a>
+<span class="sourceLineNo">1207</span>        this.entryPoints = entryPoints;<a name="line.1207"></a>
+<span class="sourceLineNo">1208</span>    }<a name="line.1208"></a>
+<span class="sourceLineNo">1209</span><a name="line.1209"></a>
+<span class="sourceLineNo">1210</span>    private ContextSensitiveCallGraph cscg = null;<a name="line.1210"></a>
+<span class="sourceLineNo">1211</span>    public ContextSensitiveCallGraph getContextSensitiveCallGraph() {<a name="line.1211"></a>
+<span class="sourceLineNo">1212</span>        if(cscg == null) throw new RuntimeException("No context-sensitive call graph present in Scene. You can bulid one with Paddle.");<a name="line.1212"></a>
+<span class="sourceLineNo">1213</span>        return cscg;<a name="line.1213"></a>
+<span class="sourceLineNo">1214</span>    }<a name="line.1214"></a>
+<span class="sourceLineNo">1215</span><a name="line.1215"></a>
+<span class="sourceLineNo">1216</span>    public void setContextSensitiveCallGraph(ContextSensitiveCallGraph cscg) {<a name="line.1216"></a>
+<span class="sourceLineNo">1217</span>        this.cscg = cscg;<a name="line.1217"></a>
+<span class="sourceLineNo">1218</span>    }<a name="line.1218"></a>
+<span class="sourceLineNo">1219</span><a name="line.1219"></a>
+<span class="sourceLineNo">1220</span>    public CallGraph getCallGraph() <a name="line.1220"></a>
+<span class="sourceLineNo">1221</span>    {<a name="line.1221"></a>
+<span class="sourceLineNo">1222</span>        if(!hasCallGraph()) {<a name="line.1222"></a>
+<span class="sourceLineNo">1223</span>            throw new RuntimeException( "No call graph present in Scene. Maybe you want Whole Program mode (-w)." );<a name="line.1223"></a>
+<span class="sourceLineNo">1224</span>        }<a name="line.1224"></a>
+<span class="sourceLineNo">1225</span>            <a name="line.1225"></a>
+<span class="sourceLineNo">1226</span>        return activeCallGraph;<a name="line.1226"></a>
+<span class="sourceLineNo">1227</span>    }<a name="line.1227"></a>
+<span class="sourceLineNo">1228</span>    <a name="line.1228"></a>
+<span class="sourceLineNo">1229</span>    public void setCallGraph(CallGraph cg)<a name="line.1229"></a>
+<span class="sourceLineNo">1230</span>    {<a name="line.1230"></a>
+<span class="sourceLineNo">1231</span>        reachableMethods = null;<a name="line.1231"></a>
+<span class="sourceLineNo">1232</span>        activeCallGraph = cg;<a name="line.1232"></a>
+<span class="sourceLineNo">1233</span>    }<a name="line.1233"></a>
+<span class="sourceLineNo">1234</span><a name="line.1234"></a>
+<span class="sourceLineNo">1235</span>    public boolean hasCallGraph()<a name="line.1235"></a>
+<span class="sourceLineNo">1236</span>    {<a name="line.1236"></a>
+<span class="sourceLineNo">1237</span>        return activeCallGraph != null;<a name="line.1237"></a>
+<span class="sourceLineNo">1238</span>    }<a name="line.1238"></a>
+<span class="sourceLineNo">1239</span>    <a name="line.1239"></a>
+<span class="sourceLineNo">1240</span>    public void releaseCallGraph()<a name="line.1240"></a>
+<span class="sourceLineNo">1241</span>    {<a name="line.1241"></a>
+<span class="sourceLineNo">1242</span>        activeCallGraph = null;<a name="line.1242"></a>
+<span class="sourceLineNo">1243</span>        reachableMethods = null;<a name="line.1243"></a>
+<span class="sourceLineNo">1244</span>    }<a name="line.1244"></a>
+<span class="sourceLineNo">1245</span>    public ReachableMethods getReachableMethods() {<a name="line.1245"></a>
+<span class="sourceLineNo">1246</span>        if( reachableMethods == null ) {<a name="line.1246"></a>
+<span class="sourceLineNo">1247</span>            reachableMethods = new ReachableMethods(<a name="line.1247"></a>
+<span class="sourceLineNo">1248</span>                    getCallGraph(), new ArrayList&lt;MethodOrMethodContext&gt;(getEntryPoints()) );<a name="line.1248"></a>
+<span class="sourceLineNo">1249</span>        }<a name="line.1249"></a>
+<span class="sourceLineNo">1250</span>        reachableMethods.update();<a name="line.1250"></a>
+<span class="sourceLineNo">1251</span>        return reachableMethods;<a name="line.1251"></a>
+<span class="sourceLineNo">1252</span>    }<a name="line.1252"></a>
+<span class="sourceLineNo">1253</span>    public void setReachableMethods( ReachableMethods rm ) {<a name="line.1253"></a>
+<span class="sourceLineNo">1254</span>        reachableMethods = rm;<a name="line.1254"></a>
+<span class="sourceLineNo">1255</span>    }<a name="line.1255"></a>
+<span class="sourceLineNo">1256</span>    public boolean hasReachableMethods() {<a name="line.1256"></a>
+<span class="sourceLineNo">1257</span>        return reachableMethods != null;<a name="line.1257"></a>
+<span class="sourceLineNo">1258</span>    }<a name="line.1258"></a>
+<span class="sourceLineNo">1259</span>    public void releaseReachableMethods() {<a name="line.1259"></a>
+<span class="sourceLineNo">1260</span>        reachableMethods = null;<a name="line.1260"></a>
+<span class="sourceLineNo">1261</span>    }<a name="line.1261"></a>
+<span class="sourceLineNo">1262</span>   <a name="line.1262"></a>
+<span class="sourceLineNo">1263</span>    public boolean getPhantomRefs()<a name="line.1263"></a>
+<span class="sourceLineNo">1264</span>    {<a name="line.1264"></a>
+<span class="sourceLineNo">1265</span>        //if( !Options.v().allow_phantom_refs() ) return false;<a name="line.1265"></a>
+<span class="sourceLineNo">1266</span>        //return allowsPhantomRefs;<a name="line.1266"></a>
+<span class="sourceLineNo">1267</span>        return Options.v().allow_phantom_refs();<a name="line.1267"></a>
+<span class="sourceLineNo">1268</span>    }<a name="line.1268"></a>
+<span class="sourceLineNo">1269</span><a name="line.1269"></a>
+<span class="sourceLineNo">1270</span>    public void setPhantomRefs(boolean value)<a name="line.1270"></a>
+<span class="sourceLineNo">1271</span>    {<a name="line.1271"></a>
+<span class="sourceLineNo">1272</span>        allowsPhantomRefs = value;<a name="line.1272"></a>
+<span class="sourceLineNo">1273</span>    }<a name="line.1273"></a>
+<span class="sourceLineNo">1274</span>    <a name="line.1274"></a>
+<span class="sourceLineNo">1275</span>    public boolean allowsPhantomRefs()<a name="line.1275"></a>
+<span class="sourceLineNo">1276</span>    {<a name="line.1276"></a>
+<span class="sourceLineNo">1277</span>        return getPhantomRefs();<a name="line.1277"></a>
+<span class="sourceLineNo">1278</span>    }<a name="line.1278"></a>
+<span class="sourceLineNo">1279</span>    public Numberer&lt;Kind&gt; kindNumberer() { return kindNumberer; }<a name="line.1279"></a>
+<span class="sourceLineNo">1280</span>    public ArrayNumberer&lt;Type&gt; getTypeNumberer() { return typeNumberer; }<a name="line.1280"></a>
+<span class="sourceLineNo">1281</span>    public ArrayNumberer&lt;SootMethod&gt; getMethodNumberer() { return methodNumberer; }<a name="line.1281"></a>
+<span class="sourceLineNo">1282</span>    public Numberer&lt;Context&gt; getContextNumberer() { return contextNumberer; }<a name="line.1282"></a>
+<span class="sourceLineNo">1283</span>    public Numberer&lt;Unit&gt; getUnitNumberer() { return unitNumberer; }<a name="line.1283"></a>
+<span class="sourceLineNo">1284</span>    public Numberer&lt;SparkField&gt; getFieldNumberer() { return fieldNumberer; }<a name="line.1284"></a>
+<span class="sourceLineNo">1285</span>    public ArrayNumberer&lt;SootClass&gt; getClassNumberer() { return classNumberer; }<a name="line.1285"></a>
+<span class="sourceLineNo">1286</span>    public StringNumberer getSubSigNumberer() { return subSigNumberer; }<a name="line.1286"></a>
+<span class="sourceLineNo">1287</span>    public ArrayNumberer&lt;Local&gt; getLocalNumberer() { return localNumberer; }<a name="line.1287"></a>
+<span class="sourceLineNo">1288</span><a name="line.1288"></a>
+<span class="sourceLineNo">1289</span>    public void setContextNumberer( Numberer&lt;Context&gt; n ) {<a name="line.1289"></a>
+<span class="sourceLineNo">1290</span>        if( contextNumberer != null )<a name="line.1290"></a>
+<span class="sourceLineNo">1291</span>            throw new RuntimeException(<a name="line.1291"></a>
+<span class="sourceLineNo">1292</span>                    "Attempt to set context numberer when it is already set." );<a name="line.1292"></a>
+<span class="sourceLineNo">1293</span>        contextNumberer = n;<a name="line.1293"></a>
+<span class="sourceLineNo">1294</span>    }<a name="line.1294"></a>
+<span class="sourceLineNo">1295</span><a name="line.1295"></a>
+<span class="sourceLineNo">1296</span>    /**<a name="line.1296"></a>
+<span class="sourceLineNo">1297</span>     * Returns the {@link ThrowAnalysis} to be used by default when<a name="line.1297"></a>
+<span class="sourceLineNo">1298</span>     * constructing CFGs which include exceptional control flow.<a name="line.1298"></a>
+<span class="sourceLineNo">1299</span>     *<a name="line.1299"></a>
+<span class="sourceLineNo">1300</span>     * @return the default {@link ThrowAnalysis}<a name="line.1300"></a>
+<span class="sourceLineNo">1301</span>     */<a name="line.1301"></a>
+<span class="sourceLineNo">1302</span>    public ThrowAnalysis getDefaultThrowAnalysis() <a name="line.1302"></a>
+<span class="sourceLineNo">1303</span>    {<a name="line.1303"></a>
+<span class="sourceLineNo">1304</span>        if( defaultThrowAnalysis == null ) {<a name="line.1304"></a>
+<span class="sourceLineNo">1305</span>            int optionsThrowAnalysis = Options.v().throw_analysis();<a name="line.1305"></a>
+<span class="sourceLineNo">1306</span>            switch (optionsThrowAnalysis) {<a name="line.1306"></a>
+<span class="sourceLineNo">1307</span>            case Options.throw_analysis_pedantic:<a name="line.1307"></a>
+<span class="sourceLineNo">1308</span>                defaultThrowAnalysis = PedanticThrowAnalysis.v();<a name="line.1308"></a>
+<span class="sourceLineNo">1309</span>                break;<a name="line.1309"></a>
+<span class="sourceLineNo">1310</span>            case Options.throw_analysis_unit:<a name="line.1310"></a>
+<span class="sourceLineNo">1311</span>                defaultThrowAnalysis = UnitThrowAnalysis.v();<a name="line.1311"></a>
+<span class="sourceLineNo">1312</span>                break;<a name="line.1312"></a>
+<span class="sourceLineNo">1313</span>            default:<a name="line.1313"></a>
+<span class="sourceLineNo">1314</span>                throw new IllegalStateException("Options.v().throw_analysi() == " +<a name="line.1314"></a>
+<span class="sourceLineNo">1315</span>                                                Options.v().throw_analysis());<a name="line.1315"></a>
+<span class="sourceLineNo">1316</span>            }<a name="line.1316"></a>
+<span class="sourceLineNo">1317</span>        }<a name="line.1317"></a>
+<span class="sourceLineNo">1318</span>        return defaultThrowAnalysis;<a name="line.1318"></a>
+<span class="sourceLineNo">1319</span>    }<a name="line.1319"></a>
+<span class="sourceLineNo">1320</span><a name="line.1320"></a>
+<span class="sourceLineNo">1321</span>    /**<a name="line.1321"></a>
+<span class="sourceLineNo">1322</span>     * Sets the {@link ThrowAnalysis} to be used by default when<a name="line.1322"></a>
+<span class="sourceLineNo">1323</span>     * constructing CFGs which include exceptional control flow.<a name="line.1323"></a>
+<span class="sourceLineNo">1324</span>     *<a name="line.1324"></a>
+<span class="sourceLineNo">1325</span>     * @param ta the default {@link ThrowAnalysis}.<a name="line.1325"></a>
+<span class="sourceLineNo">1326</span>     */<a name="line.1326"></a>
+<span class="sourceLineNo">1327</span>    public void setDefaultThrowAnalysis(ThrowAnalysis ta) <a name="line.1327"></a>
+<span class="sourceLineNo">1328</span>    {<a name="line.1328"></a>
+<span class="sourceLineNo">1329</span>        defaultThrowAnalysis = ta;<a name="line.1329"></a>
+<span class="sourceLineNo">1330</span>    }<a name="line.1330"></a>
+<span class="sourceLineNo">1331</span><a name="line.1331"></a>
+<span class="sourceLineNo">1332</span>    private void setReservedNames()<a name="line.1332"></a>
+<span class="sourceLineNo">1333</span>    {<a name="line.1333"></a>
+<span class="sourceLineNo">1334</span>        Set&lt;String&gt; rn = getReservedNames();        <a name="line.1334"></a>
+<span class="sourceLineNo">1335</span>        rn.add("newarray");<a name="line.1335"></a>
+<span class="sourceLineNo">1336</span>        rn.add("newmultiarray");<a name="line.1336"></a>
+<span class="sourceLineNo">1337</span>        rn.add("nop");<a name="line.1337"></a>
+<span class="sourceLineNo">1338</span>        rn.add("ret");<a name="line.1338"></a>
+<span class="sourceLineNo">1339</span>        rn.add("specialinvoke");<a name="line.1339"></a>
+<span class="sourceLineNo">1340</span>        rn.add("staticinvoke");<a name="line.1340"></a>
+<span class="sourceLineNo">1341</span>        rn.add("tableswitch");<a name="line.1341"></a>
+<span class="sourceLineNo">1342</span>        rn.add("virtualinvoke");<a name="line.1342"></a>
+<span class="sourceLineNo">1343</span>        rn.add("null_type");<a name="line.1343"></a>
+<span class="sourceLineNo">1344</span>        rn.add("unknown");<a name="line.1344"></a>
+<span class="sourceLineNo">1345</span>        rn.add("cmp");<a name="line.1345"></a>
+<span class="sourceLineNo">1346</span>        rn.add("cmpg");<a name="line.1346"></a>
+<span class="sourceLineNo">1347</span>        rn.add("cmpl");<a name="line.1347"></a>
+<span class="sourceLineNo">1348</span>        rn.add("entermonitor");<a name="line.1348"></a>
+<span class="sourceLineNo">1349</span>        rn.add("exitmonitor");<a name="line.1349"></a>
+<span class="sourceLineNo">1350</span>        rn.add("interfaceinvoke");<a name="line.1350"></a>
+<span class="sourceLineNo">1351</span>        rn.add("lengthof");<a name="line.1351"></a>
+<span class="sourceLineNo">1352</span>        rn.add("lookupswitch");<a name="line.1352"></a>
+<span class="sourceLineNo">1353</span>        rn.add("neg");<a name="line.1353"></a>
+<span class="sourceLineNo">1354</span>        rn.add("if");<a name="line.1354"></a>
+<span class="sourceLineNo">1355</span>        rn.add("abstract");<a name="line.1355"></a>
+<span class="sourceLineNo">1356</span>        rn.add("annotation");<a name="line.1356"></a>
+<span class="sourceLineNo">1357</span>        rn.add("boolean");<a name="line.1357"></a>
+<span class="sourceLineNo">1358</span>        rn.add("break");<a name="line.1358"></a>
+<span class="sourceLineNo">1359</span>        rn.add("byte");<a name="line.1359"></a>
+<span class="sourceLineNo">1360</span>        rn.add("case");<a name="line.1360"></a>
+<span class="sourceLineNo">1361</span>        rn.add("catch");<a name="line.1361"></a>
+<span class="sourceLineNo">1362</span>        rn.add("char");<a name="line.1362"></a>
+<span class="sourceLineNo">1363</span>        rn.add("class");<a name="line.1363"></a>
+<span class="sourceLineNo">1364</span>        rn.add("enum");<a name="line.1364"></a>
+<span class="sourceLineNo">1365</span>        rn.add("final");<a name="line.1365"></a>
+<span class="sourceLineNo">1366</span>        rn.add("native");<a name="line.1366"></a>
+<span class="sourceLineNo">1367</span>        rn.add("public");<a name="line.1367"></a>
+<span class="sourceLineNo">1368</span>        rn.add("protected");<a name="line.1368"></a>
+<span class="sourceLineNo">1369</span>        rn.add("private");<a name="line.1369"></a>
+<span class="sourceLineNo">1370</span>        rn.add("static");<a name="line.1370"></a>
+<span class="sourceLineNo">1371</span>        rn.add("synchronized");<a name="line.1371"></a>
+<span class="sourceLineNo">1372</span>        rn.add("transient");<a name="line.1372"></a>
+<span class="sourceLineNo">1373</span>        rn.add("volatile");<a name="line.1373"></a>
+<span class="sourceLineNo">1374</span>        rn.add("interface");<a name="line.1374"></a>
+<span class="sourceLineNo">1375</span>        rn.add("void");<a name="line.1375"></a>
+<span class="sourceLineNo">1376</span>        rn.add("short");<a name="line.1376"></a>
+<span class="sourceLineNo">1377</span>        rn.add("int");<a name="line.1377"></a>
+<span class="sourceLineNo">1378</span>        rn.add("long");<a name="line.1378"></a>
+<span class="sourceLineNo">1379</span>        rn.add("float");<a name="line.1379"></a>
+<span class="sourceLineNo">1380</span>        rn.add("double");<a name="line.1380"></a>
+<span class="sourceLineNo">1381</span>        rn.add("extends");<a name="line.1381"></a>
+<span class="sourceLineNo">1382</span>        rn.add("implements");<a name="line.1382"></a>
+<span class="sourceLineNo">1383</span>        rn.add("breakpoint");<a name="line.1383"></a>
+<span class="sourceLineNo">1384</span>        rn.add("default");<a name="line.1384"></a>
+<span class="sourceLineNo">1385</span>        rn.add("goto");<a name="line.1385"></a>
+<span class="sourceLineNo">1386</span>        rn.add("instanceof");<a name="line.1386"></a>
+<span class="sourceLineNo">1387</span>        rn.add("new");<a name="line.1387"></a>
+<span class="sourceLineNo">1388</span>        rn.add("return");<a name="line.1388"></a>
+<span class="sourceLineNo">1389</span>        rn.add("throw");<a name="line.1389"></a>
+<span class="sourceLineNo">1390</span>        rn.add("throws");<a name="line.1390"></a>
+<span class="sourceLineNo">1391</span>        rn.add("null");<a name="line.1391"></a>
+<span class="sourceLineNo">1392</span>        rn.add("from");<a name="line.1392"></a>
+<span class="sourceLineNo">1393</span>        rn.add("to");<a name="line.1393"></a>
+<span class="sourceLineNo">1394</span>        rn.add("with");<a name="line.1394"></a>
+<span class="sourceLineNo">1395</span>    }<a name="line.1395"></a>
+<span class="sourceLineNo">1396</span><a name="line.1396"></a>
+<span class="sourceLineNo">1397</span>    private final Set&lt;String&gt;[] basicclasses=new Set[4];<a name="line.1397"></a>
+<span class="sourceLineNo">1398</span><a name="line.1398"></a>
+<span class="sourceLineNo">1399</span>        private void addSootBasicClasses() {<a name="line.1399"></a>
+<span class="sourceLineNo">1400</span>                basicclasses[SootClass.HIERARCHY] = new HashSet&lt;String&gt;();<a name="line.1400"></a>
+<span class="sourceLineNo">1401</span>                basicclasses[SootClass.SIGNATURES] = new HashSet&lt;String&gt;();<a name="line.1401"></a>
+<span class="sourceLineNo">1402</span>                basicclasses[SootClass.BODIES] = new HashSet&lt;String&gt;();<a name="line.1402"></a>
+<span class="sourceLineNo">1403</span><a name="line.1403"></a>
+<span class="sourceLineNo">1404</span>                addBasicClass("java.lang.Object");<a name="line.1404"></a>
+<span class="sourceLineNo">1405</span>                addBasicClass("java.lang.Class", SootClass.SIGNATURES);<a name="line.1405"></a>
+<span class="sourceLineNo">1406</span><a name="line.1406"></a>
+<span class="sourceLineNo">1407</span>                addBasicClass("java.lang.Void", SootClass.SIGNATURES);<a name="line.1407"></a>
+<span class="sourceLineNo">1408</span>                addBasicClass("java.lang.Boolean", SootClass.SIGNATURES);<a name="line.1408"></a>
+<span class="sourceLineNo">1409</span>                addBasicClass("java.lang.Byte", SootClass.SIGNATURES);<a name="line.1409"></a>
+<span class="sourceLineNo">1410</span>                addBasicClass("java.lang.Character", SootClass.SIGNATURES);<a name="line.1410"></a>
+<span class="sourceLineNo">1411</span>                addBasicClass("java.lang.Short", SootClass.SIGNATURES);<a name="line.1411"></a>
+<span class="sourceLineNo">1412</span>                addBasicClass("java.lang.Integer", SootClass.SIGNATURES);<a name="line.1412"></a>
+<span class="sourceLineNo">1413</span>                addBasicClass("java.lang.Long", SootClass.SIGNATURES);<a name="line.1413"></a>
+<span class="sourceLineNo">1414</span>                addBasicClass("java.lang.Float", SootClass.SIGNATURES);<a name="line.1414"></a>
+<span class="sourceLineNo">1415</span>                addBasicClass("java.lang.Double", SootClass.SIGNATURES);<a name="line.1415"></a>
+<span class="sourceLineNo">1416</span><a name="line.1416"></a>
+<span class="sourceLineNo">1417</span>                addBasicClass("java.lang.String");<a name="line.1417"></a>
+<span class="sourceLineNo">1418</span>                addBasicClass("java.lang.StringBuffer", SootClass.SIGNATURES);<a name="line.1418"></a>
+<span class="sourceLineNo">1419</span><a name="line.1419"></a>
+<span class="sourceLineNo">1420</span>                addBasicClass("java.lang.Error");<a name="line.1420"></a>
+<span class="sourceLineNo">1421</span>                addBasicClass("java.lang.AssertionError", SootClass.SIGNATURES);<a name="line.1421"></a>
+<span class="sourceLineNo">1422</span>                addBasicClass("java.lang.Throwable", SootClass.SIGNATURES);<a name="line.1422"></a>
+<span class="sourceLineNo">1423</span>                addBasicClass("java.lang.NoClassDefFoundError", SootClass.SIGNATURES);<a name="line.1423"></a>
+<span class="sourceLineNo">1424</span>                addBasicClass("java.lang.ExceptionInInitializerError");<a name="line.1424"></a>
+<span class="sourceLineNo">1425</span>                addBasicClass("java.lang.RuntimeException");<a name="line.1425"></a>
+<span class="sourceLineNo">1426</span>                addBasicClass("java.lang.ClassNotFoundException");<a name="line.1426"></a>
+<span class="sourceLineNo">1427</span>                addBasicClass("java.lang.ArithmeticException");<a name="line.1427"></a>
+<span class="sourceLineNo">1428</span>                addBasicClass("java.lang.ArrayStoreException");<a name="line.1428"></a>
+<span class="sourceLineNo">1429</span>                addBasicClass("java.lang.ClassCastException");<a name="line.1429"></a>
+<span class="sourceLineNo">1430</span>                addBasicClass("java.lang.IllegalMonitorStateException");<a name="line.1430"></a>
+<span class="sourceLineNo">1431</span>                addBasicClass("java.lang.IndexOutOfBoundsException");<a name="line.1431"></a>
+<span class="sourceLineNo">1432</span>                addBasicClass("java.lang.ArrayIndexOutOfBoundsException");<a name="line.1432"></a>
+<span class="sourceLineNo">1433</span>                addBasicClass("java.lang.NegativeArraySizeException");<a name="line.1433"></a>
+<span class="sourceLineNo">1434</span>                addBasicClass("java.lang.NullPointerException", SootClass.SIGNATURES);<a name="line.1434"></a>
+<span class="sourceLineNo">1435</span>                addBasicClass("java.lang.InstantiationError");<a name="line.1435"></a>
+<span class="sourceLineNo">1436</span>                addBasicClass("java.lang.InternalError");<a name="line.1436"></a>
+<span class="sourceLineNo">1437</span>                addBasicClass("java.lang.OutOfMemoryError");<a name="line.1437"></a>
+<span class="sourceLineNo">1438</span>                addBasicClass("java.lang.StackOverflowError");<a name="line.1438"></a>
+<span class="sourceLineNo">1439</span>                addBasicClass("java.lang.UnknownError");<a name="line.1439"></a>
+<span class="sourceLineNo">1440</span>                addBasicClass("java.lang.ThreadDeath");<a name="line.1440"></a>
+<span class="sourceLineNo">1441</span>                addBasicClass("java.lang.ClassCircularityError");<a name="line.1441"></a>
+<span class="sourceLineNo">1442</span>                addBasicClass("java.lang.ClassFormatError");<a name="line.1442"></a>
+<span class="sourceLineNo">1443</span>                addBasicClass("java.lang.IllegalAccessError");<a name="line.1443"></a>
+<span class="sourceLineNo">1444</span>                addBasicClass("java.lang.IncompatibleClassChangeError");<a name="line.1444"></a>
+<span class="sourceLineNo">1445</span>                addBasicClass("java.lang.LinkageError");<a name="line.1445"></a>
+<span class="sourceLineNo">1446</span>                addBasicClass("java.lang.VerifyError");<a name="line.1446"></a>
+<span class="sourceLineNo">1447</span>                addBasicClass("java.lang.NoSuchFieldError");<a name="line.1447"></a>
+<span class="sourceLineNo">1448</span>                addBasicClass("java.lang.AbstractMethodError");<a name="line.1448"></a>
+<span class="sourceLineNo">1449</span>                addBasicClass("java.lang.NoSuchMethodError");<a name="line.1449"></a>
+<span class="sourceLineNo">1450</span>                addBasicClass("java.lang.UnsatisfiedLinkError");<a name="line.1450"></a>
+<span class="sourceLineNo">1451</span><a name="line.1451"></a>
+<span class="sourceLineNo">1452</span>                addBasicClass("java.lang.Thread");<a name="line.1452"></a>
+<span class="sourceLineNo">1453</span>                addBasicClass("java.lang.Runnable");<a name="line.1453"></a>
+<span class="sourceLineNo">1454</span>                addBasicClass("java.lang.Cloneable");<a name="line.1454"></a>
+<span class="sourceLineNo">1455</span><a name="line.1455"></a>
+<span class="sourceLineNo">1456</span>                addBasicClass("java.io.Serializable");<a name="line.1456"></a>
+<span class="sourceLineNo">1457</span><a name="line.1457"></a>
+<span class="sourceLineNo">1458</span>                addBasicClass("java.lang.ref.Finalizer");<a name="line.1458"></a>
+<span class="sourceLineNo">1459</span><a name="line.1459"></a>
+<span class="sourceLineNo">1460</span>                addBasicClass("java.lang.invoke.LambdaMetafactory");<a name="line.1460"></a>
+<span class="sourceLineNo">1461</span>        }<a name="line.1461"></a>
+<span class="sourceLineNo">1462</span><a name="line.1462"></a>
+<span class="sourceLineNo">1463</span>        public void addBasicClass(String name) {<a name="line.1463"></a>
+<span class="sourceLineNo">1464</span>                addBasicClass(name, SootClass.HIERARCHY);<a name="line.1464"></a>
+<span class="sourceLineNo">1465</span>        }<a name="line.1465"></a>
+<span class="sourceLineNo">1466</span><a name="line.1466"></a>
+<span class="sourceLineNo">1467</span>        public void addBasicClass(String name, int level) {<a name="line.1467"></a>
+<span class="sourceLineNo">1468</span>                basicclasses[level].add(name);<a name="line.1468"></a>
+<span class="sourceLineNo">1469</span>        }<a name="line.1469"></a>
+<span class="sourceLineNo">1470</span><a name="line.1470"></a>
+<span class="sourceLineNo">1471</span>    /** Load just the set of basic classes soot needs, ignoring those<a name="line.1471"></a>
+<span class="sourceLineNo">1472</span>     *  specified on the command-line. You don't need to use both this and <a name="line.1472"></a>
+<span class="sourceLineNo">1473</span>     *  loadNecessaryClasses, though it will only waste time.<a name="line.1473"></a>
+<span class="sourceLineNo">1474</span>     */<a name="line.1474"></a>
+<span class="sourceLineNo">1475</span>    public void loadBasicClasses() {<a name="line.1475"></a>
+<span class="sourceLineNo">1476</span>        addReflectionTraceClasses();<a name="line.1476"></a>
+<span class="sourceLineNo">1477</span>        <a name="line.1477"></a>
+<span class="sourceLineNo">1478</span>                for(int i=SootClass.BODIES;i&gt;=SootClass.HIERARCHY;i--) {<a name="line.1478"></a>
+<span class="sourceLineNo">1479</span>                    for(String name: basicclasses[i]){<a name="line.1479"></a>
+<span class="sourceLineNo">1480</span>                        tryLoadClass(name,i);<a name="line.1480"></a>
+<span class="sourceLineNo">1481</span>                    }<a name="line.1481"></a>
+<span class="sourceLineNo">1482</span>                }<a name="line.1482"></a>
+<span class="sourceLineNo">1483</span>    }<a name="line.1483"></a>
+<span class="sourceLineNo">1484</span>    <a name="line.1484"></a>
+<span class="sourceLineNo">1485</span>    public Set&lt;String&gt; getBasicClasses() {<a name="line.1485"></a>
+<span class="sourceLineNo">1486</span>        Set&lt;String&gt; all = new HashSet&lt;String&gt;();<a name="line.1486"></a>
+<span class="sourceLineNo">1487</span>        for(int i=0;i&lt;basicclasses.length;i++) {<a name="line.1487"></a>
+<span class="sourceLineNo">1488</span>                Set&lt;String&gt; classes = basicclasses[i];<a name="line.1488"></a>
+<span class="sourceLineNo">1489</span>                if(classes!=null)<a name="line.1489"></a>
+<span class="sourceLineNo">1490</span>                        all.addAll(classes);<a name="line.1490"></a>
+<span class="sourceLineNo">1491</span>        }<a name="line.1491"></a>
+<span class="sourceLineNo">1492</span>                return all; <a name="line.1492"></a>
+<span class="sourceLineNo">1493</span>        }<a name="line.1493"></a>
+<span class="sourceLineNo">1494</span><a name="line.1494"></a>
+<span class="sourceLineNo">1495</span>    private void addReflectionTraceClasses() {<a name="line.1495"></a>
+<span class="sourceLineNo">1496</span>        CGOptions options = new CGOptions( PhaseOptions.v().getPhaseOptions("cg") );<a name="line.1496"></a>
+<span class="sourceLineNo">1497</span>        String log = options.reflection_log();<a name="line.1497"></a>
+<span class="sourceLineNo">1498</span>        <a name="line.1498"></a>
+<span class="sourceLineNo">1499</span>        Set&lt;String&gt; classNames = new HashSet&lt;String&gt;();<a name="line.1499"></a>
+<span class="sourceLineNo">1500</span>        if(log!=null &amp;&amp; log.length()&gt;0) {<a name="line.1500"></a>
+<span class="sourceLineNo">1501</span>                        BufferedReader reader = null;<a name="line.1501"></a>
+<span class="sourceLineNo">1502</span>                        String line="";<a name="line.1502"></a>
+<span class="sourceLineNo">1503</span>                        try {<a name="line.1503"></a>
+<span class="sourceLineNo">1504</span>                                reader = new BufferedReader(new InputStreamReader(new FileInputStream(log)));<a name="line.1504"></a>
+<span class="sourceLineNo">1505</span>                                while((line=reader.readLine())!=null) {<a name="line.1505"></a>
+<span class="sourceLineNo">1506</span>                                        if(line.length()==0) continue;<a name="line.1506"></a>
+<span class="sourceLineNo">1507</span>                                        String[] portions = line.split(";",-1);<a name="line.1507"></a>
+<span class="sourceLineNo">1508</span>                                        String kind = portions[0];<a name="line.1508"></a>
+<span class="sourceLineNo">1509</span>                                        String target = portions[1];<a name="line.1509"></a>
+<span class="sourceLineNo">1510</span>                                        String source = portions[2];<a name="line.1510"></a>
+<span class="sourceLineNo">1511</span>                                        String sourceClassName = source.substring(0,source.lastIndexOf("."));<a name="line.1511"></a>
+<span class="sourceLineNo">1512</span>                                        classNames.add(sourceClassName);<a name="line.1512"></a>
+<span class="sourceLineNo">1513</span>                                        if(kind.equals("Class.forName")) {<a name="line.1513"></a>
+<span class="sourceLineNo">1514</span>                                                classNames.add(target);<a name="line.1514"></a>
+<span class="sourceLineNo">1515</span>                                        } else if(kind.equals("Class.newInstance")) {<a name="line.1515"></a>
+<span class="sourceLineNo">1516</span>                                                classNames.add(target);<a name="line.1516"></a>
+<span class="sourceLineNo">1517</span>                                        } else if(kind.equals("Method.invoke") || kind.equals("Constructor.newInstance")) {<a name="line.1517"></a>
+<span class="sourceLineNo">1518</span>                                                classNames.add(signatureToClass(target));<a name="line.1518"></a>
+<span class="sourceLineNo">1519</span>                                        } else if(kind.equals("Field.set*") || kind.equals("Field.get*")) {<a name="line.1519"></a>
+<span class="sourceLineNo">1520</span>                                                classNames.add(signatureToClass(target));<a name="line.1520"></a>
+<span class="sourceLineNo">1521</span>                                        } else throw new RuntimeException("Unknown entry kind: "+kind);<a name="line.1521"></a>
+<span class="sourceLineNo">1522</span>                                }<a name="line.1522"></a>
+<span class="sourceLineNo">1523</span>                        } catch (Exception e) {<a name="line.1523"></a>
+<span class="sourceLineNo">1524</span>                                throw new RuntimeException("Line: '"+line+"'", e);<a name="line.1524"></a>
+<span class="sourceLineNo">1525</span>                        }<a name="line.1525"></a>
+<span class="sourceLineNo">1526</span>                        finally {<a name="line.1526"></a>
+<span class="sourceLineNo">1527</span>                                if (reader != null)<a name="line.1527"></a>
+<span class="sourceLineNo">1528</span>                                        try {<a name="line.1528"></a>
+<span class="sourceLineNo">1529</span>                                                reader.close();<a name="line.1529"></a>
+<span class="sourceLineNo">1530</span>                                        } catch (IOException e) {<a name="line.1530"></a>
+<span class="sourceLineNo">1531</span>                                                throw new RuntimeException(e);<a name="line.1531"></a>
+<span class="sourceLineNo">1532</span>                                        }<a name="line.1532"></a>
+<span class="sourceLineNo">1533</span>                        }<a name="line.1533"></a>
+<span class="sourceLineNo">1534</span>        }<a name="line.1534"></a>
+<span class="sourceLineNo">1535</span>        <a name="line.1535"></a>
+<span class="sourceLineNo">1536</span>        for (String c : classNames) {<a name="line.1536"></a>
+<span class="sourceLineNo">1537</span>                addBasicClass(c, SootClass.BODIES);<a name="line.1537"></a>
+<span class="sourceLineNo">1538</span>                }<a name="line.1538"></a>
+<span class="sourceLineNo">1539</span>        }<a name="line.1539"></a>
+<span class="sourceLineNo">1540</span><a name="line.1540"></a>
+<span class="sourceLineNo">1541</span>        private List&lt;SootClass&gt; dynamicClasses = null;<a name="line.1541"></a>
+<span class="sourceLineNo">1542</span>    public Collection&lt;SootClass&gt; dynamicClasses() {<a name="line.1542"></a>
+<span class="sourceLineNo">1543</span>        if(dynamicClasses==null) {<a name="line.1543"></a>
+<span class="sourceLineNo">1544</span>                throw new IllegalStateException("Have to call loadDynamicClasses() first!");<a name="line.1544"></a>
+<span class="sourceLineNo">1545</span>        }<a name="line.1545"></a>
+<span class="sourceLineNo">1546</span>        return dynamicClasses;<a name="line.1546"></a>
+<span class="sourceLineNo">1547</span>    }<a name="line.1547"></a>
+<span class="sourceLineNo">1548</span><a name="line.1548"></a>
+<span class="sourceLineNo">1549</span>    private void loadNecessaryClass(String name) {<a name="line.1549"></a>
+<span class="sourceLineNo">1550</span>        SootClass c;<a name="line.1550"></a>
+<span class="sourceLineNo">1551</span>        c = loadClassAndSupport(name);<a name="line.1551"></a>
+<span class="sourceLineNo">1552</span>        c.setApplicationClass();<a name="line.1552"></a>
+<span class="sourceLineNo">1553</span>    }<a name="line.1553"></a>
+<span class="sourceLineNo">1554</span>    /** Load the set of classes that soot needs, including those specified on the<a name="line.1554"></a>
+<span class="sourceLineNo">1555</span>     *  command-line. This is the standard way of initialising the list of<a name="line.1555"></a>
+<span class="sourceLineNo">1556</span>     *  classes soot should use.<a name="line.1556"></a>
+<span class="sourceLineNo">1557</span>     */<a name="line.1557"></a>
+<span class="sourceLineNo">1558</span>    public void loadNecessaryClasses() {<a name="line.1558"></a>
+<span class="sourceLineNo">1559</span>        loadBasicClasses();<a name="line.1559"></a>
+<span class="sourceLineNo">1560</span>        <a name="line.1560"></a>
+<span class="sourceLineNo">1561</span>        for (String name : Options.v().classes()) {<a name="line.1561"></a>
+<span class="sourceLineNo">1562</span>            loadNecessaryClass(name);<a name="line.1562"></a>
+<span class="sourceLineNo">1563</span>        }<a name="line.1563"></a>
+<span class="sourceLineNo">1564</span><a name="line.1564"></a>
+<span class="sourceLineNo">1565</span>        loadDynamicClasses();<a name="line.1565"></a>
+<span class="sourceLineNo">1566</span><a name="line.1566"></a>
+<span class="sourceLineNo">1567</span>        if(Options.v().oaat()) {<a name="line.1567"></a>
+<span class="sourceLineNo">1568</span>                if(Options.v().process_dir().isEmpty()) {<a name="line.1568"></a>
+<span class="sourceLineNo">1569</span>                        throw new IllegalArgumentException("If switch -oaat is used, then also -process-dir must be given.");<a name="line.1569"></a>
+<span class="sourceLineNo">1570</span>                }<a name="line.1570"></a>
+<span class="sourceLineNo">1571</span>        } else {<a name="line.1571"></a>
+<span class="sourceLineNo">1572</span>                for( final String path : Options.v().process_dir() ) {<a name="line.1572"></a>
+<span class="sourceLineNo">1573</span>                    for (String cl : SourceLocator.v().getClassesUnder(path)) {<a name="line.1573"></a>
+<span class="sourceLineNo">1574</span>                        SootClass theClass = loadClassAndSupport(cl);<a name="line.1574"></a>
+<span class="sourceLineNo">1575</span>                        theClass.setApplicationClass();<a name="line.1575"></a>
+<span class="sourceLineNo">1576</span>                    }<a name="line.1576"></a>
+<span class="sourceLineNo">1577</span>                }<a name="line.1577"></a>
+<span class="sourceLineNo">1578</span>        }<a name="line.1578"></a>
+<span class="sourceLineNo">1579</span><a name="line.1579"></a>
+<span class="sourceLineNo">1580</span>        prepareClasses();<a name="line.1580"></a>
+<span class="sourceLineNo">1581</span>        setDoneResolving();<a name="line.1581"></a>
+<span class="sourceLineNo">1582</span>    }<a name="line.1582"></a>
+<span class="sourceLineNo">1583</span><a name="line.1583"></a>
+<span class="sourceLineNo">1584</span>    public void loadDynamicClasses() {<a name="line.1584"></a>
+<span class="sourceLineNo">1585</span>        dynamicClasses = new ArrayList&lt;SootClass&gt;();<a name="line.1585"></a>
+<span class="sourceLineNo">1586</span>        HashSet&lt;String&gt; dynClasses = new HashSet&lt;String&gt;();<a name="line.1586"></a>
+<span class="sourceLineNo">1587</span>        dynClasses.addAll(Options.v().dynamic_class());<a name="line.1587"></a>
+<span class="sourceLineNo">1588</span><a name="line.1588"></a>
+<span class="sourceLineNo">1589</span>        for( Iterator&lt;String&gt; pathIt = Options.v().dynamic_dir().iterator(); pathIt.hasNext(); ) {<a name="line.1589"></a>
+<span class="sourceLineNo">1590</span><a name="line.1590"></a>
+<span class="sourceLineNo">1591</span>            final String path = pathIt.next();<a name="line.1591"></a>
+<span class="sourceLineNo">1592</span>            dynClasses.addAll(SourceLocator.v().getClassesUnder(path));<a name="line.1592"></a>
+<span class="sourceLineNo">1593</span>        }<a name="line.1593"></a>
+<span class="sourceLineNo">1594</span><a name="line.1594"></a>
+<span class="sourceLineNo">1595</span>        for( Iterator&lt;String&gt; pkgIt = Options.v().dynamic_package().iterator(); pkgIt.hasNext(); ) {<a name="line.1595"></a>
+<span class="sourceLineNo">1596</span><a name="line.1596"></a>
+<span class="sourceLineNo">1597</span>            final String pkg = pkgIt.next();<a name="line.1597"></a>
+<span class="sourceLineNo">1598</span>            dynClasses.addAll(SourceLocator.v().classesInDynamicPackage(pkg));<a name="line.1598"></a>
+<span class="sourceLineNo">1599</span>        }<a name="line.1599"></a>
+<span class="sourceLineNo">1600</span><a name="line.1600"></a>
+<span class="sourceLineNo">1601</span>        for (String className : dynClasses) {<a name="line.1601"></a>
+<span class="sourceLineNo">1602</span><a name="line.1602"></a>
+<span class="sourceLineNo">1603</span>            dynamicClasses.add( loadClassAndSupport(className) );<a name="line.1603"></a>
+<span class="sourceLineNo">1604</span>        }<a name="line.1604"></a>
+<span class="sourceLineNo">1605</span>        <a name="line.1605"></a>
+<span class="sourceLineNo">1606</span>        //remove non-concrete classes that may accidentally have been loaded<a name="line.1606"></a>
+<span class="sourceLineNo">1607</span>        for (Iterator&lt;SootClass&gt; iterator = dynamicClasses.iterator(); iterator.hasNext();) {<a name="line.1607"></a>
+<span class="sourceLineNo">1608</span>                        SootClass c = iterator.next();<a name="line.1608"></a>
+<span class="sourceLineNo">1609</span>                        if(!c.isConcrete()) {<a name="line.1609"></a>
+<span class="sourceLineNo">1610</span>                                if(Options.v().verbose()) {<a name="line.1610"></a>
+<span class="sourceLineNo">1611</span>                                        G.v().out.println("Warning: dynamic class "+c.getName()+" is abstract or an interface, and it will not be considered.");<a name="line.1611"></a>
+<span class="sourceLineNo">1612</span>                                }<a name="line.1612"></a>
+<span class="sourceLineNo">1613</span>                                iterator.remove();<a name="line.1613"></a>
+<span class="sourceLineNo">1614</span>                        }<a name="line.1614"></a>
+<span class="sourceLineNo">1615</span>                }<a name="line.1615"></a>
+<span class="sourceLineNo">1616</span>    }<a name="line.1616"></a>
+<span class="sourceLineNo">1617</span><a name="line.1617"></a>
+<span class="sourceLineNo">1618</span><a name="line.1618"></a>
+<span class="sourceLineNo">1619</span>    /* Generate classes to process, adding or removing package marked by<a name="line.1619"></a>
+<span class="sourceLineNo">1620</span>     * command line options. <a name="line.1620"></a>
+<span class="sourceLineNo">1621</span>     */<a name="line.1621"></a>
+<span class="sourceLineNo">1622</span>    private void prepareClasses() {<a name="line.1622"></a>
+<span class="sourceLineNo">1623</span>        // Remove/add all classes from packageInclusionMask as per -i option<a name="line.1623"></a>
+<span class="sourceLineNo">1624</span>        Chain&lt;SootClass&gt; processedClasses = new HashChain&lt;SootClass&gt;();<a name="line.1624"></a>
+<span class="sourceLineNo">1625</span>        while(true) {<a name="line.1625"></a>
+<span class="sourceLineNo">1626</span>            Chain&lt;SootClass&gt; unprocessedClasses = new HashChain&lt;SootClass&gt;(getClasses());<a name="line.1626"></a>
+<span class="sourceLineNo">1627</span>            unprocessedClasses.removeAll(processedClasses);<a name="line.1627"></a>
+<span class="sourceLineNo">1628</span>            if( unprocessedClasses.isEmpty() ) break;<a name="line.1628"></a>
+<span class="sourceLineNo">1629</span>            processedClasses.addAll(unprocessedClasses);<a name="line.1629"></a>
+<span class="sourceLineNo">1630</span>            for (SootClass s : unprocessedClasses) {<a name="line.1630"></a>
+<span class="sourceLineNo">1631</span>                if( s.isPhantom() ) continue;<a name="line.1631"></a>
+<span class="sourceLineNo">1632</span>                if(Options.v().app()) {<a name="line.1632"></a>
+<span class="sourceLineNo">1633</span>                    s.setApplicationClass();<a name="line.1633"></a>
+<span class="sourceLineNo">1634</span>                }<a name="line.1634"></a>
+<span class="sourceLineNo">1635</span>                if (Options.v().classes().contains(s.getName())) {<a name="line.1635"></a>
+<span class="sourceLineNo">1636</span>                    s.setApplicationClass();<a name="line.1636"></a>
+<span class="sourceLineNo">1637</span>                    continue;<a name="line.1637"></a>
+<span class="sourceLineNo">1638</span>                }<a name="line.1638"></a>
+<span class="sourceLineNo">1639</span>                if(s.isApplicationClass() &amp;&amp; isExcluded(s)){<a name="line.1639"></a>
+<span class="sourceLineNo">1640</span>                    s.setLibraryClass();<a name="line.1640"></a>
+<span class="sourceLineNo">1641</span>                }<a name="line.1641"></a>
+<span class="sourceLineNo">1642</span>                if(isIncluded(s)){<a name="line.1642"></a>
+<span class="sourceLineNo">1643</span>                    s.setApplicationClass();<a name="line.1643"></a>
+<span class="sourceLineNo">1644</span>                }<a name="line.1644"></a>
+<span class="sourceLineNo">1645</span>                if(s.isApplicationClass()) {<a name="line.1645"></a>
+<span class="sourceLineNo">1646</span>                    // make sure we have the support<a name="line.1646"></a>
+<span class="sourceLineNo">1647</span>                    loadClassAndSupport(s.getName());<a name="line.1647"></a>
+<span class="sourceLineNo">1648</span>                }<a name="line.1648"></a>
+<span class="sourceLineNo">1649</span>            }<a name="line.1649"></a>
+<span class="sourceLineNo">1650</span>        }<a name="line.1650"></a>
+<span class="sourceLineNo">1651</span>    }<a name="line.1651"></a>
+<span class="sourceLineNo">1652</span>    <a name="line.1652"></a>
+<span class="sourceLineNo">1653</span>    public boolean isExcluded(SootClass sc){<a name="line.1653"></a>
+<span class="sourceLineNo">1654</span>        String name = sc.getName();<a name="line.1654"></a>
+<span class="sourceLineNo">1655</span>        for (String pkg : excludedPackages) {<a name="line.1655"></a>
+<span class="sourceLineNo">1656</span>                if(name.equals(pkg) || ((pkg.endsWith(".*") || pkg.endsWith("$*")) &amp;&amp; name.startsWith(pkg.substring(0, pkg.length() - 1)))){<a name="line.1656"></a>
+<span class="sourceLineNo">1657</span>                        return !isIncluded(sc);<a name="line.1657"></a>
+<span class="sourceLineNo">1658</span>                }<a name="line.1658"></a>
+<span class="sourceLineNo">1659</span>        }<a name="line.1659"></a>
+<span class="sourceLineNo">1660</span>        return false;<a name="line.1660"></a>
+<span class="sourceLineNo">1661</span>    }<a name="line.1661"></a>
+<span class="sourceLineNo">1662</span>    <a name="line.1662"></a>
+<span class="sourceLineNo">1663</span>    public boolean isIncluded(SootClass sc){<a name="line.1663"></a>
+<span class="sourceLineNo">1664</span>        String name = sc.getName();<a name="line.1664"></a>
+<span class="sourceLineNo">1665</span>        for (String inc : (List&lt;String&gt;) Options.v().include()) {<a name="line.1665"></a>
+<span class="sourceLineNo">1666</span>            if (name.equals(inc) || ((inc.endsWith(".*") || inc.endsWith("$*")) &amp;&amp; name.startsWith(inc.substring(0, inc.length() - 1)))) {<a name="line.1666"></a>
+<span class="sourceLineNo">1667</span>                return true;<a name="line.1667"></a>
+<span class="sourceLineNo">1668</span>            }<a name="line.1668"></a>
+<span class="sourceLineNo">1669</span>        }<a name="line.1669"></a>
+<span class="sourceLineNo">1670</span>        return false;<a name="line.1670"></a>
+<span class="sourceLineNo">1671</span>    }<a name="line.1671"></a>
+<span class="sourceLineNo">1672</span><a name="line.1672"></a>
+<span class="sourceLineNo">1673</span>    List&lt;String&gt; pkgList;<a name="line.1673"></a>
+<span class="sourceLineNo">1674</span><a name="line.1674"></a>
+<span class="sourceLineNo">1675</span>    public void setPkgList(List&lt;String&gt; list){<a name="line.1675"></a>
+<span class="sourceLineNo">1676</span>        pkgList = list;<a name="line.1676"></a>
+<span class="sourceLineNo">1677</span>    }<a name="line.1677"></a>
+<span class="sourceLineNo">1678</span><a name="line.1678"></a>
+<span class="sourceLineNo">1679</span>    public List&lt;String&gt; getPkgList(){<a name="line.1679"></a>
+<span class="sourceLineNo">1680</span>        return pkgList;<a name="line.1680"></a>
+<span class="sourceLineNo">1681</span>    }<a name="line.1681"></a>
+<span class="sourceLineNo">1682</span><a name="line.1682"></a>
+<span class="sourceLineNo">1683</span><a name="line.1683"></a>
+<span class="sourceLineNo">1684</span>    /** Create an unresolved reference to a method. */<a name="line.1684"></a>
+<span class="sourceLineNo">1685</span>    public SootMethodRef makeMethodRef( <a name="line.1685"></a>
+<span class="sourceLineNo">1686</span>            SootClass declaringClass,<a name="line.1686"></a>
+<span class="sourceLineNo">1687</span>            String name,<a name="line.1687"></a>
+<span class="sourceLineNo">1688</span>            List&lt;Type&gt; parameterTypes,<a name="line.1688"></a>
+<span class="sourceLineNo">1689</span>            Type returnType,<a name="line.1689"></a>
+<span class="sourceLineNo">1690</span>            boolean isStatic ) {<a name="line.1690"></a>
+<span class="sourceLineNo">1691</span>        return new SootMethodRefImpl(declaringClass, name, parameterTypes,<a name="line.1691"></a>
+<span class="sourceLineNo">1692</span>                returnType, isStatic);<a name="line.1692"></a>
+<span class="sourceLineNo">1693</span>    }<a name="line.1693"></a>
+<span class="sourceLineNo">1694</span><a name="line.1694"></a>
+<span class="sourceLineNo">1695</span>    /** Create an unresolved reference to a constructor. */<a name="line.1695"></a>
+<span class="sourceLineNo">1696</span>    public SootMethodRef makeConstructorRef( <a name="line.1696"></a>
+<span class="sourceLineNo">1697</span>            SootClass declaringClass,<a name="line.1697"></a>
+<span class="sourceLineNo">1698</span>            List&lt;Type&gt; parameterTypes) {<a name="line.1698"></a>
+<span class="sourceLineNo">1699</span>        return makeMethodRef(declaringClass, SootMethod.constructorName, <a name="line.1699"></a>
+<span class="sourceLineNo">1700</span>                                         parameterTypes, VoidType.v(), false );<a name="line.1700"></a>
+<span class="sourceLineNo">1701</span>    }<a name="line.1701"></a>
+<span class="sourceLineNo">1702</span><a name="line.1702"></a>
+<span class="sourceLineNo">1703</span><a name="line.1703"></a>
+<span class="sourceLineNo">1704</span>    /** Create an unresolved reference to a field. */<a name="line.1704"></a>
+<span class="sourceLineNo">1705</span>    public SootFieldRef makeFieldRef( <a name="line.1705"></a>
+<span class="sourceLineNo">1706</span>            SootClass declaringClass,<a name="line.1706"></a>
+<span class="sourceLineNo">1707</span>            String name,<a name="line.1707"></a>
+<span class="sourceLineNo">1708</span>            Type type,<a name="line.1708"></a>
+<span class="sourceLineNo">1709</span>            boolean isStatic) {<a name="line.1709"></a>
+<span class="sourceLineNo">1710</span>        return new AbstractSootFieldRef(declaringClass, name, type, isStatic);<a name="line.1710"></a>
+<span class="sourceLineNo">1711</span>    }<a name="line.1711"></a>
+<span class="sourceLineNo">1712</span>    /** Returns the list of SootClasses that have been resolved at least to <a name="line.1712"></a>
+<span class="sourceLineNo">1713</span>     * the level specified. */<a name="line.1713"></a>
+<span class="sourceLineNo">1714</span>    public List&lt;SootClass&gt; getClasses(int desiredLevel) {<a name="line.1714"></a>
+<span class="sourceLineNo">1715</span>        List&lt;SootClass&gt; ret = new ArrayList&lt;SootClass&gt;();<a name="line.1715"></a>
+<span class="sourceLineNo">1716</span>        for( Iterator&lt;SootClass&gt; clIt = getClasses().iterator(); clIt.hasNext(); ) {<a name="line.1716"></a>
+<span class="sourceLineNo">1717</span>            final SootClass cl = clIt.next();<a name="line.1717"></a>
+<span class="sourceLineNo">1718</span>            if( cl.resolvingLevel() &gt;= desiredLevel ) ret.add(cl);<a name="line.1718"></a>
+<span class="sourceLineNo">1719</span>        }<a name="line.1719"></a>
+<span class="sourceLineNo">1720</span>        return ret;<a name="line.1720"></a>
+<span class="sourceLineNo">1721</span>    }<a name="line.1721"></a>
+<span class="sourceLineNo">1722</span>    private boolean doneResolving = false;<a name="line.1722"></a>
+<span class="sourceLineNo">1723</span>        private boolean incrementalBuild;<a name="line.1723"></a>
+<span class="sourceLineNo">1724</span>        protected LinkedList&lt;String&gt; excludedPackages;<a name="line.1724"></a>
+<span class="sourceLineNo">1725</span>    public boolean doneResolving() { return doneResolving; }<a name="line.1725"></a>
+<span class="sourceLineNo">1726</span>    public void setDoneResolving() { doneResolving = true; }<a name="line.1726"></a>
+<span class="sourceLineNo">1727</span>    public void setMainClassFromOptions() {<a name="line.1727"></a>
+<span class="sourceLineNo">1728</span>        if(mainClass != null) return;<a name="line.1728"></a>
+<span class="sourceLineNo">1729</span>        if( Options.v().main_class() != null<a name="line.1729"></a>
+<span class="sourceLineNo">1730</span>                &amp;&amp; Options.v().main_class().length() &gt; 0 ) {<a name="line.1730"></a>
+<span class="sourceLineNo">1731</span>            setMainClass(getSootClass(Options.v().main_class()));<a name="line.1731"></a>
+<span class="sourceLineNo">1732</span>        } else {                <a name="line.1732"></a>
+<span class="sourceLineNo">1733</span>                // try to infer a main class from the command line if none is given <a name="line.1733"></a>
+<span class="sourceLineNo">1734</span>                for (Iterator&lt;String&gt; classIter = Options.v().classes().iterator(); classIter.hasNext();) {<a name="line.1734"></a>
+<span class="sourceLineNo">1735</span>                    SootClass c = getSootClass(classIter.next());<a name="line.1735"></a>
+<span class="sourceLineNo">1736</span>                    if (c.declaresMethod ("main", Collections.&lt;Type&gt;singletonList( ArrayType.v(RefType.v("java.lang.String"), 1) ), VoidType.v()))<a name="line.1736"></a>
+<span class="sourceLineNo">1737</span>                    {<a name="line.1737"></a>
+<span class="sourceLineNo">1738</span>                        G.v().out.println("No main class given. Inferred '"+c.getName()+"' as main class.");                                    <a name="line.1738"></a>
+<span class="sourceLineNo">1739</span>                        setMainClass(c);<a name="line.1739"></a>
+<span class="sourceLineNo">1740</span>                        return;<a name="line.1740"></a>
+<span class="sourceLineNo">1741</span>                    }<a name="line.1741"></a>
+<span class="sourceLineNo">1742</span>            }<a name="line.1742"></a>
+<span class="sourceLineNo">1743</span>                <a name="line.1743"></a>
+<span class="sourceLineNo">1744</span>                // try to infer a main class from the usual classpath if none is given <a name="line.1744"></a>
+<span class="sourceLineNo">1745</span>                for (Iterator&lt;SootClass&gt; classIter = getApplicationClasses().iterator(); classIter.hasNext();) {<a name="line.1745"></a>
+<span class="sourceLineNo">1746</span>                    SootClass c = classIter.next();<a name="line.1746"></a>
+<span class="sourceLineNo">1747</span>                    if (c.declaresMethod ("main", Collections.&lt;Type&gt;singletonList( ArrayType.v(RefType.v("java.lang.String"), 1) ), VoidType.v()))<a name="line.1747"></a>
+<span class="sourceLineNo">1748</span>                    {<a name="line.1748"></a>
+<span class="sourceLineNo">1749</span>                        G.v().out.println("No main class given. Inferred '"+c.getName()+"' as main class.");                                    <a name="line.1749"></a>
+<span class="sourceLineNo">1750</span>                        setMainClass(c);<a name="line.1750"></a>
+<span class="sourceLineNo">1751</span>                        return;<a name="line.1751"></a>
+<span class="sourceLineNo">1752</span>                    }<a name="line.1752"></a>
+<span class="sourceLineNo">1753</span>            }<a name="line.1753"></a>
+<span class="sourceLineNo">1754</span>        }<a name="line.1754"></a>
+<span class="sourceLineNo">1755</span>    }<a name="line.1755"></a>
+<span class="sourceLineNo">1756</span>    <a name="line.1756"></a>
+<span class="sourceLineNo">1757</span>    /**<a name="line.1757"></a>
+<span class="sourceLineNo">1758</span>     * This method returns true when in incremental build mode.<a name="line.1758"></a>
+<span class="sourceLineNo">1759</span>     * Other classes can query this flag and change the way in which they use the Scene,<a name="line.1759"></a>
+<span class="sourceLineNo">1760</span>     * depending on the flag's value.<a name="line.1760"></a>
+<span class="sourceLineNo">1761</span>     */<a name="line.1761"></a>
+<span class="sourceLineNo">1762</span>    public boolean isIncrementalBuild() {<a name="line.1762"></a>
+<span class="sourceLineNo">1763</span>        return incrementalBuild;<a name="line.1763"></a>
+<span class="sourceLineNo">1764</span>    }<a name="line.1764"></a>
+<span class="sourceLineNo">1765</span>    <a name="line.1765"></a>
+<span class="sourceLineNo">1766</span>    public void initiateIncrementalBuild() {<a name="line.1766"></a>
+<span class="sourceLineNo">1767</span>        this.incrementalBuild = true;<a name="line.1767"></a>
+<span class="sourceLineNo">1768</span>    }<a name="line.1768"></a>
+<span class="sourceLineNo">1769</span><a name="line.1769"></a>
+<span class="sourceLineNo">1770</span>    public void incrementalBuildFinished() {<a name="line.1770"></a>
+<span class="sourceLineNo">1771</span>        this.incrementalBuild = false;<a name="line.1771"></a>
+<span class="sourceLineNo">1772</span>    }<a name="line.1772"></a>
+<span class="sourceLineNo">1773</span>    <a name="line.1773"></a>
+<span class="sourceLineNo">1774</span>    /*<a name="line.1774"></a>
+<span class="sourceLineNo">1775</span>     * Forces Soot to resolve the class with the given name to the given level,<a name="line.1775"></a>
+<span class="sourceLineNo">1776</span>     * even if resolving has actually already finished.<a name="line.1776"></a>
+<span class="sourceLineNo">1777</span>     */<a name="line.1777"></a>
+<span class="sourceLineNo">1778</span>    public SootClass forceResolve(String className, int level) {<a name="line.1778"></a>
+<span class="sourceLineNo">1779</span>        boolean tmp = doneResolving;<a name="line.1779"></a>
+<span class="sourceLineNo">1780</span>        doneResolving = false;<a name="line.1780"></a>
+<span class="sourceLineNo">1781</span>        SootClass c;<a name="line.1781"></a>
+<span class="sourceLineNo">1782</span>        try {<a name="line.1782"></a>
+<span class="sourceLineNo">1783</span>                        c = SootResolver.v().resolveClass(className, level);<a name="line.1783"></a>
+<span class="sourceLineNo">1784</span>        } finally {<a name="line.1784"></a>
+<span class="sourceLineNo">1785</span>                doneResolving = tmp;<a name="line.1785"></a>
+<span class="sourceLineNo">1786</span>        }               <a name="line.1786"></a>
+<span class="sourceLineNo">1787</span>        return c;<a name="line.1787"></a>
+<span class="sourceLineNo">1788</span>    }<a name="line.1788"></a>
+<span class="sourceLineNo">1789</span>}<a name="line.1789"></a>
+<span class="sourceLineNo">1790</span><a name="line.1790"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2003 Jerome Miecznikowski<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.dava.toolkits.base.AST;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import soot.*;<a name="line.21"></a>
+<span class="sourceLineNo">022</span><a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.*;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.dava.internal.AST.*;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>public class UselessTryRemover extends ASTAnalysis<a name="line.26"></a>
+<span class="sourceLineNo">027</span>{<a name="line.27"></a>
+<span class="sourceLineNo">028</span>    public UselessTryRemover( Singletons.Global g ) {}<a name="line.28"></a>
+<span class="sourceLineNo">029</span>    public static UselessTryRemover v() { return G.v().soot_dava_toolkits_base_AST_UselessTryRemover(); }<a name="line.29"></a>
+<span class="sourceLineNo">030</span><a name="line.30"></a>
+<span class="sourceLineNo">031</span>    public int getAnalysisDepth()<a name="line.31"></a>
+<span class="sourceLineNo">032</span>    {<a name="line.32"></a>
+<span class="sourceLineNo">033</span>        return ANALYSE_AST;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>    }<a name="line.34"></a>
+<span class="sourceLineNo">035</span><a name="line.35"></a>
+<span class="sourceLineNo">036</span>    public void analyseASTNode( ASTNode n)<a name="line.36"></a>
+<span class="sourceLineNo">037</span>    {<a name="line.37"></a>
+<span class="sourceLineNo">038</span>        Iterator&lt;Object&gt; sbit = n.get_SubBodies().iterator();<a name="line.38"></a>
+<span class="sourceLineNo">039</span><a name="line.39"></a>
+<span class="sourceLineNo">040</span>        while (sbit.hasNext()) {<a name="line.40"></a>
+<span class="sourceLineNo">041</span>            <a name="line.41"></a>
+<span class="sourceLineNo">042</span>            List&lt;Object&gt; <a name="line.42"></a>
+<span class="sourceLineNo">043</span>                subBody = null,<a name="line.43"></a>
+<span class="sourceLineNo">044</span>                toRemove = new ArrayList&lt;Object&gt;();<a name="line.44"></a>
+<span class="sourceLineNo">045</span><a name="line.45"></a>
+<span class="sourceLineNo">046</span>            if (n instanceof ASTTryNode)<a name="line.46"></a>
+<span class="sourceLineNo">047</span>                subBody = (List&lt;Object&gt;) ((ASTTryNode.container) sbit.next()).o;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>            else<a name="line.48"></a>
+<span class="sourceLineNo">049</span>                subBody = (List&lt;Object&gt;) sbit.next();<a name="line.49"></a>
+<span class="sourceLineNo">050</span><a name="line.50"></a>
+<span class="sourceLineNo">051</span><a name="line.51"></a>
+<span class="sourceLineNo">052</span>            Iterator&lt;Object&gt; cit = subBody.iterator();<a name="line.52"></a>
+<span class="sourceLineNo">053</span>            while (cit.hasNext()) {<a name="line.53"></a>
+<span class="sourceLineNo">054</span>                Object child = cit.next();<a name="line.54"></a>
+<span class="sourceLineNo">055</span>                <a name="line.55"></a>
+<span class="sourceLineNo">056</span>                if (child instanceof ASTTryNode) {<a name="line.56"></a>
+<span class="sourceLineNo">057</span>                    ASTTryNode tryNode = (ASTTryNode) child;<a name="line.57"></a>
+<span class="sourceLineNo">058</span><a name="line.58"></a>
+<span class="sourceLineNo">059</span>                    tryNode.perform_Analysis( TryContentsFinder.v());<a name="line.59"></a>
+<span class="sourceLineNo">060</span><a name="line.60"></a>
+<span class="sourceLineNo">061</span>                    if ((tryNode.get_CatchList().isEmpty()) || (tryNode.isEmpty()))<a name="line.61"></a>
+<span class="sourceLineNo">062</span>                        toRemove.add( tryNode);<a name="line.62"></a>
+<span class="sourceLineNo">063</span>                }<a name="line.63"></a>
+<span class="sourceLineNo">064</span>            }<a name="line.64"></a>
+<span class="sourceLineNo">065</span><a name="line.65"></a>
+<span class="sourceLineNo">066</span>            Iterator&lt;Object&gt; trit = toRemove.iterator();<a name="line.66"></a>
+<span class="sourceLineNo">067</span>            while (trit.hasNext()) {<a name="line.67"></a>
+<span class="sourceLineNo">068</span>                ASTTryNode tryNode = (ASTTryNode) trit.next();<a name="line.68"></a>
+<span class="sourceLineNo">069</span><a name="line.69"></a>
+<span class="sourceLineNo">070</span>                subBody.addAll( subBody.indexOf( tryNode), tryNode.get_TryBody());<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                subBody.remove( tryNode);<a name="line.71"></a>
+<span class="sourceLineNo">072</span>            }<a name="line.72"></a>
+<span class="sourceLineNo">073</span><a name="line.73"></a>
+<span class="sourceLineNo">074</span>            if (toRemove.isEmpty() == false)<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                G.v().ASTAnalysis_modified = true;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        }<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    }<a name="line.77"></a>
+<span class="sourceLineNo">078</span>}<a name="line.78"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

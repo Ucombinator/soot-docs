@@ -1,0 +1,189 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>package soot.dexpler;<a name="line.1"></a>
+<span class="sourceLineNo">002</span><a name="line.2"></a>
+<span class="sourceLineNo">003</span>import java.util.ArrayList;<a name="line.3"></a>
+<span class="sourceLineNo">004</span>import java.util.HashSet;<a name="line.4"></a>
+<span class="sourceLineNo">005</span>import java.util.List;<a name="line.5"></a>
+<span class="sourceLineNo">006</span>import java.util.Map;<a name="line.6"></a>
+<span class="sourceLineNo">007</span>import java.util.Set;<a name="line.7"></a>
+<span class="sourceLineNo">008</span><a name="line.8"></a>
+<span class="sourceLineNo">009</span>import soot.Body;<a name="line.9"></a>
+<span class="sourceLineNo">010</span>import soot.BodyTransformer;<a name="line.10"></a>
+<span class="sourceLineNo">011</span>import soot.Local;<a name="line.11"></a>
+<span class="sourceLineNo">012</span>import soot.Unit;<a name="line.12"></a>
+<span class="sourceLineNo">013</span>import soot.Value;<a name="line.13"></a>
+<span class="sourceLineNo">014</span>import soot.jimple.AssignStmt;<a name="line.14"></a>
+<span class="sourceLineNo">015</span>import soot.jimple.Constant;<a name="line.15"></a>
+<span class="sourceLineNo">016</span>import soot.jimple.DefinitionStmt;<a name="line.16"></a>
+<span class="sourceLineNo">017</span>import soot.jimple.FieldRef;<a name="line.17"></a>
+<span class="sourceLineNo">018</span>import soot.jimple.ReturnStmt;<a name="line.18"></a>
+<span class="sourceLineNo">019</span>import soot.jimple.toolkits.scalar.LocalCreation;<a name="line.19"></a>
+<span class="sourceLineNo">020</span>import soot.toolkits.graph.ExceptionalUnitGraph;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import soot.toolkits.graph.UnitGraph;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.toolkits.scalar.LocalDefs;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.toolkits.scalar.LocalUses;<a name="line.23"></a>
+<span class="sourceLineNo">024</span><a name="line.24"></a>
+<span class="sourceLineNo">025</span>public class DexReturnValuePropagator extends BodyTransformer {<a name="line.25"></a>
+<span class="sourceLineNo">026</span>        <a name="line.26"></a>
+<span class="sourceLineNo">027</span>        public static DexReturnValuePropagator v() {<a name="line.27"></a>
+<span class="sourceLineNo">028</span>                return new DexReturnValuePropagator();<a name="line.28"></a>
+<span class="sourceLineNo">029</span>        }<a name="line.29"></a>
+<span class="sourceLineNo">030</span><a name="line.30"></a>
+<span class="sourceLineNo">031</span>        @Override<a name="line.31"></a>
+<span class="sourceLineNo">032</span>        protected void internalTransform(Body body, String phaseName, Map&lt;String, String&gt; options) {<a name="line.32"></a>
+<span class="sourceLineNo">033</span>        ExceptionalUnitGraph graph = new ExceptionalUnitGraph(body, DalvikThrowAnalysis.v(), true);<a name="line.33"></a>
+<span class="sourceLineNo">034</span>        LocalDefs localDefs = LocalDefs.Factory.newLocalDefs(graph);<a name="line.34"></a>
+<span class="sourceLineNo">035</span>        LocalUses localUses = null;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>        LocalCreation localCreation = null;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>        <a name="line.37"></a>
+<span class="sourceLineNo">038</span>                // If a return statement's operand has only one definition and this is<a name="line.38"></a>
+<span class="sourceLineNo">039</span>                // a copy statement, we take the original operand<a name="line.39"></a>
+<span class="sourceLineNo">040</span>                for (Unit u : body.getUnits())<a name="line.40"></a>
+<span class="sourceLineNo">041</span>                        if (u instanceof ReturnStmt) {<a name="line.41"></a>
+<span class="sourceLineNo">042</span>                                ReturnStmt retStmt = (ReturnStmt) u;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>                                if (retStmt.getOp() instanceof Local) {<a name="line.43"></a>
+<span class="sourceLineNo">044</span>                                        List&lt;Unit&gt; defs = localDefs.getDefsOfAt((Local) retStmt.getOp(), retStmt);<a name="line.44"></a>
+<span class="sourceLineNo">045</span>                                        if (defs.size() == 1 &amp;&amp; defs.get(0) instanceof AssignStmt) {<a name="line.45"></a>
+<span class="sourceLineNo">046</span>                                                AssignStmt assign = (AssignStmt) defs.get(0);<a name="line.46"></a>
+<span class="sourceLineNo">047</span>                                                final Value rightOp = assign.getRightOp();<a name="line.47"></a>
+<span class="sourceLineNo">048</span>                                                final Value leftOp = assign.getLeftOp();<a name="line.48"></a>
+<span class="sourceLineNo">049</span>                                                <a name="line.49"></a>
+<span class="sourceLineNo">050</span>                                                // Copy over the left side if it is a local<a name="line.50"></a>
+<span class="sourceLineNo">051</span>                                                if (rightOp instanceof Local) {<a name="line.51"></a>
+<span class="sourceLineNo">052</span>                                                        // We must make sure that the definition we propagate to<a name="line.52"></a>
+<span class="sourceLineNo">053</span>                                                        // the return statement is not overwritten in between<a name="line.53"></a>
+<span class="sourceLineNo">054</span>                                                        // a = 1; b = a; a = 3; return b; may not be translated<a name="line.54"></a>
+<span class="sourceLineNo">055</span>                                                        // to return a;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>                                                        if (!isRedefined((Local) rightOp, u, assign, graph))<a name="line.56"></a>
+<span class="sourceLineNo">057</span>                                                                retStmt.setOp(rightOp);<a name="line.57"></a>
+<span class="sourceLineNo">058</span>                                                }<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                                                else if (rightOp instanceof Constant) {<a name="line.59"></a>
+<span class="sourceLineNo">060</span>                                                        retStmt.setOp(rightOp);<a name="line.60"></a>
+<span class="sourceLineNo">061</span>                                                }<a name="line.61"></a>
+<span class="sourceLineNo">062</span>                                                // If this is a field access which has no other uses,<a name="line.62"></a>
+<span class="sourceLineNo">063</span>                                                // we rename the local to help splitting<a name="line.63"></a>
+<span class="sourceLineNo">064</span>                                                else if (rightOp instanceof FieldRef) {<a name="line.64"></a>
+<span class="sourceLineNo">065</span>                                                        if (localUses == null)<a name="line.65"></a>
+<span class="sourceLineNo">066</span>                                                                localUses = LocalUses.Factory.newLocalUses(body, localDefs);<a name="line.66"></a>
+<span class="sourceLineNo">067</span>                                                        if (localUses.getUsesOf(assign).size() == 1) {<a name="line.67"></a>
+<span class="sourceLineNo">068</span>                                                                if (localCreation == null)<a name="line.68"></a>
+<span class="sourceLineNo">069</span>                                                                        localCreation = new LocalCreation(body.getLocals(), "ret");<a name="line.69"></a>
+<span class="sourceLineNo">070</span>                                                                Local newLocal = localCreation.newLocal(leftOp.getType());<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                                                                assign.setLeftOp(newLocal);<a name="line.71"></a>
+<span class="sourceLineNo">072</span>                                                                retStmt.setOp(newLocal);<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                                                        }<a name="line.73"></a>
+<span class="sourceLineNo">074</span>                                                }<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                                        }<a name="line.75"></a>
+<span class="sourceLineNo">076</span>                                }<a name="line.76"></a>
+<span class="sourceLineNo">077</span>                        }<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        }<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>        /**<a name="line.80"></a>
+<span class="sourceLineNo">081</span>         * Checks whether the given local has been redefined between the original<a name="line.81"></a>
+<span class="sourceLineNo">082</span>         * definition unitDef and the use unitUse.<a name="line.82"></a>
+<span class="sourceLineNo">083</span>         * @param l The local for which to check for redefinitions<a name="line.83"></a>
+<span class="sourceLineNo">084</span>         * @param unitUse The unit that uses the local<a name="line.84"></a>
+<span class="sourceLineNo">085</span>         * @param unitDef The unit that defines the local<a name="line.85"></a>
+<span class="sourceLineNo">086</span>         * @param graph The unit graph to use for the check<a name="line.86"></a>
+<span class="sourceLineNo">087</span>         * @return True if there is at least one path between unitDef and unitUse on<a name="line.87"></a>
+<span class="sourceLineNo">088</span>         * which local l gets redefined, otherwise false <a name="line.88"></a>
+<span class="sourceLineNo">089</span>         */<a name="line.89"></a>
+<span class="sourceLineNo">090</span>    private boolean isRedefined(Local l, Unit unitUse, AssignStmt unitDef,<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                UnitGraph graph) {<a name="line.91"></a>
+<span class="sourceLineNo">092</span>        List&lt;Unit&gt; workList = new ArrayList&lt;Unit&gt;();<a name="line.92"></a>
+<span class="sourceLineNo">093</span>        workList.add(unitUse);<a name="line.93"></a>
+<span class="sourceLineNo">094</span>        <a name="line.94"></a>
+<span class="sourceLineNo">095</span>        Set&lt;Unit&gt; doneSet = new HashSet&lt;Unit&gt;();<a name="line.95"></a>
+<span class="sourceLineNo">096</span>        <a name="line.96"></a>
+<span class="sourceLineNo">097</span>                // Check for redefinitions of the local between definition and use<a name="line.97"></a>
+<span class="sourceLineNo">098</span>        while (!workList.isEmpty()) {<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                Unit curStmt = workList.remove(0);<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                if (!doneSet.add(curStmt))<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                        continue;<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                <a name="line.102"></a>
+<span class="sourceLineNo">103</span>                for (Unit u : graph.getPredsOf(curStmt)) {<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                        if (u != unitDef) {<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                                if (u instanceof DefinitionStmt) {<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                                        DefinitionStmt defStmt = (DefinitionStmt) u;<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                                        if (defStmt.getLeftOp() == l)<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                                                return true;<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                                }<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                                workList.add(u);<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                        }<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                }<a name="line.112"></a>
+<span class="sourceLineNo">113</span>        }<a name="line.113"></a>
+<span class="sourceLineNo">114</span>        return false;<a name="line.114"></a>
+<span class="sourceLineNo">115</span>        }<a name="line.115"></a>
+<span class="sourceLineNo">116</span><a name="line.116"></a>
+<span class="sourceLineNo">117</span>}<a name="line.117"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

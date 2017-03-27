@@ -1,0 +1,402 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1997-1999 Raja Vallee-Rai<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.toolkits.astmetrics;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.G;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.options.*;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import polyglot.ast.*;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import polyglot.visit.NodeVisitor;<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>import java.util.*;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import java.io.*;<a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span>/**<a name="line.30"></a>
+<span class="sourceLineNo">031</span> * @author Michael Batchelder <a name="line.31"></a>
+<span class="sourceLineNo">032</span> * <a name="line.32"></a>
+<span class="sourceLineNo">033</span> * Created on 5-Mar-2006 <a name="line.33"></a>
+<span class="sourceLineNo">034</span> */<a name="line.34"></a>
+<span class="sourceLineNo">035</span>public class IdentifiersMetric extends ASTMetric {<a name="line.35"></a>
+<span class="sourceLineNo">036</span><a name="line.36"></a>
+<span class="sourceLineNo">037</span>  double nameComplexity = 0;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>  double nameCount =0;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>  <a name="line.39"></a>
+<span class="sourceLineNo">040</span>  <a name="line.40"></a>
+<span class="sourceLineNo">041</span>  <a name="line.41"></a>
+<span class="sourceLineNo">042</span>  int dictionarySize = 0;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>  ArrayList&lt;String&gt; dictionary;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>  <a name="line.44"></a>
+<span class="sourceLineNo">045</span>  //cache of names so no recomputation<a name="line.45"></a>
+<span class="sourceLineNo">046</span>  HashMap&lt;String, Double&gt; names;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>  /**<a name="line.47"></a>
+<span class="sourceLineNo">048</span>   * @param astNode<a name="line.48"></a>
+<span class="sourceLineNo">049</span>   * <a name="line.49"></a>
+<span class="sourceLineNo">050</span>   * This metric will take a measure of the "complexity" of each identifier used<a name="line.50"></a>
+<span class="sourceLineNo">051</span>   * within the program. An identifier's complexity is computed as follows:<a name="line.51"></a>
+<span class="sourceLineNo">052</span>   * <a name="line.52"></a>
+<span class="sourceLineNo">053</span>   * First the alpha tokens are parsed by splitting on non-alphas and capitals:<a name="line.53"></a>
+<span class="sourceLineNo">054</span>   * <a name="line.54"></a>
+<span class="sourceLineNo">055</span>   *    example identifier: getASTNode          alpha tokens: get, AST, Node<a name="line.55"></a>
+<span class="sourceLineNo">056</span>   *    example identifier: ___Junk$$name       alpha tokens: Junk, name)<a name="line.56"></a>
+<span class="sourceLineNo">057</span>   * <a name="line.57"></a>
+<span class="sourceLineNo">058</span>   * The alpha tokens are then counted and a 'token complexity' is formed by the ratio<a name="line.58"></a>
+<span class="sourceLineNo">059</span>   * of total tokens to the number of tokens found in the dictionary:<a name="line.59"></a>
+<span class="sourceLineNo">060</span>   * <a name="line.60"></a>
+<span class="sourceLineNo">061</span>   *    example identifier: getASTNode          Total: 3, Found: 2, Complexity: 1.5<a name="line.61"></a>
+<span class="sourceLineNo">062</span>   * <a name="line.62"></a>
+<span class="sourceLineNo">063</span>   * Then the 'character complexity' is computed, which is a ratio of total number of<a name="line.63"></a>
+<span class="sourceLineNo">064</span>   * characters to the number of non-complex characters. Non-complex characters are <a name="line.64"></a>
+<span class="sourceLineNo">065</span>   * those which are NOT part of a multiple string of non-alphas.<a name="line.65"></a>
+<span class="sourceLineNo">066</span>   * <a name="line.66"></a>
+<span class="sourceLineNo">067</span>   *    example identifier: ___Junk$$name       complex char strings: '___', '$$'<a name="line.67"></a>
+<span class="sourceLineNo">068</span>   *            number of non-complex (Junk + name): 8, total: 13, Complexity: 1.625<a name="line.68"></a>
+<span class="sourceLineNo">069</span>   * <a name="line.69"></a>
+<span class="sourceLineNo">070</span>   * Finally, the total identifier complexity is the sum of the token and character<a name="line.70"></a>
+<span class="sourceLineNo">071</span>   * complexities multipled by the 'importance' of an identifier:<a name="line.71"></a>
+<span class="sourceLineNo">072</span>   * <a name="line.72"></a>
+<span class="sourceLineNo">073</span>   * Multipliers are as follows:<a name="line.73"></a>
+<span class="sourceLineNo">074</span>   *         <a name="line.74"></a>
+<span class="sourceLineNo">075</span>   * Class multiplier = 3;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>   * Method multiplier = 4;<a name="line.76"></a>
+<span class="sourceLineNo">077</span>   * Field multiplier = 2;<a name="line.77"></a>
+<span class="sourceLineNo">078</span>   * Formal multiplier = 1.5;<a name="line.78"></a>
+<span class="sourceLineNo">079</span>   * Local multiplier = 1;<a name="line.79"></a>
+<span class="sourceLineNo">080</span>   * <a name="line.80"></a>
+<span class="sourceLineNo">081</span>   */<a name="line.81"></a>
+<span class="sourceLineNo">082</span>  public IdentifiersMetric(Node astNode) {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>    super(astNode);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>    <a name="line.84"></a>
+<span class="sourceLineNo">085</span>    initializeDictionary();<a name="line.85"></a>
+<span class="sourceLineNo">086</span>  }<a name="line.86"></a>
+<span class="sourceLineNo">087</span>  <a name="line.87"></a>
+<span class="sourceLineNo">088</span>  private void initializeDictionary() {<a name="line.88"></a>
+<span class="sourceLineNo">089</span>    String line;<a name="line.89"></a>
+<span class="sourceLineNo">090</span>    BufferedReader br = null;<a name="line.90"></a>
+<span class="sourceLineNo">091</span>    dictionary = new ArrayList&lt;String&gt;();<a name="line.91"></a>
+<span class="sourceLineNo">092</span>    names = new HashMap&lt;String, Double&gt;();<a name="line.92"></a>
+<span class="sourceLineNo">093</span>    <a name="line.93"></a>
+<span class="sourceLineNo">094</span>    InputStream is = ClassLoader.getSystemResourceAsStream("mydict.txt");<a name="line.94"></a>
+<span class="sourceLineNo">095</span>    if (is != null)<a name="line.95"></a>
+<span class="sourceLineNo">096</span>    {<a name="line.96"></a>
+<span class="sourceLineNo">097</span>      br = new BufferedReader(new InputStreamReader(is));<a name="line.97"></a>
+<span class="sourceLineNo">098</span>      <a name="line.98"></a>
+<span class="sourceLineNo">099</span>      try {<a name="line.99"></a>
+<span class="sourceLineNo">100</span>        while ((line = br.readLine()) != null)<a name="line.100"></a>
+<span class="sourceLineNo">101</span>          addWord(line);<a name="line.101"></a>
+<span class="sourceLineNo">102</span>      } catch (IOException ioexc) {}<a name="line.102"></a>
+<span class="sourceLineNo">103</span>    }<a name="line.103"></a>
+<span class="sourceLineNo">104</span>    <a name="line.104"></a>
+<span class="sourceLineNo">105</span>    is = ClassLoader.getSystemResourceAsStream("soot/toolkits/astmetrics/dict.txt");<a name="line.105"></a>
+<span class="sourceLineNo">106</span>    if (is != null)<a name="line.106"></a>
+<span class="sourceLineNo">107</span>    {<a name="line.107"></a>
+<span class="sourceLineNo">108</span>      br = new BufferedReader(new InputStreamReader(is));<a name="line.108"></a>
+<span class="sourceLineNo">109</span>    <a name="line.109"></a>
+<span class="sourceLineNo">110</span>      try {<a name="line.110"></a>
+<span class="sourceLineNo">111</span>        while ((line = br.readLine()) != null)<a name="line.111"></a>
+<span class="sourceLineNo">112</span>          addWord(line.trim().toLowerCase());<a name="line.112"></a>
+<span class="sourceLineNo">113</span>      } catch (IOException ioexc) {}<a name="line.113"></a>
+<span class="sourceLineNo">114</span>    }<a name="line.114"></a>
+<span class="sourceLineNo">115</span>      <a name="line.115"></a>
+<span class="sourceLineNo">116</span>    if ((dictionarySize = dictionary.size()) == 0)<a name="line.116"></a>
+<span class="sourceLineNo">117</span>      G.v().out.println("Error reading in dictionary file(s)");  <a name="line.117"></a>
+<span class="sourceLineNo">118</span>    else if (Options.v().verbose())<a name="line.118"></a>
+<span class="sourceLineNo">119</span>      G.v().out.println("Read "+dictionarySize+" words in from dictionary file(s)");<a name="line.119"></a>
+<span class="sourceLineNo">120</span>    <a name="line.120"></a>
+<span class="sourceLineNo">121</span>    try{<a name="line.121"></a>
+<span class="sourceLineNo">122</span>        is.close();<a name="line.122"></a>
+<span class="sourceLineNo">123</span>    } catch(IOException e){}<a name="line.123"></a>
+<span class="sourceLineNo">124</span>    try{<a name="line.124"></a>
+<span class="sourceLineNo">125</span>        if(br!=null) br.close();<a name="line.125"></a>
+<span class="sourceLineNo">126</span>    } catch(IOException e){}<a name="line.126"></a>
+<span class="sourceLineNo">127</span>    <a name="line.127"></a>
+<span class="sourceLineNo">128</span>  }<a name="line.128"></a>
+<span class="sourceLineNo">129</span>  <a name="line.129"></a>
+<span class="sourceLineNo">130</span>  private void addWord(String word) {<a name="line.130"></a>
+<span class="sourceLineNo">131</span>    if (dictionarySize == 0 || word.compareTo(dictionary.get(dictionarySize - 1)) &gt; 0) {<a name="line.131"></a>
+<span class="sourceLineNo">132</span>      dictionary.add(word);<a name="line.132"></a>
+<span class="sourceLineNo">133</span>    } else {<a name="line.133"></a>
+<span class="sourceLineNo">134</span>      int i = 0;<a name="line.134"></a>
+<span class="sourceLineNo">135</span>          while (i &lt; dictionarySize &amp;&amp; word.compareTo(dictionary.get(i)) &gt; 0)<a name="line.135"></a>
+<span class="sourceLineNo">136</span>            i++;<a name="line.136"></a>
+<span class="sourceLineNo">137</span>          <a name="line.137"></a>
+<span class="sourceLineNo">138</span>          if (word.compareTo(dictionary.get(i)) == 0) <a name="line.138"></a>
+<span class="sourceLineNo">139</span>            return;<a name="line.139"></a>
+<span class="sourceLineNo">140</span>          <a name="line.140"></a>
+<span class="sourceLineNo">141</span>          dictionary.add(i,word);<a name="line.141"></a>
+<span class="sourceLineNo">142</span>    }<a name="line.142"></a>
+<span class="sourceLineNo">143</span>    <a name="line.143"></a>
+<span class="sourceLineNo">144</span>    dictionarySize++;<a name="line.144"></a>
+<span class="sourceLineNo">145</span>  }<a name="line.145"></a>
+<span class="sourceLineNo">146</span><a name="line.146"></a>
+<span class="sourceLineNo">147</span>  /* (non-Javadoc)<a name="line.147"></a>
+<span class="sourceLineNo">148</span>   * @see soot.toolkits.astmetrics.ASTMetric#reset()<a name="line.148"></a>
+<span class="sourceLineNo">149</span>   */<a name="line.149"></a>
+<span class="sourceLineNo">150</span>  public void reset() {<a name="line.150"></a>
+<span class="sourceLineNo">151</span>    nameComplexity = 0;<a name="line.151"></a>
+<span class="sourceLineNo">152</span>    nameCount=0;<a name="line.152"></a>
+<span class="sourceLineNo">153</span>  }<a name="line.153"></a>
+<span class="sourceLineNo">154</span><a name="line.154"></a>
+<span class="sourceLineNo">155</span>  /* (non-Javadoc)<a name="line.155"></a>
+<span class="sourceLineNo">156</span>   * @see soot.toolkits.astmetrics.ASTMetric#addMetrics(soot.toolkits.astmetrics.ClassData)<a name="line.156"></a>
+<span class="sourceLineNo">157</span>   */<a name="line.157"></a>
+<span class="sourceLineNo">158</span>  public void addMetrics(ClassData data) {<a name="line.158"></a>
+<span class="sourceLineNo">159</span>            data.addMetric(new MetricData("NameComplexity",new Double(nameComplexity)));<a name="line.159"></a>
+<span class="sourceLineNo">160</span>            data.addMetric(new MetricData("NameCount",new Double(nameCount)));<a name="line.160"></a>
+<span class="sourceLineNo">161</span>  }<a name="line.161"></a>
+<span class="sourceLineNo">162</span>  <a name="line.162"></a>
+<span class="sourceLineNo">163</span>  public NodeVisitor enter(Node parent, Node n){<a name="line.163"></a>
+<span class="sourceLineNo">164</span>    double multiplier = 1;<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    String name = null;<a name="line.165"></a>
+<span class="sourceLineNo">166</span>    if(n instanceof ClassDecl){<a name="line.166"></a>
+<span class="sourceLineNo">167</span>      name = ((ClassDecl)n).name();<a name="line.167"></a>
+<span class="sourceLineNo">168</span>      multiplier = 3;<a name="line.168"></a>
+<span class="sourceLineNo">169</span>      nameCount++;<a name="line.169"></a>
+<span class="sourceLineNo">170</span>    } else if (n instanceof MethodDecl) {<a name="line.170"></a>
+<span class="sourceLineNo">171</span>      name = ((MethodDecl)n).name();<a name="line.171"></a>
+<span class="sourceLineNo">172</span>      multiplier = 4;<a name="line.172"></a>
+<span class="sourceLineNo">173</span>      nameCount++;<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    } else if (n instanceof FieldDecl) {<a name="line.174"></a>
+<span class="sourceLineNo">175</span>      name = ((FieldDecl)n).name();<a name="line.175"></a>
+<span class="sourceLineNo">176</span>      multiplier = 2;<a name="line.176"></a>
+<span class="sourceLineNo">177</span>      nameCount++;<a name="line.177"></a>
+<span class="sourceLineNo">178</span>    } else if (n instanceof Formal) {           // this is locals and formals<a name="line.178"></a>
+<span class="sourceLineNo">179</span>      name = ((Formal)n).name();<a name="line.179"></a>
+<span class="sourceLineNo">180</span>      multiplier = 1.5;<a name="line.180"></a>
+<span class="sourceLineNo">181</span>      nameCount++;<a name="line.181"></a>
+<span class="sourceLineNo">182</span>    } else if (n instanceof LocalDecl) {                // this is locals and formals<a name="line.182"></a>
+<span class="sourceLineNo">183</span>      name = ((LocalDecl)n).name();<a name="line.183"></a>
+<span class="sourceLineNo">184</span>      nameCount++;<a name="line.184"></a>
+<span class="sourceLineNo">185</span>    }<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    <a name="line.186"></a>
+<span class="sourceLineNo">187</span>    if (name!=null)<a name="line.187"></a>
+<span class="sourceLineNo">188</span>    {<a name="line.188"></a>
+<span class="sourceLineNo">189</span>      nameComplexity += (multiplier * computeNameComplexity(name));<a name="line.189"></a>
+<span class="sourceLineNo">190</span>    }<a name="line.190"></a>
+<span class="sourceLineNo">191</span>        return enter(n);<a name="line.191"></a>
+<span class="sourceLineNo">192</span>  }<a name="line.192"></a>
+<span class="sourceLineNo">193</span><a name="line.193"></a>
+<span class="sourceLineNo">194</span>  private double computeNameComplexity(String name) {<a name="line.194"></a>
+<span class="sourceLineNo">195</span>    if (names.containsKey(name))<a name="line.195"></a>
+<span class="sourceLineNo">196</span>      return names.get(name).doubleValue();<a name="line.196"></a>
+<span class="sourceLineNo">197</span>    <a name="line.197"></a>
+<span class="sourceLineNo">198</span>    ArrayList&lt;String&gt; strings = new ArrayList&lt;String&gt;();<a name="line.198"></a>
+<span class="sourceLineNo">199</span>    <a name="line.199"></a>
+<span class="sourceLineNo">200</span>    // throw out non-alpha characters<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    String tmp = "";<a name="line.201"></a>
+<span class="sourceLineNo">202</span>    for (int i = 0; i &lt; name.length(); i++)<a name="line.202"></a>
+<span class="sourceLineNo">203</span>    {<a name="line.203"></a>
+<span class="sourceLineNo">204</span>      char c = name.charAt(i);<a name="line.204"></a>
+<span class="sourceLineNo">205</span>      if ((c &gt; 64 &amp;&amp; c &lt; 91) || (c &gt; 96 &amp;&amp; c &lt; 123)) {<a name="line.205"></a>
+<span class="sourceLineNo">206</span>        tmp+=c;<a name="line.206"></a>
+<span class="sourceLineNo">207</span>      } else if (tmp.length() &gt; 0) {<a name="line.207"></a>
+<span class="sourceLineNo">208</span>        strings.add(tmp);<a name="line.208"></a>
+<span class="sourceLineNo">209</span>        tmp = "";<a name="line.209"></a>
+<span class="sourceLineNo">210</span>      }<a name="line.210"></a>
+<span class="sourceLineNo">211</span>    }<a name="line.211"></a>
+<span class="sourceLineNo">212</span>    if (tmp.length()&gt;0)<a name="line.212"></a>
+<span class="sourceLineNo">213</span>      strings.add(tmp);<a name="line.213"></a>
+<span class="sourceLineNo">214</span>    <a name="line.214"></a>
+<span class="sourceLineNo">215</span>    ArrayList&lt;String&gt; tokens = new ArrayList&lt;String&gt;();<a name="line.215"></a>
+<span class="sourceLineNo">216</span>    for (int i = 0; i &lt; strings.size(); i++)<a name="line.216"></a>
+<span class="sourceLineNo">217</span>    {<a name="line.217"></a>
+<span class="sourceLineNo">218</span>      tmp = strings.get(i);<a name="line.218"></a>
+<span class="sourceLineNo">219</span>      while (tmp.length() &gt; 0) {<a name="line.219"></a>
+<span class="sourceLineNo">220</span>        int caps = countCaps(tmp);<a name="line.220"></a>
+<span class="sourceLineNo">221</span>        if (caps == 0)<a name="line.221"></a>
+<span class="sourceLineNo">222</span>        {<a name="line.222"></a>
+<span class="sourceLineNo">223</span>          int idx = findCap(tmp);<a name="line.223"></a>
+<span class="sourceLineNo">224</span>          if (idx &gt; 0) {<a name="line.224"></a>
+<span class="sourceLineNo">225</span>            tokens.add(tmp.substring(0,idx));<a name="line.225"></a>
+<span class="sourceLineNo">226</span>            tmp = tmp.substring(idx,tmp.length());<a name="line.226"></a>
+<span class="sourceLineNo">227</span>          } else {<a name="line.227"></a>
+<span class="sourceLineNo">228</span>            tokens.add(tmp.substring(0,tmp.length()));<a name="line.228"></a>
+<span class="sourceLineNo">229</span>            break;<a name="line.229"></a>
+<span class="sourceLineNo">230</span>          }<a name="line.230"></a>
+<span class="sourceLineNo">231</span>        } else if (caps == 1){<a name="line.231"></a>
+<span class="sourceLineNo">232</span>          int idx = findCap(tmp.substring(1)) + 1;<a name="line.232"></a>
+<span class="sourceLineNo">233</span>          if (idx &gt; 0) {<a name="line.233"></a>
+<span class="sourceLineNo">234</span>            tokens.add(tmp.substring(0,idx));<a name="line.234"></a>
+<span class="sourceLineNo">235</span>            tmp = tmp.substring(idx,tmp.length());<a name="line.235"></a>
+<span class="sourceLineNo">236</span>          } else {<a name="line.236"></a>
+<span class="sourceLineNo">237</span>            tokens.add(tmp.substring(0,tmp.length()));<a name="line.237"></a>
+<span class="sourceLineNo">238</span>            break;<a name="line.238"></a>
+<span class="sourceLineNo">239</span>          }<a name="line.239"></a>
+<span class="sourceLineNo">240</span>        } else {<a name="line.240"></a>
+<span class="sourceLineNo">241</span>          if (caps &lt; tmp.length()) {<a name="line.241"></a>
+<span class="sourceLineNo">242</span>            // count seq of capitals as one token<a name="line.242"></a>
+<span class="sourceLineNo">243</span>            tokens.add(tmp.substring(0, caps - 1).toLowerCase());<a name="line.243"></a>
+<span class="sourceLineNo">244</span>            tmp = tmp.substring(caps);<a name="line.244"></a>
+<span class="sourceLineNo">245</span>          } else {<a name="line.245"></a>
+<span class="sourceLineNo">246</span>            tokens.add(tmp.substring(0, caps).toLowerCase());<a name="line.246"></a>
+<span class="sourceLineNo">247</span>            break;<a name="line.247"></a>
+<span class="sourceLineNo">248</span>          }<a name="line.248"></a>
+<span class="sourceLineNo">249</span>        }<a name="line.249"></a>
+<span class="sourceLineNo">250</span>      }<a name="line.250"></a>
+<span class="sourceLineNo">251</span>    }<a name="line.251"></a>
+<span class="sourceLineNo">252</span>    <a name="line.252"></a>
+<span class="sourceLineNo">253</span>    double words = 0;<a name="line.253"></a>
+<span class="sourceLineNo">254</span>    double complexity = 0;<a name="line.254"></a>
+<span class="sourceLineNo">255</span>    for (int i = 0; i &lt; tokens.size(); i++)<a name="line.255"></a>
+<span class="sourceLineNo">256</span>      if (dictionary.contains(tokens.get(i)))<a name="line.256"></a>
+<span class="sourceLineNo">257</span>        words++;<a name="line.257"></a>
+<span class="sourceLineNo">258</span>      <a name="line.258"></a>
+<span class="sourceLineNo">259</span>    if (words&gt;0)<a name="line.259"></a>
+<span class="sourceLineNo">260</span>      complexity = (tokens.size()) / words;<a name="line.260"></a>
+<span class="sourceLineNo">261</span>    <a name="line.261"></a>
+<span class="sourceLineNo">262</span>    names.put(name,new Double(complexity + computeCharComplexity(name)));<a name="line.262"></a>
+<span class="sourceLineNo">263</span>    <a name="line.263"></a>
+<span class="sourceLineNo">264</span>    return complexity;<a name="line.264"></a>
+<span class="sourceLineNo">265</span>  }<a name="line.265"></a>
+<span class="sourceLineNo">266</span>  <a name="line.266"></a>
+<span class="sourceLineNo">267</span>  private double computeCharComplexity(String name) {<a name="line.267"></a>
+<span class="sourceLineNo">268</span>    int count = 0, index = 0, last = 0, lng = name.length();<a name="line.268"></a>
+<span class="sourceLineNo">269</span>    while (index &lt; lng) {<a name="line.269"></a>
+<span class="sourceLineNo">270</span>      char c = name.charAt(index);<a name="line.270"></a>
+<span class="sourceLineNo">271</span>      if ((c &lt; 65 || c &gt; 90) &amp;&amp; (c &lt; 97 || c &gt; 122)) { <a name="line.271"></a>
+<span class="sourceLineNo">272</span>        last++;<a name="line.272"></a>
+<span class="sourceLineNo">273</span>      } else {<a name="line.273"></a>
+<span class="sourceLineNo">274</span>        if (last&gt;1)<a name="line.274"></a>
+<span class="sourceLineNo">275</span>          count += last;<a name="line.275"></a>
+<span class="sourceLineNo">276</span>        last = 0;<a name="line.276"></a>
+<span class="sourceLineNo">277</span>      }<a name="line.277"></a>
+<span class="sourceLineNo">278</span>      index++;<a name="line.278"></a>
+<span class="sourceLineNo">279</span>    }<a name="line.279"></a>
+<span class="sourceLineNo">280</span>    <a name="line.280"></a>
+<span class="sourceLineNo">281</span>    double complexity = lng - count;<a name="line.281"></a>
+<span class="sourceLineNo">282</span>    <a name="line.282"></a>
+<span class="sourceLineNo">283</span>    if (complexity &gt; 0)<a name="line.283"></a>
+<span class="sourceLineNo">284</span>      return ((lng) / complexity);<a name="line.284"></a>
+<span class="sourceLineNo">285</span>    else return lng;<a name="line.285"></a>
+<span class="sourceLineNo">286</span>  }<a name="line.286"></a>
+<span class="sourceLineNo">287</span>  <a name="line.287"></a>
+<span class="sourceLineNo">288</span>  <a name="line.288"></a>
+<span class="sourceLineNo">289</span>  /*<a name="line.289"></a>
+<span class="sourceLineNo">290</span>   * @author Michael Batchelder <a name="line.290"></a>
+<span class="sourceLineNo">291</span>   * <a name="line.291"></a>
+<span class="sourceLineNo">292</span>   * Created on 6-Mar-2006<a name="line.292"></a>
+<span class="sourceLineNo">293</span>   * <a name="line.293"></a>
+<span class="sourceLineNo">294</span>   * @param     name    string to parse<a name="line.294"></a>
+<span class="sourceLineNo">295</span>   * @return            number of leading capital letters<a name="line.295"></a>
+<span class="sourceLineNo">296</span>   */<a name="line.296"></a>
+<span class="sourceLineNo">297</span>  private int countCaps(String name) {<a name="line.297"></a>
+<span class="sourceLineNo">298</span>    int caps = 0;<a name="line.298"></a>
+<span class="sourceLineNo">299</span>    while (caps &lt; name.length()) {<a name="line.299"></a>
+<span class="sourceLineNo">300</span>      char c = name.charAt(caps);<a name="line.300"></a>
+<span class="sourceLineNo">301</span>      if (c &gt; 64 &amp;&amp; c &lt; 91) <a name="line.301"></a>
+<span class="sourceLineNo">302</span>        caps++;<a name="line.302"></a>
+<span class="sourceLineNo">303</span>      else <a name="line.303"></a>
+<span class="sourceLineNo">304</span>        break;<a name="line.304"></a>
+<span class="sourceLineNo">305</span>    }<a name="line.305"></a>
+<span class="sourceLineNo">306</span>    <a name="line.306"></a>
+<span class="sourceLineNo">307</span>    return caps;<a name="line.307"></a>
+<span class="sourceLineNo">308</span>  }<a name="line.308"></a>
+<span class="sourceLineNo">309</span>  <a name="line.309"></a>
+<span class="sourceLineNo">310</span>  /*<a name="line.310"></a>
+<span class="sourceLineNo">311</span>   * @author Michael Batchelder <a name="line.311"></a>
+<span class="sourceLineNo">312</span>   * <a name="line.312"></a>
+<span class="sourceLineNo">313</span>   * Created on 6-Mar-2006<a name="line.313"></a>
+<span class="sourceLineNo">314</span>   * <a name="line.314"></a>
+<span class="sourceLineNo">315</span>   * @param     name    string to parse<a name="line.315"></a>
+<span class="sourceLineNo">316</span>   * @return            index of first capital letter<a name="line.316"></a>
+<span class="sourceLineNo">317</span>   */<a name="line.317"></a>
+<span class="sourceLineNo">318</span>  private int findCap(String name) {<a name="line.318"></a>
+<span class="sourceLineNo">319</span>    int idx = 0;<a name="line.319"></a>
+<span class="sourceLineNo">320</span>    while (idx &lt; name.length()) {<a name="line.320"></a>
+<span class="sourceLineNo">321</span>      char c = name.charAt(idx);<a name="line.321"></a>
+<span class="sourceLineNo">322</span>      if (c &gt; 64 &amp;&amp; c &lt; 91) <a name="line.322"></a>
+<span class="sourceLineNo">323</span>        return idx;<a name="line.323"></a>
+<span class="sourceLineNo">324</span>      else <a name="line.324"></a>
+<span class="sourceLineNo">325</span>        idx++;<a name="line.325"></a>
+<span class="sourceLineNo">326</span>    }<a name="line.326"></a>
+<span class="sourceLineNo">327</span>    <a name="line.327"></a>
+<span class="sourceLineNo">328</span>    return -1;<a name="line.328"></a>
+<span class="sourceLineNo">329</span>  }<a name="line.329"></a>
+<span class="sourceLineNo">330</span>}<a name="line.330"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

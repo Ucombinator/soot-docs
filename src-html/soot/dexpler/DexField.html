@@ -1,0 +1,177 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a Java Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2012 Michael Markert, Frank Hartmann<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * (c) 2012 University of Luxembourg - Interdisciplinary Centre for<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * Security Reliability and Trust (SnT) - All rights reserved<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * Alexandre Bartel<a name="line.6"></a>
+<span class="sourceLineNo">007</span> *<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is free software; you can redistribute it and/or<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * modify it under the terms of the GNU Lesser General Public<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * License as published by the Free Software Foundation; either<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * This library is distributed in the hope that it will be useful,<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Lesser General Public License for more details.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> *<a name="line.18"></a>
+<span class="sourceLineNo">019</span> * You should have received a copy of the GNU Lesser General Public<a name="line.19"></a>
+<span class="sourceLineNo">020</span> * License along with this library; if not, write to the<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.21"></a>
+<span class="sourceLineNo">022</span> * Boston, MA 02111-1307, USA.<a name="line.22"></a>
+<span class="sourceLineNo">023</span> */<a name="line.23"></a>
+<span class="sourceLineNo">024</span><a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>package soot.dexpler;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.jf.dexlib2.iface.Field;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.jf.dexlib2.iface.value.BooleanEncodedValue;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.jf.dexlib2.iface.value.ByteEncodedValue;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.jf.dexlib2.iface.value.CharEncodedValue;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.jf.dexlib2.iface.value.DoubleEncodedValue;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.jf.dexlib2.iface.value.EncodedValue;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.jf.dexlib2.iface.value.FloatEncodedValue;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.jf.dexlib2.iface.value.IntEncodedValue;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import org.jf.dexlib2.iface.value.LongEncodedValue;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import org.jf.dexlib2.iface.value.ShortEncodedValue;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import org.jf.dexlib2.iface.value.StringEncodedValue;<a name="line.39"></a>
+<span class="sourceLineNo">040</span><a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.Modifier;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.SootField;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.Type;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.tagkit.DoubleConstantValueTag;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.tagkit.FloatConstantValueTag;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import soot.tagkit.IntegerConstantValueTag;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import soot.tagkit.LongConstantValueTag;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import soot.tagkit.StringConstantValueTag;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import soot.tagkit.Tag;<a name="line.49"></a>
+<span class="sourceLineNo">050</span><a name="line.50"></a>
+<span class="sourceLineNo">051</span>/**<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * This class represents all instance and static fields of a dex class.<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * It holds its name, its modifier, and the type<a name="line.53"></a>
+<span class="sourceLineNo">054</span> */<a name="line.54"></a>
+<span class="sourceLineNo">055</span>public class DexField {<a name="line.55"></a>
+<span class="sourceLineNo">056</span>    private DexField() {}<a name="line.56"></a>
+<span class="sourceLineNo">057</span><a name="line.57"></a>
+<span class="sourceLineNo">058</span>    /**<a name="line.58"></a>
+<span class="sourceLineNo">059</span>     * Add constant tag. Should only be called if field is final.<a name="line.59"></a>
+<span class="sourceLineNo">060</span>     * @param df<a name="line.60"></a>
+<span class="sourceLineNo">061</span>     * @param sf<a name="line.61"></a>
+<span class="sourceLineNo">062</span>     */<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    private static void addConstantTag(SootField df, Field sf) {<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        Tag tag = null;<a name="line.64"></a>
+<span class="sourceLineNo">065</span><a name="line.65"></a>
+<span class="sourceLineNo">066</span>        EncodedValue ev = sf.getInitialValue();<a name="line.66"></a>
+<span class="sourceLineNo">067</span><a name="line.67"></a>
+<span class="sourceLineNo">068</span>        if (ev instanceof BooleanEncodedValue) {<a name="line.68"></a>
+<span class="sourceLineNo">069</span>          tag = new IntegerConstantValueTag(((BooleanEncodedValue) ev).getValue() ==true?1:0);<a name="line.69"></a>
+<span class="sourceLineNo">070</span>        } else if (ev instanceof ByteEncodedValue) {<a name="line.70"></a>
+<span class="sourceLineNo">071</span>          tag = new IntegerConstantValueTag(((ByteEncodedValue) ev).getValue());<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        } else if (ev instanceof CharEncodedValue) {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>          tag = new IntegerConstantValueTag(((CharEncodedValue) ev).getValue());<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        } else if (ev instanceof DoubleEncodedValue) {<a name="line.74"></a>
+<span class="sourceLineNo">075</span>          tag = new DoubleConstantValueTag(((DoubleEncodedValue) ev).getValue());<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        } else if (ev instanceof FloatEncodedValue) {<a name="line.76"></a>
+<span class="sourceLineNo">077</span>          tag = new FloatConstantValueTag(((FloatEncodedValue) ev).getValue());<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        } else if (ev instanceof IntEncodedValue) {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>          tag = new IntegerConstantValueTag(((IntEncodedValue) ev).getValue());<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        } else if (ev instanceof LongEncodedValue) {<a name="line.80"></a>
+<span class="sourceLineNo">081</span>          tag = new LongConstantValueTag(((LongEncodedValue) ev).getValue());<a name="line.81"></a>
+<span class="sourceLineNo">082</span>        } else if (ev instanceof ShortEncodedValue) {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>          tag = new IntegerConstantValueTag(((ShortEncodedValue) ev).getValue());<a name="line.83"></a>
+<span class="sourceLineNo">084</span>        } else if (ev instanceof StringEncodedValue) {<a name="line.84"></a>
+<span class="sourceLineNo">085</span>          tag = new StringConstantValueTag(((StringEncodedValue) ev).getValue());<a name="line.85"></a>
+<span class="sourceLineNo">086</span>        }<a name="line.86"></a>
+<span class="sourceLineNo">087</span><a name="line.87"></a>
+<span class="sourceLineNo">088</span>        if (tag != null)<a name="line.88"></a>
+<span class="sourceLineNo">089</span>          df.addTag(tag);<a name="line.89"></a>
+<span class="sourceLineNo">090</span>    }<a name="line.90"></a>
+<span class="sourceLineNo">091</span><a name="line.91"></a>
+<span class="sourceLineNo">092</span>    /**<a name="line.92"></a>
+<span class="sourceLineNo">093</span>     *<a name="line.93"></a>
+<span class="sourceLineNo">094</span>     * @return the Soot equivalent of a field<a name="line.94"></a>
+<span class="sourceLineNo">095</span>     */<a name="line.95"></a>
+<span class="sourceLineNo">096</span>    public static SootField makeSootField(Field f) {<a name="line.96"></a>
+<span class="sourceLineNo">097</span>        String name = f.getName();<a name="line.97"></a>
+<span class="sourceLineNo">098</span>        Type type = DexType.toSoot(f.getType());<a name="line.98"></a>
+<span class="sourceLineNo">099</span>        int flags = f.getAccessFlags();<a name="line.99"></a>
+<span class="sourceLineNo">100</span>        SootField sf = new SootField(name, type, flags);<a name="line.100"></a>
+<span class="sourceLineNo">101</span>        if (Modifier.isFinal(flags))<a name="line.101"></a>
+<span class="sourceLineNo">102</span>            DexField.addConstantTag(sf, f);<a name="line.102"></a>
+<span class="sourceLineNo">103</span>        return sf;<a name="line.103"></a>
+<span class="sourceLineNo">104</span>    }<a name="line.104"></a>
+<span class="sourceLineNo">105</span>}<a name="line.105"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

@@ -1,0 +1,528 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2003 John Jorgensen<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>/*<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Modified by the Sable Research Group and others 1997-2003.  <a name="line.21"></a>
+<span class="sourceLineNo">022</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.22"></a>
+<span class="sourceLineNo">023</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.23"></a>
+<span class="sourceLineNo">024</span> */<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>package soot.util;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.io.File;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.io.PrintWriter;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import java.util.ArrayList;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import java.util.Iterator;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import java.util.List;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.Body;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.G;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.Printer;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.Scene;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.Singletons;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.SootClass;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.SootMethod;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.options.Options;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.toolkits.graph.ExceptionalGraph;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.toolkits.graph.DirectedGraph;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.util.cfgcmd.CFGToDotGraph;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.util.dot.DotGraph;<a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span><a name="line.47"></a>
+<span class="sourceLineNo">048</span>/**<a name="line.48"></a>
+<span class="sourceLineNo">049</span> * The &lt;tt&gt;PhaseDumper&lt;/tt&gt; is a debugging aid.  It maintains two<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * lists of phases to be debugged.  If a phase is on the<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * &lt;code&gt;bodyDumpingPhases&lt;/code&gt; list, then the intermediate<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * representation of the bodies being manipulated by the phase is<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * dumped before and after the phase is applied.  If a phase is on the<a name="line.53"></a>
+<span class="sourceLineNo">054</span> * &lt;code&gt;cfgDumpingPhases&lt;/code&gt; list, then whenever a CFG is<a name="line.54"></a>
+<span class="sourceLineNo">055</span> * constructed during the phase, a dot file is dumped representing the<a name="line.55"></a>
+<span class="sourceLineNo">056</span> * CFG constructed.<a name="line.56"></a>
+<span class="sourceLineNo">057</span> */<a name="line.57"></a>
+<span class="sourceLineNo">058</span><a name="line.58"></a>
+<span class="sourceLineNo">059</span>public class PhaseDumper {<a name="line.59"></a>
+<span class="sourceLineNo">060</span>    // As a minor optimization, we leave these lists null in the<a name="line.60"></a>
+<span class="sourceLineNo">061</span>    // case were no phases at all are to be dumped, which is the <a name="line.61"></a>
+<span class="sourceLineNo">062</span>    // most likely case.<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    private List bodyDumpingPhases = null;<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    private List cfgDumpingPhases = null;<a name="line.64"></a>
+<span class="sourceLineNo">065</span><a name="line.65"></a>
+<span class="sourceLineNo">066</span>    private class PhaseStack extends ArrayList {<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        // We eschew java.util.Stack to avoid synchronization overhead.<a name="line.67"></a>
+<span class="sourceLineNo">068</span><a name="line.68"></a>
+<span class="sourceLineNo">069</span>        private final static int initialCapacity = 4;<a name="line.69"></a>
+<span class="sourceLineNo">070</span>        final static String EMPTY_STACK_PHASE_NAME = "NOPHASE";<a name="line.70"></a>
+<span class="sourceLineNo">071</span><a name="line.71"></a>
+<span class="sourceLineNo">072</span>        PhaseStack() {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>            super(initialCapacity);<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        }<a name="line.74"></a>
+<span class="sourceLineNo">075</span><a name="line.75"></a>
+<span class="sourceLineNo">076</span>        boolean empty() {<a name="line.76"></a>
+<span class="sourceLineNo">077</span>            return (this.size() == 0);<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        }<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>        String currentPhase() {<a name="line.80"></a>
+<span class="sourceLineNo">081</span>            if (this.size() &lt;= 0) {<a name="line.81"></a>
+<span class="sourceLineNo">082</span>                return EMPTY_STACK_PHASE_NAME;<a name="line.82"></a>
+<span class="sourceLineNo">083</span>            } else {<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                return (String) this.get(this.size() - 1);<a name="line.84"></a>
+<span class="sourceLineNo">085</span>            }<a name="line.85"></a>
+<span class="sourceLineNo">086</span>        }<a name="line.86"></a>
+<span class="sourceLineNo">087</span><a name="line.87"></a>
+<span class="sourceLineNo">088</span>        String pop() {<a name="line.88"></a>
+<span class="sourceLineNo">089</span>            return (String) this.remove(this.size() - 1);<a name="line.89"></a>
+<span class="sourceLineNo">090</span>        }<a name="line.90"></a>
+<span class="sourceLineNo">091</span><a name="line.91"></a>
+<span class="sourceLineNo">092</span>        String push(String phaseName) {<a name="line.92"></a>
+<span class="sourceLineNo">093</span>            this.add(phaseName);<a name="line.93"></a>
+<span class="sourceLineNo">094</span>            return phaseName;<a name="line.94"></a>
+<span class="sourceLineNo">095</span>        }<a name="line.95"></a>
+<span class="sourceLineNo">096</span>    }<a name="line.96"></a>
+<span class="sourceLineNo">097</span>    private final PhaseStack phaseStack = new PhaseStack(); <a name="line.97"></a>
+<span class="sourceLineNo">098</span>    final static String allWildcard = "ALL";<a name="line.98"></a>
+<span class="sourceLineNo">099</span><a name="line.99"></a>
+<span class="sourceLineNo">100</span><a name="line.100"></a>
+<span class="sourceLineNo">101</span>    public PhaseDumper(Singletons.Global g) {<a name="line.101"></a>
+<span class="sourceLineNo">102</span>        if (! Options.v().dump_body().isEmpty()) {<a name="line.102"></a>
+<span class="sourceLineNo">103</span>            bodyDumpingPhases = Options.v().dump_body();<a name="line.103"></a>
+<span class="sourceLineNo">104</span>        }<a name="line.104"></a>
+<span class="sourceLineNo">105</span>        if (! Options.v().dump_cfg().isEmpty()) {<a name="line.105"></a>
+<span class="sourceLineNo">106</span>            cfgDumpingPhases = Options.v().dump_cfg();<a name="line.106"></a>
+<span class="sourceLineNo">107</span>        }<a name="line.107"></a>
+<span class="sourceLineNo">108</span>    }<a name="line.108"></a>
+<span class="sourceLineNo">109</span><a name="line.109"></a>
+<span class="sourceLineNo">110</span><a name="line.110"></a>
+<span class="sourceLineNo">111</span>    /**<a name="line.111"></a>
+<span class="sourceLineNo">112</span>     * Returns the single instance of &lt;code&gt;PhaseDumper&lt;/code&gt;.<a name="line.112"></a>
+<span class="sourceLineNo">113</span>     *<a name="line.113"></a>
+<span class="sourceLineNo">114</span>     * @return Soot's &lt;code&gt;PhaseDumper&lt;/code&gt;.<a name="line.114"></a>
+<span class="sourceLineNo">115</span>     */<a name="line.115"></a>
+<span class="sourceLineNo">116</span>    public static PhaseDumper v() { <a name="line.116"></a>
+<span class="sourceLineNo">117</span>        return G.v().soot_util_PhaseDumper(); <a name="line.117"></a>
+<span class="sourceLineNo">118</span>    }<a name="line.118"></a>
+<span class="sourceLineNo">119</span><a name="line.119"></a>
+<span class="sourceLineNo">120</span><a name="line.120"></a>
+<span class="sourceLineNo">121</span>    private boolean isBodyDumpingPhase(String phaseName) {<a name="line.121"></a>
+<span class="sourceLineNo">122</span>        return ((bodyDumpingPhases != null)<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                &amp;&amp; (bodyDumpingPhases.contains(phaseName) || <a name="line.123"></a>
+<span class="sourceLineNo">124</span>                    bodyDumpingPhases.contains(allWildcard)));<a name="line.124"></a>
+<span class="sourceLineNo">125</span>    }<a name="line.125"></a>
+<span class="sourceLineNo">126</span><a name="line.126"></a>
+<span class="sourceLineNo">127</span><a name="line.127"></a>
+<span class="sourceLineNo">128</span>    private boolean isCFGDumpingPhase(String phaseName) {<a name="line.128"></a>
+<span class="sourceLineNo">129</span>        if (cfgDumpingPhases == null) {<a name="line.129"></a>
+<span class="sourceLineNo">130</span>            return false;<a name="line.130"></a>
+<span class="sourceLineNo">131</span>        }<a name="line.131"></a>
+<span class="sourceLineNo">132</span>        if (cfgDumpingPhases.contains(allWildcard)) {<a name="line.132"></a>
+<span class="sourceLineNo">133</span>          return true;<a name="line.133"></a>
+<span class="sourceLineNo">134</span>        } else {<a name="line.134"></a>
+<span class="sourceLineNo">135</span>          while (true) { // loop exited by "return" or "break".<a name="line.135"></a>
+<span class="sourceLineNo">136</span>            if (cfgDumpingPhases.contains(phaseName)) {<a name="line.136"></a>
+<span class="sourceLineNo">137</span>              return true;<a name="line.137"></a>
+<span class="sourceLineNo">138</span>            }<a name="line.138"></a>
+<span class="sourceLineNo">139</span>            // Go on to check if phaseName is a subphase of a<a name="line.139"></a>
+<span class="sourceLineNo">140</span>            // phase in cfgDumpingPhases.<a name="line.140"></a>
+<span class="sourceLineNo">141</span>            int lastDot = phaseName.lastIndexOf('.');<a name="line.141"></a>
+<span class="sourceLineNo">142</span>            if (lastDot &lt; 0) {<a name="line.142"></a>
+<span class="sourceLineNo">143</span>              break;<a name="line.143"></a>
+<span class="sourceLineNo">144</span>            } else {<a name="line.144"></a>
+<span class="sourceLineNo">145</span>              phaseName = phaseName.substring(0, lastDot);<a name="line.145"></a>
+<span class="sourceLineNo">146</span>            }<a name="line.146"></a>
+<span class="sourceLineNo">147</span>          }<a name="line.147"></a>
+<span class="sourceLineNo">148</span>          return false;<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        }<a name="line.149"></a>
+<span class="sourceLineNo">150</span>    }<a name="line.150"></a>
+<span class="sourceLineNo">151</span><a name="line.151"></a>
+<span class="sourceLineNo">152</span><a name="line.152"></a>
+<span class="sourceLineNo">153</span>    private static java.io.File makeDirectoryIfMissing(Body b) <a name="line.153"></a>
+<span class="sourceLineNo">154</span>        throws java.io.IOException {<a name="line.154"></a>
+<span class="sourceLineNo">155</span>        StringBuffer buf = <a name="line.155"></a>
+<span class="sourceLineNo">156</span>            new StringBuffer(soot.SourceLocator.v().getOutputDir());<a name="line.156"></a>
+<span class="sourceLineNo">157</span>        buf.append(File.separatorChar);<a name="line.157"></a>
+<span class="sourceLineNo">158</span>        String className = b.getMethod().getDeclaringClass().getName();<a name="line.158"></a>
+<span class="sourceLineNo">159</span>        buf.append(className);<a name="line.159"></a>
+<span class="sourceLineNo">160</span>        buf.append(File.separatorChar);<a name="line.160"></a>
+<span class="sourceLineNo">161</span>        buf.append(b.getMethod().getSubSignature().replace('&lt;', '[').replace('&gt;', ']'));<a name="line.161"></a>
+<span class="sourceLineNo">162</span>        java.io.File dir = new java.io.File(buf.toString());<a name="line.162"></a>
+<span class="sourceLineNo">163</span>        if (dir.exists()) {<a name="line.163"></a>
+<span class="sourceLineNo">164</span>            if (! dir.isDirectory()) {<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                throw new java.io.IOException(dir.getPath() + " exists but is not a directory.");<a name="line.165"></a>
+<span class="sourceLineNo">166</span>            }<a name="line.166"></a>
+<span class="sourceLineNo">167</span>        } else {<a name="line.167"></a>
+<span class="sourceLineNo">168</span>            if (! dir.mkdirs())  {<a name="line.168"></a>
+<span class="sourceLineNo">169</span>                throw new java.io.IOException("Unable to mkdirs " + dir.getPath());<a name="line.169"></a>
+<span class="sourceLineNo">170</span>            }<a name="line.170"></a>
+<span class="sourceLineNo">171</span>        }<a name="line.171"></a>
+<span class="sourceLineNo">172</span>        return dir;<a name="line.172"></a>
+<span class="sourceLineNo">173</span>    }<a name="line.173"></a>
+<span class="sourceLineNo">174</span><a name="line.174"></a>
+<span class="sourceLineNo">175</span><a name="line.175"></a>
+<span class="sourceLineNo">176</span>    private static PrintWriter openBodyFile(Body b, String baseName) <a name="line.176"></a>
+<span class="sourceLineNo">177</span>        throws java.io.IOException {<a name="line.177"></a>
+<span class="sourceLineNo">178</span>        File dir = makeDirectoryIfMissing(b);<a name="line.178"></a>
+<span class="sourceLineNo">179</span>        String filePath = dir.toString() + File.separatorChar + baseName;<a name="line.179"></a>
+<span class="sourceLineNo">180</span>        return <a name="line.180"></a>
+<span class="sourceLineNo">181</span>            new PrintWriter(new java.io.FileOutputStream(filePath));<a name="line.181"></a>
+<span class="sourceLineNo">182</span>    }<a name="line.182"></a>
+<span class="sourceLineNo">183</span><a name="line.183"></a>
+<span class="sourceLineNo">184</span><a name="line.184"></a>
+<span class="sourceLineNo">185</span>    /**<a name="line.185"></a>
+<span class="sourceLineNo">186</span>     * Returns the next available name for a graph file.<a name="line.186"></a>
+<span class="sourceLineNo">187</span>     */<a name="line.187"></a>
+<span class="sourceLineNo">188</span><a name="line.188"></a>
+<span class="sourceLineNo">189</span>    private static String nextGraphFileName(Body b, String baseName) <a name="line.189"></a>
+<span class="sourceLineNo">190</span>        throws java.io.IOException {<a name="line.190"></a>
+<span class="sourceLineNo">191</span>        // We number output files to allow multiple graphs per phase.<a name="line.191"></a>
+<span class="sourceLineNo">192</span>        File dir = makeDirectoryIfMissing(b);<a name="line.192"></a>
+<span class="sourceLineNo">193</span>        final String prefix = dir.toString() + File.separatorChar + baseName;<a name="line.193"></a>
+<span class="sourceLineNo">194</span>        File file = null;<a name="line.194"></a>
+<span class="sourceLineNo">195</span>        int fileNumber = 0;<a name="line.195"></a>
+<span class="sourceLineNo">196</span>        do {<a name="line.196"></a>
+<span class="sourceLineNo">197</span>            file = new File(prefix + fileNumber + DotGraph.DOT_EXTENSION);<a name="line.197"></a>
+<span class="sourceLineNo">198</span>            fileNumber++;<a name="line.198"></a>
+<span class="sourceLineNo">199</span>        } while (file.exists());<a name="line.199"></a>
+<span class="sourceLineNo">200</span>        return file.toString();<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    }<a name="line.201"></a>
+<span class="sourceLineNo">202</span><a name="line.202"></a>
+<span class="sourceLineNo">203</span><a name="line.203"></a>
+<span class="sourceLineNo">204</span>    private static void deleteOldGraphFiles(final Body b,<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                                            final String phaseName) {<a name="line.205"></a>
+<span class="sourceLineNo">206</span>        try {<a name="line.206"></a>
+<span class="sourceLineNo">207</span>            final File dir = makeDirectoryIfMissing(b);<a name="line.207"></a>
+<span class="sourceLineNo">208</span>            final File[] toDelete = dir.listFiles(new java.io.FilenameFilter() {<a name="line.208"></a>
+<span class="sourceLineNo">209</span>                    public boolean accept(File dir, String name) {<a name="line.209"></a>
+<span class="sourceLineNo">210</span>                        return name.startsWith(phaseName) &amp;&amp; <a name="line.210"></a>
+<span class="sourceLineNo">211</span>                            name.endsWith(DotGraph.DOT_EXTENSION);<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                    }<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                });<a name="line.213"></a>
+<span class="sourceLineNo">214</span>            if (toDelete != null)<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                    for (File element : toDelete) {<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                        element.delete();<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                    }<a name="line.217"></a>
+<span class="sourceLineNo">218</span>        } catch (java.io.IOException e) {<a name="line.218"></a>
+<span class="sourceLineNo">219</span>            // Don't abort execution because of an I/O error, but report<a name="line.219"></a>
+<span class="sourceLineNo">220</span>            // the error.<a name="line.220"></a>
+<span class="sourceLineNo">221</span>            G.v().out.println("PhaseDumper.dumpBody() caught: " + e.toString());<a name="line.221"></a>
+<span class="sourceLineNo">222</span>            e.printStackTrace(G.v().out);<a name="line.222"></a>
+<span class="sourceLineNo">223</span>        }<a name="line.223"></a>
+<span class="sourceLineNo">224</span>    }<a name="line.224"></a>
+<span class="sourceLineNo">225</span><a name="line.225"></a>
+<span class="sourceLineNo">226</span><a name="line.226"></a>
+<span class="sourceLineNo">227</span>    // soot.Printer itself needs to create a BriefUnitGraph in order<a name="line.227"></a>
+<span class="sourceLineNo">228</span>    // to format the text for a method's instructions, so this flag is<a name="line.228"></a>
+<span class="sourceLineNo">229</span>    // a hack to avoid dumping graphs that we create in the course of<a name="line.229"></a>
+<span class="sourceLineNo">230</span>    // dumping bodies or other graphs.  <a name="line.230"></a>
+<span class="sourceLineNo">231</span>    //<a name="line.231"></a>
+<span class="sourceLineNo">232</span>    // Note that this hack would not work if a PhaseDumper might be<a name="line.232"></a>
+<span class="sourceLineNo">233</span>    // accessed by multiple threads.  So long as there is a single<a name="line.233"></a>
+<span class="sourceLineNo">234</span>    // active PhaseDumper accessed through soot.G, it seems<a name="line.234"></a>
+<span class="sourceLineNo">235</span>    // safe to assume it will be accessed by only a single thread.<a name="line.235"></a>
+<span class="sourceLineNo">236</span>    private boolean alreadyDumping = false;<a name="line.236"></a>
+<span class="sourceLineNo">237</span>    <a name="line.237"></a>
+<span class="sourceLineNo">238</span>    public void dumpBody(Body b, String baseName) {<a name="line.238"></a>
+<span class="sourceLineNo">239</span>        try {<a name="line.239"></a>
+<span class="sourceLineNo">240</span>            alreadyDumping = true;<a name="line.240"></a>
+<span class="sourceLineNo">241</span>            java.io.PrintWriter out = openBodyFile(b, baseName);<a name="line.241"></a>
+<span class="sourceLineNo">242</span>            soot.Printer.v().setOption(Printer.USE_ABBREVIATIONS);<a name="line.242"></a>
+<span class="sourceLineNo">243</span>            soot.Printer.v().printTo(b, out);<a name="line.243"></a>
+<span class="sourceLineNo">244</span>            out.close();<a name="line.244"></a>
+<span class="sourceLineNo">245</span>        } catch (java.io.IOException e) {<a name="line.245"></a>
+<span class="sourceLineNo">246</span>            // Don't abort execution because of an I/O error, but let<a name="line.246"></a>
+<span class="sourceLineNo">247</span>            // the user know.<a name="line.247"></a>
+<span class="sourceLineNo">248</span>            G.v().out.println("PhaseDumper.dumpBody() caught: " + e.toString());<a name="line.248"></a>
+<span class="sourceLineNo">249</span>            e.printStackTrace(G.v().out);<a name="line.249"></a>
+<span class="sourceLineNo">250</span>        } finally {<a name="line.250"></a>
+<span class="sourceLineNo">251</span>            alreadyDumping = false;<a name="line.251"></a>
+<span class="sourceLineNo">252</span>        }<a name="line.252"></a>
+<span class="sourceLineNo">253</span>    }<a name="line.253"></a>
+<span class="sourceLineNo">254</span><a name="line.254"></a>
+<span class="sourceLineNo">255</span>    private void dumpAllBodies(String baseName, <a name="line.255"></a>
+<span class="sourceLineNo">256</span>                                      boolean deleteGraphFiles) {<a name="line.256"></a>
+<span class="sourceLineNo">257</span>        List&lt;SootClass&gt; classes = Scene.v().getClasses(SootClass.BODIES);<a name="line.257"></a>
+<span class="sourceLineNo">258</span>        for (SootClass cls : classes) {<a name="line.258"></a>
+<span class="sourceLineNo">259</span>            for (Iterator m = cls.getMethods().iterator(); m.hasNext(); ) {<a name="line.259"></a>
+<span class="sourceLineNo">260</span>                SootMethod method = (SootMethod) m.next();<a name="line.260"></a>
+<span class="sourceLineNo">261</span>                if (method.hasActiveBody()) {<a name="line.261"></a>
+<span class="sourceLineNo">262</span>                    Body body = method.getActiveBody();<a name="line.262"></a>
+<span class="sourceLineNo">263</span>                    if (deleteGraphFiles) {<a name="line.263"></a>
+<span class="sourceLineNo">264</span>                        deleteOldGraphFiles(body, baseName);<a name="line.264"></a>
+<span class="sourceLineNo">265</span>                    }<a name="line.265"></a>
+<span class="sourceLineNo">266</span>                    dumpBody(body, baseName);<a name="line.266"></a>
+<span class="sourceLineNo">267</span>                }<a name="line.267"></a>
+<span class="sourceLineNo">268</span>            }<a name="line.268"></a>
+<span class="sourceLineNo">269</span>        }<a name="line.269"></a>
+<span class="sourceLineNo">270</span>    }<a name="line.270"></a>
+<span class="sourceLineNo">271</span><a name="line.271"></a>
+<span class="sourceLineNo">272</span><a name="line.272"></a>
+<span class="sourceLineNo">273</span>    /**<a name="line.273"></a>
+<span class="sourceLineNo">274</span>     * Tells the &lt;code&gt;PhaseDumper&lt;/code&gt; that a {@link Body}<a name="line.274"></a>
+<span class="sourceLineNo">275</span>     * transforming phase has started, so that it can dump the<a name="line.275"></a>
+<span class="sourceLineNo">276</span>     * phases's &amp;ldquo;before&amp;rdquo; file.  If the phase is to be<a name="line.276"></a>
+<span class="sourceLineNo">277</span>     * dumped, &lt;code&gt;dumpBefore&lt;/code&gt; deletes any old<a name="line.277"></a>
+<span class="sourceLineNo">278</span>     * graph files dumped during previous runs of the phase.<a name="line.278"></a>
+<span class="sourceLineNo">279</span>     *<a name="line.279"></a>
+<span class="sourceLineNo">280</span>     * @param b the {@link Body} being transformed.<a name="line.280"></a>
+<span class="sourceLineNo">281</span>     * @param phaseName the name of the phase that has just started.<a name="line.281"></a>
+<span class="sourceLineNo">282</span>     */<a name="line.282"></a>
+<span class="sourceLineNo">283</span>    public void dumpBefore(Body b, String phaseName) {<a name="line.283"></a>
+<span class="sourceLineNo">284</span>        phaseStack.push(phaseName);<a name="line.284"></a>
+<span class="sourceLineNo">285</span>        if (isBodyDumpingPhase(phaseName)) {<a name="line.285"></a>
+<span class="sourceLineNo">286</span>                deleteOldGraphFiles(b, phaseName);<a name="line.286"></a>
+<span class="sourceLineNo">287</span>                dumpBody(b, phaseName + ".in");<a name="line.287"></a>
+<span class="sourceLineNo">288</span>        }<a name="line.288"></a>
+<span class="sourceLineNo">289</span>    }<a name="line.289"></a>
+<span class="sourceLineNo">290</span><a name="line.290"></a>
+<span class="sourceLineNo">291</span><a name="line.291"></a>
+<span class="sourceLineNo">292</span>    /**<a name="line.292"></a>
+<span class="sourceLineNo">293</span>     * Tells the &lt;code&gt;PhaseDumper&lt;/code&gt; that a {@link Body}<a name="line.293"></a>
+<span class="sourceLineNo">294</span>     * transforming phase has ended, so that it can dump the<a name="line.294"></a>
+<span class="sourceLineNo">295</span>     * phases's &amp;ldquo;after&amp;rdquo; file.<a name="line.295"></a>
+<span class="sourceLineNo">296</span>     *<a name="line.296"></a>
+<span class="sourceLineNo">297</span>     * @param b the {@link Body} being transformed.<a name="line.297"></a>
+<span class="sourceLineNo">298</span>     *<a name="line.298"></a>
+<span class="sourceLineNo">299</span>     * @param phaseName the name of the phase that has just ended.<a name="line.299"></a>
+<span class="sourceLineNo">300</span>     *<a name="line.300"></a>
+<span class="sourceLineNo">301</span>     * @throws IllegalArgumentException if &lt;code&gt;phaseName&lt;/code&gt; does not<a name="line.301"></a>
+<span class="sourceLineNo">302</span>     * match the &lt;code&gt;PhaseDumper&lt;/code&gt;'s record of the current phase.<a name="line.302"></a>
+<span class="sourceLineNo">303</span>     */<a name="line.303"></a>
+<span class="sourceLineNo">304</span>    public void dumpAfter(Body b, String phaseName) {<a name="line.304"></a>
+<span class="sourceLineNo">305</span>        String poppedPhaseName = phaseStack.pop();<a name="line.305"></a>
+<span class="sourceLineNo">306</span>        if (poppedPhaseName != phaseName) {<a name="line.306"></a>
+<span class="sourceLineNo">307</span>            throw new IllegalArgumentException("dumpAfter(" + phaseName + <a name="line.307"></a>
+<span class="sourceLineNo">308</span>                                               ") when poppedPhaseName == " +<a name="line.308"></a>
+<span class="sourceLineNo">309</span>                                               poppedPhaseName);<a name="line.309"></a>
+<span class="sourceLineNo">310</span>        }<a name="line.310"></a>
+<span class="sourceLineNo">311</span>        if (isBodyDumpingPhase(phaseName)) {<a name="line.311"></a>
+<span class="sourceLineNo">312</span>            dumpBody(b, phaseName + ".out");<a name="line.312"></a>
+<span class="sourceLineNo">313</span>        }<a name="line.313"></a>
+<span class="sourceLineNo">314</span>    }<a name="line.314"></a>
+<span class="sourceLineNo">315</span><a name="line.315"></a>
+<span class="sourceLineNo">316</span><a name="line.316"></a>
+<span class="sourceLineNo">317</span>    /**<a name="line.317"></a>
+<span class="sourceLineNo">318</span>     * Tells the &lt;code&gt;PhaseDumper&lt;/code&gt; that a {@link Scene}<a name="line.318"></a>
+<span class="sourceLineNo">319</span>     * transforming phase has started, so that it can dump the<a name="line.319"></a>
+<span class="sourceLineNo">320</span>     * phases's &amp;ldquo;before&amp;rdquo; files.  If the phase is to be<a name="line.320"></a>
+<span class="sourceLineNo">321</span>     * dumped, &lt;code&gt;dumpBefore&lt;/code&gt; deletes any old<a name="line.321"></a>
+<span class="sourceLineNo">322</span>     * graph files dumped during previous runs of the phase.<a name="line.322"></a>
+<span class="sourceLineNo">323</span>     *<a name="line.323"></a>
+<span class="sourceLineNo">324</span>     * @param phaseName the name of the phase that has just started.<a name="line.324"></a>
+<span class="sourceLineNo">325</span>     */<a name="line.325"></a>
+<span class="sourceLineNo">326</span>    public void dumpBefore(String phaseName) {<a name="line.326"></a>
+<span class="sourceLineNo">327</span>        phaseStack.push(phaseName);<a name="line.327"></a>
+<span class="sourceLineNo">328</span>        if (isBodyDumpingPhase(phaseName)) {<a name="line.328"></a>
+<span class="sourceLineNo">329</span>            dumpAllBodies(phaseName + ".in", true);<a name="line.329"></a>
+<span class="sourceLineNo">330</span>        }<a name="line.330"></a>
+<span class="sourceLineNo">331</span>    }<a name="line.331"></a>
+<span class="sourceLineNo">332</span><a name="line.332"></a>
+<span class="sourceLineNo">333</span><a name="line.333"></a>
+<span class="sourceLineNo">334</span>    /**<a name="line.334"></a>
+<span class="sourceLineNo">335</span>     * Tells the &lt;code&gt;PhaseDumper&lt;/code&gt; that a {@link Scene}<a name="line.335"></a>
+<span class="sourceLineNo">336</span>     * transforming phase has ended, so that it can dump the<a name="line.336"></a>
+<span class="sourceLineNo">337</span>     * phases's &amp;ldquo;after&amp;rdquo; files.<a name="line.337"></a>
+<span class="sourceLineNo">338</span>     *<a name="line.338"></a>
+<span class="sourceLineNo">339</span>     * @param phaseName the name of the phase that has just ended.<a name="line.339"></a>
+<span class="sourceLineNo">340</span>     *<a name="line.340"></a>
+<span class="sourceLineNo">341</span>     * @throws IllegalArgumentException if &lt;code&gt;phaseName&lt;/code&gt; does not<a name="line.341"></a>
+<span class="sourceLineNo">342</span>     * match the &lt;code&gt;PhaseDumper&lt;/code&gt;'s record of the current phase.<a name="line.342"></a>
+<span class="sourceLineNo">343</span>     */<a name="line.343"></a>
+<span class="sourceLineNo">344</span>    public void dumpAfter(String phaseName) {<a name="line.344"></a>
+<span class="sourceLineNo">345</span>        String poppedPhaseName = phaseStack.pop();<a name="line.345"></a>
+<span class="sourceLineNo">346</span>        if (poppedPhaseName != phaseName) {<a name="line.346"></a>
+<span class="sourceLineNo">347</span>            throw new IllegalArgumentException("dumpAfter(" + phaseName + <a name="line.347"></a>
+<span class="sourceLineNo">348</span>                                               ") when poppedPhaseName == " +<a name="line.348"></a>
+<span class="sourceLineNo">349</span>                                               poppedPhaseName);<a name="line.349"></a>
+<span class="sourceLineNo">350</span>        }<a name="line.350"></a>
+<span class="sourceLineNo">351</span>        if (isBodyDumpingPhase(phaseName)) {<a name="line.351"></a>
+<span class="sourceLineNo">352</span>            dumpAllBodies(phaseName + ".out", false);<a name="line.352"></a>
+<span class="sourceLineNo">353</span>        }<a name="line.353"></a>
+<span class="sourceLineNo">354</span>    }<a name="line.354"></a>
+<span class="sourceLineNo">355</span><a name="line.355"></a>
+<span class="sourceLineNo">356</span><a name="line.356"></a>
+<span class="sourceLineNo">357</span>    /**<a name="line.357"></a>
+<span class="sourceLineNo">358</span>     * Asks the &lt;code&gt;PhaseDumper&lt;/code&gt; to dump the passed {@link<a name="line.358"></a>
+<span class="sourceLineNo">359</span>     * DirectedGraph} if the current phase is being dumped.<a name="line.359"></a>
+<span class="sourceLineNo">360</span>     *<a name="line.360"></a>
+<span class="sourceLineNo">361</span>     * @param g the graph to dump.<a name="line.361"></a>
+<span class="sourceLineNo">362</span>     *<a name="line.362"></a>
+<span class="sourceLineNo">363</span>     * @param body the {@link Body} represented by &lt;code&gt;g&lt;/code&gt;.<a name="line.363"></a>
+<span class="sourceLineNo">364</span>     */<a name="line.364"></a>
+<span class="sourceLineNo">365</span>    public void dumpGraph(DirectedGraph g, Body b) {<a name="line.365"></a>
+<span class="sourceLineNo">366</span>        if (alreadyDumping) {<a name="line.366"></a>
+<span class="sourceLineNo">367</span>            return;<a name="line.367"></a>
+<span class="sourceLineNo">368</span>        }<a name="line.368"></a>
+<span class="sourceLineNo">369</span>        try {<a name="line.369"></a>
+<span class="sourceLineNo">370</span>            alreadyDumping = true;<a name="line.370"></a>
+<span class="sourceLineNo">371</span>            String phaseName = phaseStack.currentPhase();<a name="line.371"></a>
+<span class="sourceLineNo">372</span>            if (isCFGDumpingPhase(phaseName)) { <a name="line.372"></a>
+<span class="sourceLineNo">373</span>                try {<a name="line.373"></a>
+<span class="sourceLineNo">374</span>                    String outputFile = nextGraphFileName(b, phaseName + "-" + <a name="line.374"></a>
+<span class="sourceLineNo">375</span>                                                          getClassIdent(g) + "-");<a name="line.375"></a>
+<span class="sourceLineNo">376</span>                    DotGraph dotGraph = new CFGToDotGraph().drawCFG(g, b);<a name="line.376"></a>
+<span class="sourceLineNo">377</span>                    dotGraph.plot(outputFile);<a name="line.377"></a>
+<span class="sourceLineNo">378</span><a name="line.378"></a>
+<span class="sourceLineNo">379</span>                } catch (java.io.IOException e) {<a name="line.379"></a>
+<span class="sourceLineNo">380</span>                    // Don't abort execution because of an I/O error, but <a name="line.380"></a>
+<span class="sourceLineNo">381</span>                    // report the error.<a name="line.381"></a>
+<span class="sourceLineNo">382</span>                    G.v().out.println("PhaseDumper.dumpBody() caught: " + <a name="line.382"></a>
+<span class="sourceLineNo">383</span>                                      e.toString());<a name="line.383"></a>
+<span class="sourceLineNo">384</span>                    e.printStackTrace(G.v().out);<a name="line.384"></a>
+<span class="sourceLineNo">385</span>                }<a name="line.385"></a>
+<span class="sourceLineNo">386</span>            }<a name="line.386"></a>
+<span class="sourceLineNo">387</span>        } finally {<a name="line.387"></a>
+<span class="sourceLineNo">388</span>            alreadyDumping = false;<a name="line.388"></a>
+<span class="sourceLineNo">389</span>        }<a name="line.389"></a>
+<span class="sourceLineNo">390</span>    }<a name="line.390"></a>
+<span class="sourceLineNo">391</span><a name="line.391"></a>
+<span class="sourceLineNo">392</span><a name="line.392"></a>
+<span class="sourceLineNo">393</span>    /**<a name="line.393"></a>
+<span class="sourceLineNo">394</span>     * Asks the &lt;code&gt;PhaseDumper&lt;/code&gt; to dump the passed {@link<a name="line.394"></a>
+<span class="sourceLineNo">395</span>     * ExceptionalGraph} if the current phase is being dumped.<a name="line.395"></a>
+<span class="sourceLineNo">396</span>     *<a name="line.396"></a>
+<span class="sourceLineNo">397</span>     * @param g the graph to dump.<a name="line.397"></a>
+<span class="sourceLineNo">398</span>     */<a name="line.398"></a>
+<span class="sourceLineNo">399</span>    public void dumpGraph(ExceptionalGraph g) {<a name="line.399"></a>
+<span class="sourceLineNo">400</span>        if (alreadyDumping) {<a name="line.400"></a>
+<span class="sourceLineNo">401</span>            return;<a name="line.401"></a>
+<span class="sourceLineNo">402</span>        }<a name="line.402"></a>
+<span class="sourceLineNo">403</span>        try {<a name="line.403"></a>
+<span class="sourceLineNo">404</span>            alreadyDumping = true;<a name="line.404"></a>
+<span class="sourceLineNo">405</span>            String phaseName = phaseStack.currentPhase();<a name="line.405"></a>
+<span class="sourceLineNo">406</span>            if (isCFGDumpingPhase(phaseName)) {<a name="line.406"></a>
+<span class="sourceLineNo">407</span>                try {<a name="line.407"></a>
+<span class="sourceLineNo">408</span>                    String outputFile = nextGraphFileName(g.getBody(), <a name="line.408"></a>
+<span class="sourceLineNo">409</span>                                                          phaseName + "-" + <a name="line.409"></a>
+<span class="sourceLineNo">410</span>                                                          getClassIdent(g) + "-");<a name="line.410"></a>
+<span class="sourceLineNo">411</span>                    CFGToDotGraph drawer = new CFGToDotGraph();<a name="line.411"></a>
+<span class="sourceLineNo">412</span>                    drawer.setShowExceptions(Options.v().show_exception_dests());<a name="line.412"></a>
+<span class="sourceLineNo">413</span>                    DotGraph dotGraph = drawer.drawCFG(g);<a name="line.413"></a>
+<span class="sourceLineNo">414</span>                    dotGraph.plot(outputFile);<a name="line.414"></a>
+<span class="sourceLineNo">415</span><a name="line.415"></a>
+<span class="sourceLineNo">416</span>                } catch (java.io.IOException e) {<a name="line.416"></a>
+<span class="sourceLineNo">417</span>                    // Don't abort execution because of an I/O error, but <a name="line.417"></a>
+<span class="sourceLineNo">418</span>                    // report the error.<a name="line.418"></a>
+<span class="sourceLineNo">419</span>                    G.v().out.println("PhaseDumper.dumpBody() caught: " + <a name="line.419"></a>
+<span class="sourceLineNo">420</span>                                      e.toString());<a name="line.420"></a>
+<span class="sourceLineNo">421</span>                    e.printStackTrace(G.v().out);<a name="line.421"></a>
+<span class="sourceLineNo">422</span>                }<a name="line.422"></a>
+<span class="sourceLineNo">423</span>            }<a name="line.423"></a>
+<span class="sourceLineNo">424</span>        } finally {<a name="line.424"></a>
+<span class="sourceLineNo">425</span>            alreadyDumping = false;<a name="line.425"></a>
+<span class="sourceLineNo">426</span>        }<a name="line.426"></a>
+<span class="sourceLineNo">427</span>    }<a name="line.427"></a>
+<span class="sourceLineNo">428</span><a name="line.428"></a>
+<span class="sourceLineNo">429</span>    /**<a name="line.429"></a>
+<span class="sourceLineNo">430</span>     * A utility routine that returns the unqualified identifier<a name="line.430"></a>
+<span class="sourceLineNo">431</span>     * naming the class of an object.<a name="line.431"></a>
+<span class="sourceLineNo">432</span>     *<a name="line.432"></a>
+<span class="sourceLineNo">433</span>     * @param obj The object whose class name is to be returned.<a name="line.433"></a>
+<span class="sourceLineNo">434</span>     */<a name="line.434"></a>
+<span class="sourceLineNo">435</span>    private String getClassIdent(Object obj) {<a name="line.435"></a>
+<span class="sourceLineNo">436</span>        String qualifiedName = obj.getClass().getName();<a name="line.436"></a>
+<span class="sourceLineNo">437</span>        int lastDotIndex = qualifiedName.lastIndexOf('.');<a name="line.437"></a>
+<span class="sourceLineNo">438</span>        return qualifiedName.substring(lastDotIndex+1);<a name="line.438"></a>
+<span class="sourceLineNo">439</span>    }<a name="line.439"></a>
+<span class="sourceLineNo">440</span><a name="line.440"></a>
+<span class="sourceLineNo">441</span>        <a name="line.441"></a>
+<span class="sourceLineNo">442</span>    /**<a name="line.442"></a>
+<span class="sourceLineNo">443</span>     * Prints the current stack trace, as a brute force tool for<a name="line.443"></a>
+<span class="sourceLineNo">444</span>     * program understanding. This method appeared in response to the<a name="line.444"></a>
+<span class="sourceLineNo">445</span>     * many times dumpGraph() was being called while the phase stack<a name="line.445"></a>
+<span class="sourceLineNo">446</span>     * was empty.  Turned out that the Printer needs to<a name="line.446"></a>
+<span class="sourceLineNo">447</span>     * build a BriefUnitGraph in order to print a graph. Doh!<a name="line.447"></a>
+<span class="sourceLineNo">448</span>     */<a name="line.448"></a>
+<span class="sourceLineNo">449</span>    public void printCurrentStackTrace() {<a name="line.449"></a>
+<span class="sourceLineNo">450</span>        try {<a name="line.450"></a>
+<span class="sourceLineNo">451</span>            throw new java.io.IOException("FAKE");<a name="line.451"></a>
+<span class="sourceLineNo">452</span>        } catch (java.io.IOException e) {<a name="line.452"></a>
+<span class="sourceLineNo">453</span>            e.printStackTrace(G.v().out);<a name="line.453"></a>
+<span class="sourceLineNo">454</span>        }<a name="line.454"></a>
+<span class="sourceLineNo">455</span>    }<a name="line.455"></a>
+<span class="sourceLineNo">456</span>}<a name="line.456"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

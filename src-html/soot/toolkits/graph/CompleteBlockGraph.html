@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1999 Patrice Pominville, Raja Vallee-Rai<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>/*<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Modified by the Sable Research Group and others 1997-2003.  <a name="line.21"></a>
+<span class="sourceLineNo">022</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.22"></a>
+<span class="sourceLineNo">023</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.23"></a>
+<span class="sourceLineNo">024</span> */<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>package soot.toolkits.graph;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.Body;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import soot.toolkits.graph.ExceptionalBlockGraph;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.toolkits.graph.CompleteUnitGraph;<a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>/**<a name="line.32"></a>
+<span class="sourceLineNo">033</span> *  &lt;p&gt;Represents a CFG for a {@link Body} instance where the nodes<a name="line.33"></a>
+<span class="sourceLineNo">034</span> *  are {@link Block} instances, and where control flow associated with<a name="line.34"></a>
+<span class="sourceLineNo">035</span> *  exceptions is taken into account. When dividing the {@link Body} into<a name="line.35"></a>
+<span class="sourceLineNo">036</span> *  basic blocks, <a name="line.36"></a>
+<span class="sourceLineNo">037</span> *  &lt;code&gt;CompleteBlockGraph&lt;/code&gt; assumes that every {@link Unit} covered by a<a name="line.37"></a>
+<span class="sourceLineNo">038</span> *  {@link Trap} has the potential to throw an<a name="line.38"></a>
+<span class="sourceLineNo">039</span> *  exception caught by the {@link Trap}.  This generally has the effect of <a name="line.39"></a>
+<span class="sourceLineNo">040</span> *  separating every covered {@link Unit} into a separate block.<a name="line.40"></a>
+<span class="sourceLineNo">041</span> *<a name="line.41"></a>
+<span class="sourceLineNo">042</span> *  &lt;p&gt;This implementation of &lt;code&gt;CompleteBlockGraph&lt;/code&gt; is included<a name="line.42"></a>
+<span class="sourceLineNo">043</span> *  for backwards compatibility, but the graphs it produces are not<a name="line.43"></a>
+<span class="sourceLineNo">044</span> *  necessarily identical to the graphs produced by the implementation of<a name="line.44"></a>
+<span class="sourceLineNo">045</span> *  &lt;code&gt;CompleteBlockGraph&lt;/code&gt; See the documentation for <a name="line.45"></a>
+<span class="sourceLineNo">046</span> *  {@link CompleteUnitGraph} for details of the incompatibilities.<a name="line.46"></a>
+<span class="sourceLineNo">047</span> *  &lt;/p&gt;<a name="line.47"></a>
+<span class="sourceLineNo">048</span> */<a name="line.48"></a>
+<span class="sourceLineNo">049</span>public class CompleteBlockGraph extends ExceptionalBlockGraph <a name="line.49"></a>
+<span class="sourceLineNo">050</span>{<a name="line.50"></a>
+<span class="sourceLineNo">051</span>    public CompleteBlockGraph(Body b) {<a name="line.51"></a>
+<span class="sourceLineNo">052</span>        super(new CompleteUnitGraph(b));<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    }<a name="line.53"></a>
+<span class="sourceLineNo">054</span>}<a name="line.54"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

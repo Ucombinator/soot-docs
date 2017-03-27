@@ -1,0 +1,460 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2003 Navindra Umanee &lt;navindra@cs.mcgill.ca&gt;<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.shimple.internal;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.*;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.options.Options;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.util.*;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import soot.shimple.*;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.util.*;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>/**<a name="line.28"></a>
+<span class="sourceLineNo">029</span> * Internal Shimple extension of PatchingChain.<a name="line.29"></a>
+<span class="sourceLineNo">030</span> *<a name="line.30"></a>
+<span class="sourceLineNo">031</span> * @author Navindra Umanee<a name="line.31"></a>
+<span class="sourceLineNo">032</span> * @see soot.PatchingChain<a name="line.32"></a>
+<span class="sourceLineNo">033</span> **/<a name="line.33"></a>
+<span class="sourceLineNo">034</span>public class SPatchingChain extends PatchingChain&lt;Unit&gt;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>{<a name="line.35"></a>
+<span class="sourceLineNo">036</span>    /**<a name="line.36"></a>
+<span class="sourceLineNo">037</span>     * Needed to find non-trapped Units of the body.<a name="line.37"></a>
+<span class="sourceLineNo">038</span>     **/<a name="line.38"></a>
+<span class="sourceLineNo">039</span>    Body body = null;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>    boolean debug;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>    <a name="line.41"></a>
+<span class="sourceLineNo">042</span>    public SPatchingChain(Body aBody, Chain&lt;Unit&gt; aChain)<a name="line.42"></a>
+<span class="sourceLineNo">043</span>    {<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        super(aChain);<a name="line.44"></a>
+<span class="sourceLineNo">045</span>        this.body = aBody;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>        this.debug = Options.v().debug();<a name="line.46"></a>
+<span class="sourceLineNo">047</span>        if(aBody instanceof ShimpleBody)<a name="line.47"></a>
+<span class="sourceLineNo">048</span>            debug |= ((ShimpleBody)aBody).getOptions().debug();<a name="line.48"></a>
+<span class="sourceLineNo">049</span>    }<a name="line.49"></a>
+<span class="sourceLineNo">050</span><a name="line.50"></a>
+<span class="sourceLineNo">051</span>    public boolean add(Unit o)<a name="line.51"></a>
+<span class="sourceLineNo">052</span>    {<a name="line.52"></a>
+<span class="sourceLineNo">053</span>        processPhiNode(o);<a name="line.53"></a>
+<span class="sourceLineNo">054</span>        return super.add(o);<a name="line.54"></a>
+<span class="sourceLineNo">055</span>    }<a name="line.55"></a>
+<span class="sourceLineNo">056</span><a name="line.56"></a>
+<span class="sourceLineNo">057</span>    public void swapWith(Unit out, Unit in)<a name="line.57"></a>
+<span class="sourceLineNo">058</span>    {<a name="line.58"></a>
+<span class="sourceLineNo">059</span>        // Ensure that branching statements are swapped correctly.<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        // The normal swapWith implementation would still work<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        // correctly but redirectToPreds performed during the remove<a name="line.61"></a>
+<span class="sourceLineNo">062</span>        // would be more expensive and might print warnings if no<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        // actual CFG predecessors for out was found due to the<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        // insertion of branching statement in.<a name="line.64"></a>
+<span class="sourceLineNo">065</span>        processPhiNode(in);<a name="line.65"></a>
+<span class="sourceLineNo">066</span>        Shimple.redirectPointers((Unit) out, (Unit) in);<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        super.insertBefore(in, out);<a name="line.67"></a>
+<span class="sourceLineNo">068</span>        super.remove(out);<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    }<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    <a name="line.70"></a>
+<span class="sourceLineNo">071</span>    public void insertAfter(Unit toInsert, Unit point)<a name="line.71"></a>
+<span class="sourceLineNo">072</span>    {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>        // important to do these before the patching, so that<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        // computeNeedsPatching works properly<a name="line.74"></a>
+<span class="sourceLineNo">075</span>        processPhiNode(toInsert);<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        super.insertAfter(toInsert, point);<a name="line.76"></a>
+<span class="sourceLineNo">077</span><a name="line.77"></a>
+<span class="sourceLineNo">078</span>        Unit unit = (Unit) point;<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>        // update any pointers from Phi nodes only if the unit<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        // being inserted is in the same basic block as point, or if<a name="line.81"></a>
+<span class="sourceLineNo">082</span>        // control flows through to the Phi node<a name="line.82"></a>
+<span class="sourceLineNo">083</span>        patchpointers:<a name="line.83"></a>
+<span class="sourceLineNo">084</span>        {<a name="line.84"></a>
+<span class="sourceLineNo">085</span>            // no need to move the pointers<a name="line.85"></a>
+<span class="sourceLineNo">086</span>            if(!unit.fallsThrough())<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                break patchpointers;<a name="line.87"></a>
+<span class="sourceLineNo">088</span><a name="line.88"></a>
+<span class="sourceLineNo">089</span>            // move pointers unconditionally, needed as a special case<a name="line.89"></a>
+<span class="sourceLineNo">090</span>            if(!unit.branches()){<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                Set&lt;Unit&gt; trappedUnits = Collections.emptySet();<a name="line.91"></a>
+<span class="sourceLineNo">092</span>                if(body != null)<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                    trappedUnits = TrapManager.getTrappedUnitsOf(body);<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                if(!trappedUnits.contains(unit)){<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                    Shimple.redirectPointers(unit, (Unit) toInsert);<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                    break patchpointers;<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                }<a name="line.97"></a>
+<span class="sourceLineNo">098</span>            }<a name="line.98"></a>
+<span class="sourceLineNo">099</span>            <a name="line.99"></a>
+<span class="sourceLineNo">100</span>            /* handle each UnitBox individually */<a name="line.100"></a>
+<span class="sourceLineNo">101</span><a name="line.101"></a>
+<span class="sourceLineNo">102</span>            UnitBox[] boxes = (UnitBox[]) unit.getBoxesPointingToThis().toArray(new UnitBox[0]);<a name="line.102"></a>
+<span class="sourceLineNo">103</span><a name="line.103"></a>
+<span class="sourceLineNo">104</span>            for (UnitBox ub : boxes) {<a name="line.104"></a>
+<span class="sourceLineNo">105</span><a name="line.105"></a>
+<span class="sourceLineNo">106</span>                if(ub.getUnit() != unit)<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                    throw new RuntimeException("Assertion failed.");<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                if(ub.isBranchTarget())<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                    continue;<a name="line.109"></a>
+<span class="sourceLineNo">110</span><a name="line.110"></a>
+<span class="sourceLineNo">111</span>                SUnitBox box = getSBox(ub);<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                Boolean needsPatching = boxToNeedsPatching.get(box);<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                <a name="line.113"></a>
+<span class="sourceLineNo">114</span>                if(needsPatching == null || box.isUnitChanged()){<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                    // if boxes were added or removed to the known Phi<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                    if(!boxToPhiNode.containsKey(box)){<a name="line.116"></a>
+<span class="sourceLineNo">117</span>                        reprocessPhiNodes();<a name="line.117"></a>
+<span class="sourceLineNo">118</span><a name="line.118"></a>
+<span class="sourceLineNo">119</span>                        // *** FIXME: Disabling this allows us to have<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                        // PiExpr that have UnitBox pointers.<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                        // I think this means that any changes <a name="line.121"></a>
+<span class="sourceLineNo">122</span>                        // to the relevant Unit will be ignored by<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                        //  SPatchingChain.<a name="line.123"></a>
+<span class="sourceLineNo">124</span>                        //<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                        // Hopefully this also means that any<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                        // transformation that moves/removes/modifies<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                        // a Unit pointed at by a PiExpr knows what<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                        // it's doing.<a name="line.128"></a>
+<span class="sourceLineNo">129</span>                        if(!boxToPhiNode.containsKey(box) &amp;&amp; debug)<a name="line.129"></a>
+<span class="sourceLineNo">130</span>                            throw new RuntimeException("SPatchingChain has pointers from a Phi node that has never been seen.");<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                    }<a name="line.131"></a>
+<span class="sourceLineNo">132</span>                    <a name="line.132"></a>
+<span class="sourceLineNo">133</span>                    computeNeedsPatching();<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                    needsPatching = boxToNeedsPatching.get(box);<a name="line.134"></a>
+<span class="sourceLineNo">135</span><a name="line.135"></a>
+<span class="sourceLineNo">136</span>                    if(needsPatching == null){<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                        // maybe the user forgot to clearUnitBoxes()<a name="line.137"></a>
+<span class="sourceLineNo">138</span>                        // when removing a Phi node, or the user removed<a name="line.138"></a>
+<span class="sourceLineNo">139</span>                        // a Phi node and hasn't put it back yet<a name="line.139"></a>
+<span class="sourceLineNo">140</span>                        if(debug)<a name="line.140"></a>
+<span class="sourceLineNo">141</span>                            G.v().out.println("Warning: Orphaned UnitBox to " + unit + "?  SPatchingChain will not move the pointer.");<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                        continue;<a name="line.142"></a>
+<span class="sourceLineNo">143</span>                    }<a name="line.143"></a>
+<span class="sourceLineNo">144</span>                }<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                    <a name="line.145"></a>
+<span class="sourceLineNo">146</span>                if(needsPatching){<a name="line.146"></a>
+<span class="sourceLineNo">147</span>                    box.setUnit((Unit)toInsert);<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                    box.setUnitChanged(false);<a name="line.148"></a>
+<span class="sourceLineNo">149</span>                }<a name="line.149"></a>
+<span class="sourceLineNo">150</span>            }<a name="line.150"></a>
+<span class="sourceLineNo">151</span>        }<a name="line.151"></a>
+<span class="sourceLineNo">152</span>    }<a name="line.152"></a>
+<span class="sourceLineNo">153</span><a name="line.153"></a>
+<span class="sourceLineNo">154</span>    public void insertAfter(List&lt;Unit&gt; toInsert, Unit point)<a name="line.154"></a>
+<span class="sourceLineNo">155</span>    {<a name="line.155"></a>
+<span class="sourceLineNo">156</span>        for (Unit unit : toInsert) {<a name="line.156"></a>
+<span class="sourceLineNo">157</span>            processPhiNode(unit);<a name="line.157"></a>
+<span class="sourceLineNo">158</span>        }<a name="line.158"></a>
+<span class="sourceLineNo">159</span>        super.insertAfter(toInsert, point);<a name="line.159"></a>
+<span class="sourceLineNo">160</span>    }<a name="line.160"></a>
+<span class="sourceLineNo">161</span>    <a name="line.161"></a>
+<span class="sourceLineNo">162</span>    public void insertBefore(List&lt;Unit&gt; toInsert, Unit point)<a name="line.162"></a>
+<span class="sourceLineNo">163</span>    {<a name="line.163"></a>
+<span class="sourceLineNo">164</span>        for (Unit unit : toInsert) {<a name="line.164"></a>
+<span class="sourceLineNo">165</span>            processPhiNode(unit);<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        }<a name="line.166"></a>
+<span class="sourceLineNo">167</span>        super.insertBefore(toInsert, point);<a name="line.167"></a>
+<span class="sourceLineNo">168</span>    }<a name="line.168"></a>
+<span class="sourceLineNo">169</span><a name="line.169"></a>
+<span class="sourceLineNo">170</span>    public void insertBefore(Unit toInsert, Unit point)<a name="line.170"></a>
+<span class="sourceLineNo">171</span>    {<a name="line.171"></a>
+<span class="sourceLineNo">172</span>        processPhiNode(toInsert);<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        super.insertBefore(toInsert, point);<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    }<a name="line.174"></a>
+<span class="sourceLineNo">175</span><a name="line.175"></a>
+<span class="sourceLineNo">176</span>    public void addFirst(Unit u)<a name="line.176"></a>
+<span class="sourceLineNo">177</span>    {<a name="line.177"></a>
+<span class="sourceLineNo">178</span>        processPhiNode(u);<a name="line.178"></a>
+<span class="sourceLineNo">179</span>        super.addFirst(u);<a name="line.179"></a>
+<span class="sourceLineNo">180</span>    }<a name="line.180"></a>
+<span class="sourceLineNo">181</span>    <a name="line.181"></a>
+<span class="sourceLineNo">182</span>    public void addLast(Unit u)<a name="line.182"></a>
+<span class="sourceLineNo">183</span>    {<a name="line.183"></a>
+<span class="sourceLineNo">184</span>        processPhiNode(u);<a name="line.184"></a>
+<span class="sourceLineNo">185</span>        super.addLast(u);<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    }<a name="line.186"></a>
+<span class="sourceLineNo">187</span><a name="line.187"></a>
+<span class="sourceLineNo">188</span>    public boolean remove(Unit obj)<a name="line.188"></a>
+<span class="sourceLineNo">189</span>    {<a name="line.189"></a>
+<span class="sourceLineNo">190</span>        if(contains(obj)){<a name="line.190"></a>
+<span class="sourceLineNo">191</span>            Shimple.redirectToPreds(body, (Unit)obj);<a name="line.191"></a>
+<span class="sourceLineNo">192</span>        }<a name="line.192"></a>
+<span class="sourceLineNo">193</span>        <a name="line.193"></a>
+<span class="sourceLineNo">194</span>        return super.remove(obj);<a name="line.194"></a>
+<span class="sourceLineNo">195</span>    }<a name="line.195"></a>
+<span class="sourceLineNo">196</span>    <a name="line.196"></a>
+<span class="sourceLineNo">197</span>    /**<a name="line.197"></a>
+<span class="sourceLineNo">198</span>     * Map from UnitBox to the Phi node owning it.<a name="line.198"></a>
+<span class="sourceLineNo">199</span>     **/<a name="line.199"></a>
+<span class="sourceLineNo">200</span>    protected Map&lt;UnitBox, Unit&gt; boxToPhiNode = new HashMap&lt;UnitBox, Unit&gt;();<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    /**<a name="line.201"></a>
+<span class="sourceLineNo">202</span>     * Set of the values of boxToPhiNode. Used to allow O(1) contains() on the values.<a name="line.202"></a>
+<span class="sourceLineNo">203</span>     **/<a name="line.203"></a>
+<span class="sourceLineNo">204</span>    protected Set&lt;Unit&gt; phiNodeSet = new HashSet&lt;Unit&gt;();<a name="line.204"></a>
+<span class="sourceLineNo">205</span><a name="line.205"></a>
+<span class="sourceLineNo">206</span>    /**<a name="line.206"></a>
+<span class="sourceLineNo">207</span>     * Flag that indicates whether control flow falls through from the<a name="line.207"></a>
+<span class="sourceLineNo">208</span>     * box to the Phi node.  null indicates we probably need a call to<a name="line.208"></a>
+<span class="sourceLineNo">209</span>     * computeInternal().<a name="line.209"></a>
+<span class="sourceLineNo">210</span>     **/<a name="line.210"></a>
+<span class="sourceLineNo">211</span>    protected Map&lt;SUnitBox, Boolean&gt; boxToNeedsPatching = new HashMap&lt;SUnitBox, Boolean&gt;();<a name="line.211"></a>
+<span class="sourceLineNo">212</span><a name="line.212"></a>
+<span class="sourceLineNo">213</span>    <a name="line.213"></a>
+<span class="sourceLineNo">214</span>    protected void processPhiNode(Unit o)<a name="line.214"></a>
+<span class="sourceLineNo">215</span>    {<a name="line.215"></a>
+<span class="sourceLineNo">216</span>        Unit phiNode = (Unit) o;<a name="line.216"></a>
+<span class="sourceLineNo">217</span>        PhiExpr phi = Shimple.getPhiExpr(phiNode);<a name="line.217"></a>
+<span class="sourceLineNo">218</span><a name="line.218"></a>
+<span class="sourceLineNo">219</span>        // not a Phi node<a name="line.219"></a>
+<span class="sourceLineNo">220</span>        if(phi == null)<a name="line.220"></a>
+<span class="sourceLineNo">221</span>            return;<a name="line.221"></a>
+<span class="sourceLineNo">222</span><a name="line.222"></a>
+<span class="sourceLineNo">223</span>        // already processed previously, unit chain manipulations?<a name="line.223"></a>
+<span class="sourceLineNo">224</span>        if(phiNodeSet.contains(phiNode))<a name="line.224"></a>
+<span class="sourceLineNo">225</span>            return;<a name="line.225"></a>
+<span class="sourceLineNo">226</span><a name="line.226"></a>
+<span class="sourceLineNo">227</span>        for (UnitBox box : phi.getUnitBoxes()) {<a name="line.227"></a>
+<span class="sourceLineNo">228</span>            boxToPhiNode.put(box, phiNode);<a name="line.228"></a>
+<span class="sourceLineNo">229</span>            phiNodeSet.add(phiNode);<a name="line.229"></a>
+<span class="sourceLineNo">230</span>        }<a name="line.230"></a>
+<span class="sourceLineNo">231</span>    }<a name="line.231"></a>
+<span class="sourceLineNo">232</span><a name="line.232"></a>
+<span class="sourceLineNo">233</span>    protected void reprocessPhiNodes()<a name="line.233"></a>
+<span class="sourceLineNo">234</span>    {<a name="line.234"></a>
+<span class="sourceLineNo">235</span>        Set&lt;Unit&gt; phiNodes = new HashSet&lt;Unit&gt;(boxToPhiNode.values());<a name="line.235"></a>
+<span class="sourceLineNo">236</span>        boxToPhiNode = new HashMap&lt;UnitBox, Unit&gt;();<a name="line.236"></a>
+<span class="sourceLineNo">237</span>        phiNodeSet = new HashSet&lt;Unit&gt;();<a name="line.237"></a>
+<span class="sourceLineNo">238</span>        boxToNeedsPatching = new HashMap&lt;SUnitBox, Boolean&gt;();<a name="line.238"></a>
+<span class="sourceLineNo">239</span><a name="line.239"></a>
+<span class="sourceLineNo">240</span>        Iterator&lt;Unit&gt; phiNodesIt = phiNodes.iterator();<a name="line.240"></a>
+<span class="sourceLineNo">241</span>        while(phiNodesIt.hasNext())<a name="line.241"></a>
+<span class="sourceLineNo">242</span>            processPhiNode(phiNodesIt.next());<a name="line.242"></a>
+<span class="sourceLineNo">243</span>    }<a name="line.243"></a>
+<span class="sourceLineNo">244</span>    <a name="line.244"></a>
+<span class="sourceLineNo">245</span>    /**<a name="line.245"></a>
+<span class="sourceLineNo">246</span>     * NOTE: This will *miss* all the Phi nodes outside a chain.  So<a name="line.246"></a>
+<span class="sourceLineNo">247</span>     * make sure you know what you are doing if you remove a Phi node<a name="line.247"></a>
+<span class="sourceLineNo">248</span>     * from a chain and don't put it back or call clearUnitBoxes() on<a name="line.248"></a>
+<span class="sourceLineNo">249</span>     * it.<a name="line.249"></a>
+<span class="sourceLineNo">250</span>     **/<a name="line.250"></a>
+<span class="sourceLineNo">251</span>    protected void computeNeedsPatching()<a name="line.251"></a>
+<span class="sourceLineNo">252</span>    {<a name="line.252"></a>
+<span class="sourceLineNo">253</span>        {<a name="line.253"></a>
+<span class="sourceLineNo">254</span>            Set&lt;UnitBox&gt; boxes = boxToPhiNode.keySet();<a name="line.254"></a>
+<span class="sourceLineNo">255</span><a name="line.255"></a>
+<span class="sourceLineNo">256</span>            if(boxes.isEmpty())<a name="line.256"></a>
+<span class="sourceLineNo">257</span>                return;<a name="line.257"></a>
+<span class="sourceLineNo">258</span>        }<a name="line.258"></a>
+<span class="sourceLineNo">259</span><a name="line.259"></a>
+<span class="sourceLineNo">260</span>        // we track the fallthrough control flow from boxes to the<a name="line.260"></a>
+<span class="sourceLineNo">261</span>        // corresponding Phi statements.  trackedPhi provides a<a name="line.261"></a>
+<span class="sourceLineNo">262</span>        // mapping from the Phi being tracked to its relevant boxes.<a name="line.262"></a>
+<span class="sourceLineNo">263</span>        MultiMap&lt;Unit, UnitBox&gt; trackedPhiToBoxes = new HashMultiMap&lt;Unit, UnitBox&gt;();<a name="line.263"></a>
+<span class="sourceLineNo">264</span><a name="line.264"></a>
+<span class="sourceLineNo">265</span>        // consider:<a name="line.265"></a>
+<span class="sourceLineNo">266</span>        //<a name="line.266"></a>
+<span class="sourceLineNo">267</span>        // if blah goto label1<a name="line.267"></a>
+<span class="sourceLineNo">268</span>        // label1:<a name="line.268"></a>
+<span class="sourceLineNo">269</span>        //<a name="line.269"></a>
+<span class="sourceLineNo">270</span>        // Here control flow both fallsthrough and branches to label1.<a name="line.270"></a>
+<span class="sourceLineNo">271</span>        // If such an if statement is encountered, we do not want to<a name="line.271"></a>
+<span class="sourceLineNo">272</span>        // move any UnitBox pointers beyond the if statement.<a name="line.272"></a>
+<span class="sourceLineNo">273</span>        Set&lt;UnitBox&gt; trackedBranchTargets = new HashSet&lt;UnitBox&gt;();<a name="line.273"></a>
+<span class="sourceLineNo">274</span>        for (Unit u : this) {<a name="line.274"></a>
+<span class="sourceLineNo">275</span>            // update trackedPhiToBoxes<a name="line.275"></a>
+<span class="sourceLineNo">276</span>            List&lt;UnitBox&gt; boxesToTrack = u.getBoxesPointingToThis();<a name="line.276"></a>
+<span class="sourceLineNo">277</span>            if(boxesToTrack != null){<a name="line.277"></a>
+<span class="sourceLineNo">278</span>                for (UnitBox boxToTrack : boxesToTrack) {<a name="line.278"></a>
+<span class="sourceLineNo">279</span>                    if(!boxToTrack.isBranchTarget())<a name="line.279"></a>
+<span class="sourceLineNo">280</span>                        trackedPhiToBoxes.put(boxToPhiNode.get(boxToTrack),<a name="line.280"></a>
+<span class="sourceLineNo">281</span>                                              boxToTrack);<a name="line.281"></a>
+<span class="sourceLineNo">282</span>                }<a name="line.282"></a>
+<span class="sourceLineNo">283</span>            }<a name="line.283"></a>
+<span class="sourceLineNo">284</span><a name="line.284"></a>
+<span class="sourceLineNo">285</span>            // update trackedBranchTargets<a name="line.285"></a>
+<span class="sourceLineNo">286</span>            if(u.fallsThrough() &amp;&amp; u.branches())<a name="line.286"></a>
+<span class="sourceLineNo">287</span>                trackedBranchTargets.addAll(u.getUnitBoxes());<a name="line.287"></a>
+<span class="sourceLineNo">288</span>            <a name="line.288"></a>
+<span class="sourceLineNo">289</span>            // the tracked Phi nodes may be reached through branching.<a name="line.289"></a>
+<span class="sourceLineNo">290</span>            // (note: if u is a Phi node and not a trackedBranchTarget,<a name="line.290"></a>
+<span class="sourceLineNo">291</span>            // this is not triggered since u would fall through in that<a name="line.291"></a>
+<span class="sourceLineNo">292</span>            // case.)<a name="line.292"></a>
+<span class="sourceLineNo">293</span>            if(!u.fallsThrough() || trackedBranchTargets.contains(u)){<a name="line.293"></a>
+<span class="sourceLineNo">294</span>                Iterator&lt;UnitBox&gt; boxesIt = trackedPhiToBoxes.values().iterator();<a name="line.294"></a>
+<span class="sourceLineNo">295</span>                while(boxesIt.hasNext()){<a name="line.295"></a>
+<span class="sourceLineNo">296</span>                    SUnitBox box = getSBox(boxesIt.next());<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                    boxToNeedsPatching.put(box, Boolean.FALSE);<a name="line.297"></a>
+<span class="sourceLineNo">298</span>                    box.setUnitChanged(false);<a name="line.298"></a>
+<span class="sourceLineNo">299</span>                }<a name="line.299"></a>
+<span class="sourceLineNo">300</span><a name="line.300"></a>
+<span class="sourceLineNo">301</span>                trackedPhiToBoxes = new HashMultiMap&lt;Unit, UnitBox&gt;();<a name="line.301"></a>
+<span class="sourceLineNo">302</span>                continue;<a name="line.302"></a>
+<span class="sourceLineNo">303</span>            }<a name="line.303"></a>
+<span class="sourceLineNo">304</span><a name="line.304"></a>
+<span class="sourceLineNo">305</span>            // we found one of the Phi nodes pointing to a Unit<a name="line.305"></a>
+<span class="sourceLineNo">306</span>            Set&lt;UnitBox&gt; boxes = trackedPhiToBoxes.get(u);<a name="line.306"></a>
+<span class="sourceLineNo">307</span>            if(boxes != null){<a name="line.307"></a>
+<span class="sourceLineNo">308</span>                for (UnitBox ub : boxes) {<a name="line.308"></a>
+<span class="sourceLineNo">309</span>                    SUnitBox box = getSBox(ub);<a name="line.309"></a>
+<span class="sourceLineNo">310</span><a name="line.310"></a>
+<span class="sourceLineNo">311</span>                    // falls through<a name="line.311"></a>
+<span class="sourceLineNo">312</span>                    boxToNeedsPatching.put(box, Boolean.TRUE);<a name="line.312"></a>
+<span class="sourceLineNo">313</span>                    box.setUnitChanged(false);<a name="line.313"></a>
+<span class="sourceLineNo">314</span>                }<a name="line.314"></a>
+<span class="sourceLineNo">315</span><a name="line.315"></a>
+<span class="sourceLineNo">316</span>                trackedPhiToBoxes.remove(u);<a name="line.316"></a>
+<span class="sourceLineNo">317</span>            }<a name="line.317"></a>
+<span class="sourceLineNo">318</span>        }<a name="line.318"></a>
+<span class="sourceLineNo">319</span><a name="line.319"></a>
+<span class="sourceLineNo">320</span>        // after the iteration, the rest do not fall through<a name="line.320"></a>
+<span class="sourceLineNo">321</span>        Iterator&lt;UnitBox&gt; boxesIt = trackedPhiToBoxes.values().iterator();<a name="line.321"></a>
+<span class="sourceLineNo">322</span>        while(boxesIt.hasNext()){<a name="line.322"></a>
+<span class="sourceLineNo">323</span>            SUnitBox box = getSBox(boxesIt.next());<a name="line.323"></a>
+<span class="sourceLineNo">324</span>            boxToNeedsPatching.put(box, Boolean.FALSE);<a name="line.324"></a>
+<span class="sourceLineNo">325</span>            box.setUnitChanged(false);<a name="line.325"></a>
+<span class="sourceLineNo">326</span>        }<a name="line.326"></a>
+<span class="sourceLineNo">327</span>    }<a name="line.327"></a>
+<span class="sourceLineNo">328</span><a name="line.328"></a>
+<span class="sourceLineNo">329</span>    protected SUnitBox getSBox(UnitBox box)<a name="line.329"></a>
+<span class="sourceLineNo">330</span>    {<a name="line.330"></a>
+<span class="sourceLineNo">331</span>        if(!(box instanceof SUnitBox))<a name="line.331"></a>
+<span class="sourceLineNo">332</span>            throw new RuntimeException("Shimple box not an SUnitBox?");<a name="line.332"></a>
+<span class="sourceLineNo">333</span><a name="line.333"></a>
+<span class="sourceLineNo">334</span>        return (SUnitBox) box;<a name="line.334"></a>
+<span class="sourceLineNo">335</span>    }<a name="line.335"></a>
+<span class="sourceLineNo">336</span><a name="line.336"></a>
+<span class="sourceLineNo">337</span>    protected class SPatchingIterator extends PatchingIterator<a name="line.337"></a>
+<span class="sourceLineNo">338</span>    {<a name="line.338"></a>
+<span class="sourceLineNo">339</span>        SPatchingIterator(Chain&lt;Unit&gt; innerChain)<a name="line.339"></a>
+<span class="sourceLineNo">340</span>        {<a name="line.340"></a>
+<span class="sourceLineNo">341</span>            super(innerChain);<a name="line.341"></a>
+<span class="sourceLineNo">342</span>        }<a name="line.342"></a>
+<span class="sourceLineNo">343</span><a name="line.343"></a>
+<span class="sourceLineNo">344</span>        SPatchingIterator(Chain&lt;Unit&gt; innerChain, Unit u)<a name="line.344"></a>
+<span class="sourceLineNo">345</span>        {<a name="line.345"></a>
+<span class="sourceLineNo">346</span>            super(innerChain, u);<a name="line.346"></a>
+<span class="sourceLineNo">347</span>        }<a name="line.347"></a>
+<span class="sourceLineNo">348</span><a name="line.348"></a>
+<span class="sourceLineNo">349</span>        SPatchingIterator(Chain&lt;Unit&gt; innerChain, Unit head, Unit tail)<a name="line.349"></a>
+<span class="sourceLineNo">350</span>        {<a name="line.350"></a>
+<span class="sourceLineNo">351</span>            super(innerChain, head, tail);<a name="line.351"></a>
+<span class="sourceLineNo">352</span>        }<a name="line.352"></a>
+<span class="sourceLineNo">353</span>        <a name="line.353"></a>
+<span class="sourceLineNo">354</span>        public void remove()<a name="line.354"></a>
+<span class="sourceLineNo">355</span>        {<a name="line.355"></a>
+<span class="sourceLineNo">356</span>            Unit victim = (Unit) lastObject;<a name="line.356"></a>
+<span class="sourceLineNo">357</span>            <a name="line.357"></a>
+<span class="sourceLineNo">358</span>            if(!state)<a name="line.358"></a>
+<span class="sourceLineNo">359</span>                throw new IllegalStateException("remove called before first next() call");<a name="line.359"></a>
+<span class="sourceLineNo">360</span>            Shimple.redirectToPreds(SPatchingChain.this.body, victim);<a name="line.360"></a>
+<span class="sourceLineNo">361</span><a name="line.361"></a>
+<span class="sourceLineNo">362</span>            // work around for inadequate inner class support in javac 1.2<a name="line.362"></a>
+<span class="sourceLineNo">363</span>            // super.remove();<a name="line.363"></a>
+<span class="sourceLineNo">364</span>            Unit successor;<a name="line.364"></a>
+<span class="sourceLineNo">365</span><a name="line.365"></a>
+<span class="sourceLineNo">366</span>            if((successor = (Unit)getSuccOf(victim)) == null)<a name="line.366"></a>
+<span class="sourceLineNo">367</span>                successor = (Unit)getPredOf(victim);<a name="line.367"></a>
+<span class="sourceLineNo">368</span><a name="line.368"></a>
+<span class="sourceLineNo">369</span>            innerIterator.remove();<a name="line.369"></a>
+<span class="sourceLineNo">370</span>            victim.redirectJumpsToThisTo(successor);<a name="line.370"></a>
+<span class="sourceLineNo">371</span>        }<a name="line.371"></a>
+<span class="sourceLineNo">372</span>    }<a name="line.372"></a>
+<span class="sourceLineNo">373</span><a name="line.373"></a>
+<span class="sourceLineNo">374</span>    public Iterator&lt;Unit&gt; iterator()<a name="line.374"></a>
+<span class="sourceLineNo">375</span>    {<a name="line.375"></a>
+<span class="sourceLineNo">376</span>        return new SPatchingIterator(innerChain);<a name="line.376"></a>
+<span class="sourceLineNo">377</span>    }<a name="line.377"></a>
+<span class="sourceLineNo">378</span><a name="line.378"></a>
+<span class="sourceLineNo">379</span>    public Iterator&lt;Unit&gt; iterator(Unit u)<a name="line.379"></a>
+<span class="sourceLineNo">380</span>    {<a name="line.380"></a>
+<span class="sourceLineNo">381</span>        return new SPatchingIterator(innerChain, u);<a name="line.381"></a>
+<span class="sourceLineNo">382</span>    }<a name="line.382"></a>
+<span class="sourceLineNo">383</span><a name="line.383"></a>
+<span class="sourceLineNo">384</span>    public Iterator&lt;Unit&gt; iterator(Unit head, Unit tail)<a name="line.384"></a>
+<span class="sourceLineNo">385</span>    {<a name="line.385"></a>
+<span class="sourceLineNo">386</span>        return new SPatchingIterator(innerChain, head, tail);<a name="line.386"></a>
+<span class="sourceLineNo">387</span>    }<a name="line.387"></a>
+<span class="sourceLineNo">388</span>}<a name="line.388"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

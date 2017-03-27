@@ -1,0 +1,503 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2005 Antoine Mine<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>/**<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Implementation of the paper "A Combined Pointer and Purity Analysis for<a name="line.21"></a>
+<span class="sourceLineNo">022</span> * Java Programs" by Alexandru Salcianu and Martin Rinard, within the<a name="line.22"></a>
+<span class="sourceLineNo">023</span> * Soot Optimization Framework.<a name="line.23"></a>
+<span class="sourceLineNo">024</span> *<a name="line.24"></a>
+<span class="sourceLineNo">025</span> * by Antoine Mine, 2005/01/24<a name="line.25"></a>
+<span class="sourceLineNo">026</span> */<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>package soot.jimple.toolkits.annotation.purity;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.util.*;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.*;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import soot.util.dot.*;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.jimple.*;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.jimple.toolkits.callgraph.*;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.toolkits.graph.*;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.options.PurityOptions;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.tagkit.*;<a name="line.36"></a>
+<span class="sourceLineNo">037</span><a name="line.37"></a>
+<span class="sourceLineNo">038</span>public class PurityInterproceduralAnalysis <a name="line.38"></a>
+<span class="sourceLineNo">039</span>    extends AbstractInterproceduralAnalysis {<a name="line.39"></a>
+<span class="sourceLineNo">040</span><a name="line.40"></a>
+<span class="sourceLineNo">041</span>    // Note: these method lists are adapted to JDK-1.4.2.06 and may<a name="line.41"></a>
+<span class="sourceLineNo">042</span>    // not work for other versions<a name="line.42"></a>
+<span class="sourceLineNo">043</span><a name="line.43"></a>
+<span class="sourceLineNo">044</span>    // unanalysed methods assumed pure (&amp; return a new obj)<a name="line.44"></a>
+<span class="sourceLineNo">045</span>    // class name prefix / method name<a name="line.45"></a>
+<span class="sourceLineNo">046</span>    static private final String[][] pureMethods =<a name="line.46"></a>
+<span class="sourceLineNo">047</span>    {   {"java.lang.","valueOf"},<a name="line.47"></a>
+<span class="sourceLineNo">048</span>        {"java.","equals"},{"javax.","equals"},{"sun.","equals"},<a name="line.48"></a>
+<span class="sourceLineNo">049</span>        {"java.","compare"}, {"javax.","compare"},{"sun.","compare"},<a name="line.49"></a>
+<span class="sourceLineNo">050</span>        {"java.","getClass"},{"javax.","getClass"},{"sun.","getClass"},<a name="line.50"></a>
+<span class="sourceLineNo">051</span>        {"java.","hashCode"},{"javax.","hashCode"},{"sun.","hashCode"},<a name="line.51"></a>
+<span class="sourceLineNo">052</span>        {"java.","toString"},{"javax.","toString"},{"sun.","toString"},<a name="line.52"></a>
+<span class="sourceLineNo">053</span>        {"java.","valueOf"},{"javax.","valueOf"},{"sun.","valueOf"},<a name="line.53"></a>
+<span class="sourceLineNo">054</span>        {"java.","compareTo"},{"javax.","compareTo"},{"sun.","compareTo"},<a name="line.54"></a>
+<span class="sourceLineNo">055</span><a name="line.55"></a>
+<span class="sourceLineNo">056</span>        {"java.lang.System","identityHashCode"},<a name="line.56"></a>
+<span class="sourceLineNo">057</span><a name="line.57"></a>
+<span class="sourceLineNo">058</span>        // we assume that all standard class initialisers are pure!!!<a name="line.58"></a>
+<span class="sourceLineNo">059</span>        {"java.","&lt;clinit&gt;"}, {"javax.","&lt;clinit&gt;"}, {"sun.","&lt;clinit&gt;"},<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        <a name="line.60"></a>
+<span class="sourceLineNo">061</span>        // if we define these as pure, the analysis will find them impure as<a name="line.61"></a>
+<span class="sourceLineNo">062</span>        // they call static native functions that could, in theory,<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        // change the whole program state under our feets<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        { "java.lang.Math","abs" },<a name="line.64"></a>
+<span class="sourceLineNo">065</span>        { "java.lang.Math","acos" },<a name="line.65"></a>
+<span class="sourceLineNo">066</span>        { "java.lang.Math","asin" },<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        { "java.lang.Math","atan" },<a name="line.67"></a>
+<span class="sourceLineNo">068</span>        { "java.lang.Math","atan2" },<a name="line.68"></a>
+<span class="sourceLineNo">069</span>        { "java.lang.Math","ceil" },<a name="line.69"></a>
+<span class="sourceLineNo">070</span>        { "java.lang.Math","cos" },<a name="line.70"></a>
+<span class="sourceLineNo">071</span>        { "java.lang.Math","exp" },<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        { "java.lang.Math","floor" },<a name="line.72"></a>
+<span class="sourceLineNo">073</span>        { "java.lang.Math","IEEEremainder" },<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        { "java.lang.Math","log" },<a name="line.74"></a>
+<span class="sourceLineNo">075</span>        { "java.lang.Math","max" },<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        { "java.lang.Math","min" },<a name="line.76"></a>
+<span class="sourceLineNo">077</span>        { "java.lang.Math","pow" },<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        { "java.lang.Math","rint" },<a name="line.78"></a>
+<span class="sourceLineNo">079</span>        { "java.lang.Math","round" },<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        { "java.lang.Math","sin" },<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        { "java.lang.Math","sqrt" },<a name="line.81"></a>
+<span class="sourceLineNo">082</span>        { "java.lang.Math","tan" },<a name="line.82"></a>
+<span class="sourceLineNo">083</span>        // TODO: put StrictMath as well ?<a name="line.83"></a>
+<span class="sourceLineNo">084</span><a name="line.84"></a>
+<span class="sourceLineNo">085</span>        {"java.lang.Throwable", "&lt;init&gt;"},<a name="line.85"></a>
+<span class="sourceLineNo">086</span><a name="line.86"></a>
+<span class="sourceLineNo">087</span>        // to break the cycle exception -&gt; getCharsAt -&gt; exception<a name="line.87"></a>
+<span class="sourceLineNo">088</span>        {"java.lang.StringIndexOutOfBoundsException","&lt;init&gt;"}<a name="line.88"></a>
+<span class="sourceLineNo">089</span>    };<a name="line.89"></a>
+<span class="sourceLineNo">090</span><a name="line.90"></a>
+<span class="sourceLineNo">091</span>    // unanalysed methods that modify the whole environment<a name="line.91"></a>
+<span class="sourceLineNo">092</span>    static private final String[][] impureMethods =<a name="line.92"></a>
+<span class="sourceLineNo">093</span>    { <a name="line.93"></a>
+<span class="sourceLineNo">094</span>        {"java.io.","&lt;init&gt;"},<a name="line.94"></a>
+<span class="sourceLineNo">095</span>        {"java.io.","close"},<a name="line.95"></a>
+<span class="sourceLineNo">096</span>        {"java.io.","read"},<a name="line.96"></a>
+<span class="sourceLineNo">097</span>        {"java.io.","write"},<a name="line.97"></a>
+<span class="sourceLineNo">098</span>        {"java.io.","flush"}, <a name="line.98"></a>
+<span class="sourceLineNo">099</span>        {"java.io.","flushBuffer"}, <a name="line.99"></a>
+<span class="sourceLineNo">100</span>        {"java.io.","print"}, <a name="line.100"></a>
+<span class="sourceLineNo">101</span>        {"java.io.","println"}, <a name="line.101"></a>
+<span class="sourceLineNo">102</span><a name="line.102"></a>
+<span class="sourceLineNo">103</span>        {"java.lang.Runtime","exit"},<a name="line.103"></a>
+<span class="sourceLineNo">104</span><a name="line.104"></a>
+<span class="sourceLineNo">105</span>        /*<a name="line.105"></a>
+<span class="sourceLineNo">106</span>        // for soot...<a name="line.106"></a>
+<span class="sourceLineNo">107</span>        {"java.io.","skip"},<a name="line.107"></a>
+<span class="sourceLineNo">108</span>        {"java.io.","ensureOpen"},<a name="line.108"></a>
+<span class="sourceLineNo">109</span>        {"java.io.","fill"},<a name="line.109"></a>
+<span class="sourceLineNo">110</span>        {"java.io.","readLine"},<a name="line.110"></a>
+<span class="sourceLineNo">111</span>        {"java.io.","available"},<a name="line.111"></a>
+<span class="sourceLineNo">112</span>        {"java.io.","mark"},<a name="line.112"></a>
+<span class="sourceLineNo">113</span>        {"java.io.","reset"},<a name="line.113"></a>
+<span class="sourceLineNo">114</span>        {"java.io.","toByteArray"},<a name="line.114"></a>
+<span class="sourceLineNo">115</span>        {"java.io.","size"},<a name="line.115"></a>
+<span class="sourceLineNo">116</span>        {"java.io.","writeTo"},<a name="line.116"></a>
+<span class="sourceLineNo">117</span>        {"java.io.","readBoolean"},<a name="line.117"></a>
+<span class="sourceLineNo">118</span>        {"java.io.","readChar"},<a name="line.118"></a>
+<span class="sourceLineNo">119</span>        {"java.io.","readDouble"},<a name="line.119"></a>
+<span class="sourceLineNo">120</span>        {"java.io.","readFloat"},<a name="line.120"></a>
+<span class="sourceLineNo">121</span>        {"java.io.","readByte"},<a name="line.121"></a>
+<span class="sourceLineNo">122</span>        {"java.io.","readShort"},<a name="line.122"></a>
+<span class="sourceLineNo">123</span>        {"java.io.","readInt"},<a name="line.123"></a>
+<span class="sourceLineNo">124</span>        {"java.io.","readLong"},<a name="line.124"></a>
+<span class="sourceLineNo">125</span>        {"java.io.","readUnsignedByte"},<a name="line.125"></a>
+<span class="sourceLineNo">126</span>        {"java.io.","readUnsignedShort"},<a name="line.126"></a>
+<span class="sourceLineNo">127</span>        {"java.io.","readUTF"},<a name="line.127"></a>
+<span class="sourceLineNo">128</span>        {"java.io.","readFully"},<a name="line.128"></a>
+<span class="sourceLineNo">129</span>        {"java.io.","writeBoolean"},<a name="line.129"></a>
+<span class="sourceLineNo">130</span>        {"java.io.","writeChar"},<a name="line.130"></a>
+<span class="sourceLineNo">131</span>        {"java.io.","writeChars"},<a name="line.131"></a>
+<span class="sourceLineNo">132</span>        {"java.io.","writeDouble"},<a name="line.132"></a>
+<span class="sourceLineNo">133</span>        {"java.io.","writeFloat"},<a name="line.133"></a>
+<span class="sourceLineNo">134</span>        {"java.io.","writeByte"},<a name="line.134"></a>
+<span class="sourceLineNo">135</span>        {"java.io.","writeBytes"},<a name="line.135"></a>
+<span class="sourceLineNo">136</span>        {"java.io.","writeShort"},<a name="line.136"></a>
+<span class="sourceLineNo">137</span>        {"java.io.","writeInt"},<a name="line.137"></a>
+<span class="sourceLineNo">138</span>        {"java.io.","writeLong"},<a name="line.138"></a>
+<span class="sourceLineNo">139</span>        {"java.io.","writeUTF"},<a name="line.139"></a>
+<span class="sourceLineNo">140</span>        {"java.io.","canRead"},<a name="line.140"></a>
+<span class="sourceLineNo">141</span>        {"java.io.","delete"},<a name="line.141"></a>
+<span class="sourceLineNo">142</span>        {"java.io.","exists"},<a name="line.142"></a>
+<span class="sourceLineNo">143</span>        {"java.io.","isDirectory"},<a name="line.143"></a>
+<span class="sourceLineNo">144</span>        {"java.io.","isFile"},<a name="line.144"></a>
+<span class="sourceLineNo">145</span>        {"java.io.","mkdir"},<a name="line.145"></a>
+<span class="sourceLineNo">146</span>        {"java.io.","mkdirs"},<a name="line.146"></a>
+<span class="sourceLineNo">147</span>        {"java.io.","getAbsoluteFile"},<a name="line.147"></a>
+<span class="sourceLineNo">148</span>        {"java.io.","getCanonicalFile"},<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        {"java.io.","getParentFile"},<a name="line.149"></a>
+<span class="sourceLineNo">150</span>        {"java.io.","listFiles"},<a name="line.150"></a>
+<span class="sourceLineNo">151</span>        {"java.io.","getAbsolutePath"},<a name="line.151"></a>
+<span class="sourceLineNo">152</span>        {"java.io.","getCanonicalPath"},<a name="line.152"></a>
+<span class="sourceLineNo">153</span>        {"java.io.","getName"},<a name="line.153"></a>
+<span class="sourceLineNo">154</span>        {"java.io.","getParent"},<a name="line.154"></a>
+<span class="sourceLineNo">155</span>        {"java.io.","getPath"},<a name="line.155"></a>
+<span class="sourceLineNo">156</span>        {"java.io.","list"},<a name="line.156"></a>
+<span class="sourceLineNo">157</span>        {"java.io.","toURI"},<a name="line.157"></a>
+<span class="sourceLineNo">158</span>        {"java.io.","lastModified"},<a name="line.158"></a>
+<span class="sourceLineNo">159</span>        {"java.io.","length"},<a name="line.159"></a>
+<span class="sourceLineNo">160</span>        {"java.io.","implies"},<a name="line.160"></a>
+<span class="sourceLineNo">161</span>        {"java.io.","newPermissionCollection"},<a name="line.161"></a>
+<span class="sourceLineNo">162</span>        {"java.io.","getLineNumber"},<a name="line.162"></a>
+<span class="sourceLineNo">163</span>        {"java.io.","enableResolveObject"},<a name="line.163"></a>
+<span class="sourceLineNo">164</span>        {"java.io.","readClassDescriptor"},<a name="line.164"></a>
+<span class="sourceLineNo">165</span>        {"java.io.","readFields"},<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        {"java.io.","readObject"},<a name="line.166"></a>
+<span class="sourceLineNo">167</span>        {"java.io.","readUnshared"},<a name="line.167"></a>
+<span class="sourceLineNo">168</span>        {"java.io.","defaultReadObject"},<a name="line.168"></a>
+<span class="sourceLineNo">169</span>        {"java.io.","defaultWriteObject"},<a name="line.169"></a>
+<span class="sourceLineNo">170</span>        {"java.io.","putFields"},<a name="line.170"></a>
+<span class="sourceLineNo">171</span>        {"java.io.","writeFields"},<a name="line.171"></a>
+<span class="sourceLineNo">172</span>        {"java.io.","writeObject"},<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        {"java.io.","writeUnshared"},<a name="line.173"></a>
+<span class="sourceLineNo">174</span>        {"java.io.","unread"},<a name="line.174"></a>
+<span class="sourceLineNo">175</span>        {"java.io.","lineno"},<a name="line.175"></a>
+<span class="sourceLineNo">176</span>        {"java.io.","nextToken"},<a name="line.176"></a>
+<span class="sourceLineNo">177</span>        {"java.io.","commentChar"},<a name="line.177"></a>
+<span class="sourceLineNo">178</span>        {"java.io.","lowerCaseMode"},<a name="line.178"></a>
+<span class="sourceLineNo">179</span>        {"java.io.","ordinaryChar"},<a name="line.179"></a>
+<span class="sourceLineNo">180</span>        {"java.io.","quoteChar"},<a name="line.180"></a>
+<span class="sourceLineNo">181</span>        {"java.io.","resetSyntax"},<a name="line.181"></a>
+<span class="sourceLineNo">182</span>        {"java.io.","slashSlashComments"},<a name="line.182"></a>
+<span class="sourceLineNo">183</span>        {"java.io.","slashSltarComments"},<a name="line.183"></a>
+<span class="sourceLineNo">184</span>        {"java.io.","whitespaceChars"},<a name="line.184"></a>
+<span class="sourceLineNo">185</span>        {"java.io.","wordChars"},<a name="line.185"></a>
+<span class="sourceLineNo">186</span>        {"java.io.","markSupported"},<a name="line.186"></a>
+<span class="sourceLineNo">187</span>        {"java.","getCause"},<a name="line.187"></a>
+<span class="sourceLineNo">188</span>        {"java.","getMessage"},<a name="line.188"></a>
+<span class="sourceLineNo">189</span>        {"java.","getReason"},<a name="line.189"></a>
+<span class="sourceLineNo">190</span>        */<a name="line.190"></a>
+<span class="sourceLineNo">191</span><a name="line.191"></a>
+<span class="sourceLineNo">192</span>    };<a name="line.192"></a>
+<span class="sourceLineNo">193</span>    <a name="line.193"></a>
+<span class="sourceLineNo">194</span>    // unanalysed methods that alter its arguments, but have no side effect<a name="line.194"></a>
+<span class="sourceLineNo">195</span>    static private final String[][] alterMethods =<a name="line.195"></a>
+<span class="sourceLineNo">196</span>    { <a name="line.196"></a>
+<span class="sourceLineNo">197</span>        {"java.lang.System","arraycopy"},<a name="line.197"></a>
+<span class="sourceLineNo">198</span><a name="line.198"></a>
+<span class="sourceLineNo">199</span>        // these are really huge methods used internally by StringBuffer<a name="line.199"></a>
+<span class="sourceLineNo">200</span>        // printing =&gt; put here to speed-up the analysis<a name="line.200"></a>
+<span class="sourceLineNo">201</span>        {"java.lang.FloatingDecimal","dtoa"},<a name="line.201"></a>
+<span class="sourceLineNo">202</span>        {"java.lang.FloatingDecimal","developLongDigits"},<a name="line.202"></a>
+<span class="sourceLineNo">203</span>        {"java.lang.FloatingDecimal","big5pow"},<a name="line.203"></a>
+<span class="sourceLineNo">204</span>        {"java.lang.FloatingDecimal","getChars"},<a name="line.204"></a>
+<span class="sourceLineNo">205</span>        {"java.lang.FloatingDecimal","roundup"},<a name="line.205"></a>
+<span class="sourceLineNo">206</span>    };<a name="line.206"></a>
+<span class="sourceLineNo">207</span><a name="line.207"></a>
+<span class="sourceLineNo">208</span>    /** Filter out some method. */<a name="line.208"></a>
+<span class="sourceLineNo">209</span>    static private class Filter implements SootMethodFilter {<a name="line.209"></a>
+<span class="sourceLineNo">210</span>        public boolean want(SootMethod method) { <a name="line.210"></a>
+<span class="sourceLineNo">211</span>            // could be optimized with HashSet....<a name="line.211"></a>
+<span class="sourceLineNo">212</span>            String c = method.getDeclaringClass().toString();<a name="line.212"></a>
+<span class="sourceLineNo">213</span>            String m = method.getName();<a name="line.213"></a>
+<span class="sourceLineNo">214</span>            String[][] o = PurityInterproceduralAnalysis.pureMethods;<a name="line.214"></a>
+<span class="sourceLineNo">215</span>            for (String[] element : o)<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                        if (m.equals(element[1]) &amp;&amp; c.startsWith(element[0])) return false;<a name="line.216"></a>
+<span class="sourceLineNo">217</span>            o = PurityInterproceduralAnalysis.impureMethods;<a name="line.217"></a>
+<span class="sourceLineNo">218</span>            for (String[] element : o)<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                        if (m.equals(element[1]) &amp;&amp; c.startsWith(element[0])) return false;<a name="line.219"></a>
+<span class="sourceLineNo">220</span>            o = PurityInterproceduralAnalysis.alterMethods;<a name="line.220"></a>
+<span class="sourceLineNo">221</span>            for (String[] element : o)<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                        if (m.equals(element[1]) &amp;&amp; c.startsWith(element[0])) return false;<a name="line.222"></a>
+<span class="sourceLineNo">223</span>            return true;<a name="line.223"></a>
+<span class="sourceLineNo">224</span>        }<a name="line.224"></a>
+<span class="sourceLineNo">225</span>    }<a name="line.225"></a>
+<span class="sourceLineNo">226</span>    <a name="line.226"></a>
+<span class="sourceLineNo">227</span>    /** The constructor does it all! */<a name="line.227"></a>
+<span class="sourceLineNo">228</span>    PurityInterproceduralAnalysis(CallGraph        cg,<a name="line.228"></a>
+<span class="sourceLineNo">229</span>                                  Iterator&lt;SootMethod&gt;         heads,<a name="line.229"></a>
+<span class="sourceLineNo">230</span>                                  PurityOptions    opts)<a name="line.230"></a>
+<span class="sourceLineNo">231</span>    {<a name="line.231"></a>
+<span class="sourceLineNo">232</span>        super(cg,new Filter(),heads, opts.dump_cg());<a name="line.232"></a>
+<span class="sourceLineNo">233</span>        <a name="line.233"></a>
+<span class="sourceLineNo">234</span>        if (opts.dump_cg()) {<a name="line.234"></a>
+<span class="sourceLineNo">235</span>            G.v().out.println("[AM] Dumping empty .dot call-graph");<a name="line.235"></a>
+<span class="sourceLineNo">236</span>            drawAsOneDot("EmptyCallGraph");<a name="line.236"></a>
+<span class="sourceLineNo">237</span>        }<a name="line.237"></a>
+<span class="sourceLineNo">238</span><a name="line.238"></a>
+<span class="sourceLineNo">239</span>        Date start = new Date();<a name="line.239"></a>
+<span class="sourceLineNo">240</span>        G.v().out.println("[AM] Analysis began");<a name="line.240"></a>
+<span class="sourceLineNo">241</span>        doAnalysis(opts.verbose());<a name="line.241"></a>
+<span class="sourceLineNo">242</span>        G.v().out.println("[AM] Analysis finished");<a name="line.242"></a>
+<span class="sourceLineNo">243</span>        Date finish = new Date();<a name="line.243"></a>
+<span class="sourceLineNo">244</span>        long runtime = finish.getTime() - start.getTime();<a name="line.244"></a>
+<span class="sourceLineNo">245</span>        G.v().out.println("[AM] run time: "+runtime/1000.+" s");<a name="line.245"></a>
+<span class="sourceLineNo">246</span><a name="line.246"></a>
+<span class="sourceLineNo">247</span>        if (opts.dump_cg()) {<a name="line.247"></a>
+<span class="sourceLineNo">248</span>            G.v().out.println("[AM] Dumping annotated .dot call-graph");<a name="line.248"></a>
+<span class="sourceLineNo">249</span>            drawAsOneDot("CallGraph");<a name="line.249"></a>
+<span class="sourceLineNo">250</span>        }<a name="line.250"></a>
+<span class="sourceLineNo">251</span><a name="line.251"></a>
+<span class="sourceLineNo">252</span>        if (opts.dump_summaries()) {<a name="line.252"></a>
+<span class="sourceLineNo">253</span>            G.v().out.println("[AM] Dumping .dot summaries of analysed methods");<a name="line.253"></a>
+<span class="sourceLineNo">254</span>            drawAsManyDot("Summary_",false);<a name="line.254"></a>
+<span class="sourceLineNo">255</span>        }<a name="line.255"></a>
+<span class="sourceLineNo">256</span><a name="line.256"></a>
+<span class="sourceLineNo">257</span>        if (opts.dump_intra()) {<a name="line.257"></a>
+<span class="sourceLineNo">258</span>            G.v().out.println("[AM] Dumping .dot full intra-procedural method analyses");<a name="line.258"></a>
+<span class="sourceLineNo">259</span>            // relaunch the interprocedural analysis once on each method<a name="line.259"></a>
+<span class="sourceLineNo">260</span>            // to get a purity graph at each statement, not only summaries<a name="line.260"></a>
+<span class="sourceLineNo">261</span>            Iterator it = getAnalysedMethods();<a name="line.261"></a>
+<span class="sourceLineNo">262</span>            while (it.hasNext()) {<a name="line.262"></a>
+<span class="sourceLineNo">263</span>                SootMethod method = (SootMethod)it.next();<a name="line.263"></a>
+<span class="sourceLineNo">264</span>                Body body = method.retrieveActiveBody();<a name="line.264"></a>
+<span class="sourceLineNo">265</span>                ExceptionalUnitGraph graph = new ExceptionalUnitGraph(body);<a name="line.265"></a>
+<span class="sourceLineNo">266</span>                if (opts.verbose()) G.v().out.println("  |- "+method);<a name="line.266"></a>
+<span class="sourceLineNo">267</span>                PurityIntraproceduralAnalysis r = <a name="line.267"></a>
+<span class="sourceLineNo">268</span>                    new PurityIntraproceduralAnalysis(graph, this);<a name="line.268"></a>
+<span class="sourceLineNo">269</span>                r.drawAsOneDot("Intra_",method.toString());<a name="line.269"></a>
+<span class="sourceLineNo">270</span>                PurityGraphBox b = new PurityGraphBox();<a name="line.270"></a>
+<span class="sourceLineNo">271</span>                r.copyResult(b);<a name="line.271"></a>
+<span class="sourceLineNo">272</span>            }<a name="line.272"></a>
+<span class="sourceLineNo">273</span>        }<a name="line.273"></a>
+<span class="sourceLineNo">274</span><a name="line.274"></a>
+<span class="sourceLineNo">275</span><a name="line.275"></a>
+<span class="sourceLineNo">276</span>        {<a name="line.276"></a>
+<span class="sourceLineNo">277</span>            G.v().out.println("[AM] Annotate methods. ");<a name="line.277"></a>
+<span class="sourceLineNo">278</span>            Iterator it = getAnalysedMethods();<a name="line.278"></a>
+<span class="sourceLineNo">279</span>            while (it.hasNext()) {<a name="line.279"></a>
+<span class="sourceLineNo">280</span>                SootMethod m = (SootMethod)it.next();<a name="line.280"></a>
+<span class="sourceLineNo">281</span>                PurityGraphBox b = (PurityGraphBox)getSummaryFor(m);<a name="line.281"></a>
+<span class="sourceLineNo">282</span><a name="line.282"></a>
+<span class="sourceLineNo">283</span>                // purity<a name="line.283"></a>
+<span class="sourceLineNo">284</span>                boolean isPure;<a name="line.284"></a>
+<span class="sourceLineNo">285</span>                if (m.toString().indexOf("&lt;init&gt;")!=-1)<a name="line.285"></a>
+<span class="sourceLineNo">286</span>                    isPure = b.g.isPureConstructor() ;<a name="line.286"></a>
+<span class="sourceLineNo">287</span>                else <a name="line.287"></a>
+<span class="sourceLineNo">288</span>                    isPure = b.g.isPure();<a name="line.288"></a>
+<span class="sourceLineNo">289</span>                /* m.addTag(new GenericAttribute("isPure",<a name="line.289"></a>
+<span class="sourceLineNo">290</span>                   (new String(isPure?"yes":"no")).getBytes()));<a name="line.290"></a>
+<span class="sourceLineNo">291</span>                */<a name="line.291"></a>
+<span class="sourceLineNo">292</span>                m.addTag(new StringTag("purity: "+(isPure?"pure":"impure")));<a name="line.292"></a>
+<span class="sourceLineNo">293</span>                if(isPure &amp;&amp; opts.annotate())<a name="line.293"></a>
+<span class="sourceLineNo">294</span>                        m.addTag(new GenericAttribute("Pure", new byte[0]));<a name="line.294"></a>
+<span class="sourceLineNo">295</span>                if (opts.print()) <a name="line.295"></a>
+<span class="sourceLineNo">296</span>                    G.v().out.println("  |- method "+m.toString()+" is "+(isPure?"pure":"impure"));<a name="line.296"></a>
+<span class="sourceLineNo">297</span><a name="line.297"></a>
+<span class="sourceLineNo">298</span>                // param &amp; this ro / safety<a name="line.298"></a>
+<span class="sourceLineNo">299</span>                if (!m.isStatic()) {<a name="line.299"></a>
+<span class="sourceLineNo">300</span>                    int status = b.g.thisStatus();<a name="line.300"></a>
+<span class="sourceLineNo">301</span>                    String s;<a name="line.301"></a>
+<span class="sourceLineNo">302</span>                    switch (status) {<a name="line.302"></a>
+<span class="sourceLineNo">303</span>                    case PurityGraph.PARAM_RW: s = "read/write";break;<a name="line.303"></a>
+<span class="sourceLineNo">304</span>                    case PurityGraph.PARAM_RO: s = "read-only";break;<a name="line.304"></a>
+<span class="sourceLineNo">305</span>                    case PurityGraph.PARAM_SAFE: s = "Safe";break;<a name="line.305"></a>
+<span class="sourceLineNo">306</span>                    default: s = "unknown";<a name="line.306"></a>
+<span class="sourceLineNo">307</span>                    }<a name="line.307"></a>
+<span class="sourceLineNo">308</span>                    /*  m.addTag(new GenericAttribute("thisStatus",s.getBytes()));<a name="line.308"></a>
+<span class="sourceLineNo">309</span>                     */<a name="line.309"></a>
+<span class="sourceLineNo">310</span>                    m.addTag(new StringTag("this: "+s));<a name="line.310"></a>
+<span class="sourceLineNo">311</span>                    if (opts.print()) G.v().out.println("  |   |- this is "+s);<a name="line.311"></a>
+<span class="sourceLineNo">312</span>                }<a name="line.312"></a>
+<span class="sourceLineNo">313</span>                <a name="line.313"></a>
+<span class="sourceLineNo">314</span>                Iterator itt = m.getParameterTypes().iterator();<a name="line.314"></a>
+<span class="sourceLineNo">315</span>                int i = 0;<a name="line.315"></a>
+<span class="sourceLineNo">316</span>                while (itt.hasNext()) {<a name="line.316"></a>
+<span class="sourceLineNo">317</span>                    if (itt.next() instanceof RefLikeType) {<a name="line.317"></a>
+<span class="sourceLineNo">318</span>                        int status = b.g.paramStatus(i);<a name="line.318"></a>
+<span class="sourceLineNo">319</span>                        String s;<a name="line.319"></a>
+<span class="sourceLineNo">320</span>                        switch (status) {<a name="line.320"></a>
+<span class="sourceLineNo">321</span>                        case PurityGraph.PARAM_RW: s = "read/write";break;<a name="line.321"></a>
+<span class="sourceLineNo">322</span>                        case PurityGraph.PARAM_RO: s = "read-only";break;<a name="line.322"></a>
+<span class="sourceLineNo">323</span>                        case PurityGraph.PARAM_SAFE: s = "safe";break;<a name="line.323"></a>
+<span class="sourceLineNo">324</span>                        default: s = "unknown";<a name="line.324"></a>
+<span class="sourceLineNo">325</span>                        }<a name="line.325"></a>
+<span class="sourceLineNo">326</span>                        /*<a name="line.326"></a>
+<span class="sourceLineNo">327</span>                          m.addTag(new GenericAttribute("param"+i+"Status",<a name="line.327"></a>
+<span class="sourceLineNo">328</span>                          s.getBytes()));<a name="line.328"></a>
+<span class="sourceLineNo">329</span>                        */<a name="line.329"></a>
+<span class="sourceLineNo">330</span>                        m.addTag(new StringTag("param"+i+": "+s));<a name="line.330"></a>
+<span class="sourceLineNo">331</span>                        if (opts.print())<a name="line.331"></a>
+<span class="sourceLineNo">332</span>                            G.v().out.println("  |   |- param "+i+" is "+s);<a name="line.332"></a>
+<span class="sourceLineNo">333</span>                    }<a name="line.333"></a>
+<span class="sourceLineNo">334</span>                    i++;<a name="line.334"></a>
+<span class="sourceLineNo">335</span>                }<a name="line.335"></a>
+<span class="sourceLineNo">336</span>            }<a name="line.336"></a>
+<span class="sourceLineNo">337</span>        }<a name="line.337"></a>
+<span class="sourceLineNo">338</span><a name="line.338"></a>
+<span class="sourceLineNo">339</span>    }<a name="line.339"></a>
+<span class="sourceLineNo">340</span><a name="line.340"></a>
+<span class="sourceLineNo">341</span>    protected Object newInitialSummary()<a name="line.341"></a>
+<span class="sourceLineNo">342</span>    { return new PurityGraphBox(); }<a name="line.342"></a>
+<span class="sourceLineNo">343</span><a name="line.343"></a>
+<span class="sourceLineNo">344</span>    protected void merge(Object in1, Object in2, Object out)<a name="line.344"></a>
+<span class="sourceLineNo">345</span>    {<a name="line.345"></a>
+<span class="sourceLineNo">346</span>        PurityGraphBox i1  = (PurityGraphBox)in1;<a name="line.346"></a>
+<span class="sourceLineNo">347</span>        PurityGraphBox i2  = (PurityGraphBox)in2;<a name="line.347"></a>
+<span class="sourceLineNo">348</span>        PurityGraphBox o   = (PurityGraphBox)out;<a name="line.348"></a>
+<span class="sourceLineNo">349</span>        if (out!=i1) o.g = new PurityGraph(i1.g);<a name="line.349"></a>
+<span class="sourceLineNo">350</span>        o.g.union(i2.g);<a name="line.350"></a>
+<span class="sourceLineNo">351</span>    }<a name="line.351"></a>
+<span class="sourceLineNo">352</span><a name="line.352"></a>
+<span class="sourceLineNo">353</span>    protected void copy(Object source, Object dest)<a name="line.353"></a>
+<span class="sourceLineNo">354</span>    {<a name="line.354"></a>
+<span class="sourceLineNo">355</span>        PurityGraphBox src  = (PurityGraphBox)source;<a name="line.355"></a>
+<span class="sourceLineNo">356</span>        PurityGraphBox dst  = (PurityGraphBox)dest;<a name="line.356"></a>
+<span class="sourceLineNo">357</span>        dst.g = new PurityGraph(src.g);<a name="line.357"></a>
+<span class="sourceLineNo">358</span>    }<a name="line.358"></a>
+<span class="sourceLineNo">359</span>    <a name="line.359"></a>
+<span class="sourceLineNo">360</span>    protected void analyseMethod(SootMethod method,<a name="line.360"></a>
+<span class="sourceLineNo">361</span>                                 Object     dst)<a name="line.361"></a>
+<span class="sourceLineNo">362</span>    {<a name="line.362"></a>
+<span class="sourceLineNo">363</span>        Body body = method.retrieveActiveBody();<a name="line.363"></a>
+<span class="sourceLineNo">364</span>        ExceptionalUnitGraph graph = new ExceptionalUnitGraph(body);<a name="line.364"></a>
+<span class="sourceLineNo">365</span>        PurityIntraproceduralAnalysis r = <a name="line.365"></a>
+<span class="sourceLineNo">366</span>            new PurityIntraproceduralAnalysis(graph, this);<a name="line.366"></a>
+<span class="sourceLineNo">367</span>        r.copyResult(dst);<a name="line.367"></a>
+<span class="sourceLineNo">368</span>    }<a name="line.368"></a>
+<span class="sourceLineNo">369</span><a name="line.369"></a>
+<span class="sourceLineNo">370</span>    /**<a name="line.370"></a>
+<span class="sourceLineNo">371</span>     * @see PurityGraph.conservativeGraph<a name="line.371"></a>
+<span class="sourceLineNo">372</span>     * @see PurityGraph.freshGraph<a name="line.372"></a>
+<span class="sourceLineNo">373</span>     */<a name="line.373"></a>
+<span class="sourceLineNo">374</span>    protected Object summaryOfUnanalysedMethod(SootMethod method)<a name="line.374"></a>
+<span class="sourceLineNo">375</span>    {<a name="line.375"></a>
+<span class="sourceLineNo">376</span>        PurityGraphBox b = new PurityGraphBox();<a name="line.376"></a>
+<span class="sourceLineNo">377</span>        String c = method.getDeclaringClass().toString();<a name="line.377"></a>
+<span class="sourceLineNo">378</span>        String m = method.getName();<a name="line.378"></a>
+<span class="sourceLineNo">379</span><a name="line.379"></a>
+<span class="sourceLineNo">380</span>        // impure with side-effect, unless otherwise specified<a name="line.380"></a>
+<span class="sourceLineNo">381</span>        b.g = PurityGraph.conservativeGraph(method,true);<a name="line.381"></a>
+<span class="sourceLineNo">382</span><a name="line.382"></a>
+<span class="sourceLineNo">383</span>        String[][] o = PurityInterproceduralAnalysis.pureMethods;<a name="line.383"></a>
+<span class="sourceLineNo">384</span>        for (String[] element : o)<a name="line.384"></a>
+<span class="sourceLineNo">385</span>                if (m.equals(element[1]) &amp;&amp; c.startsWith(element[0]))<a name="line.385"></a>
+<span class="sourceLineNo">386</span>                b.g = PurityGraph.freshGraph(method);<a name="line.386"></a>
+<span class="sourceLineNo">387</span><a name="line.387"></a>
+<span class="sourceLineNo">388</span>        o = PurityInterproceduralAnalysis.alterMethods;<a name="line.388"></a>
+<span class="sourceLineNo">389</span>        for (String[] element : o)<a name="line.389"></a>
+<span class="sourceLineNo">390</span>                if (m.equals(element[1]) &amp;&amp; c.startsWith(element[0]))<a name="line.390"></a>
+<span class="sourceLineNo">391</span>                b.g = PurityGraph.conservativeGraph(method,false);<a name="line.391"></a>
+<span class="sourceLineNo">392</span><a name="line.392"></a>
+<span class="sourceLineNo">393</span>        return b;<a name="line.393"></a>
+<span class="sourceLineNo">394</span>    }<a name="line.394"></a>
+<span class="sourceLineNo">395</span><a name="line.395"></a>
+<span class="sourceLineNo">396</span>    /**<a name="line.396"></a>
+<span class="sourceLineNo">397</span>     * @param stmt any statement containing an InvokeExpr<a name="line.397"></a>
+<span class="sourceLineNo">398</span>     * @see PurityGraph.methodCall<a name="line.398"></a>
+<span class="sourceLineNo">399</span>     */<a name="line.399"></a>
+<span class="sourceLineNo">400</span>    protected void applySummary(Object src,<a name="line.400"></a>
+<span class="sourceLineNo">401</span>                                Stmt   stmt,<a name="line.401"></a>
+<span class="sourceLineNo">402</span>                                Object summary,<a name="line.402"></a>
+<span class="sourceLineNo">403</span>                                Object dst)<a name="line.403"></a>
+<span class="sourceLineNo">404</span>    {<a name="line.404"></a>
+<span class="sourceLineNo">405</span>        // extract call info<a name="line.405"></a>
+<span class="sourceLineNo">406</span>        InvokeExpr e = stmt.getInvokeExpr();<a name="line.406"></a>
+<span class="sourceLineNo">407</span>        Local ret = null;<a name="line.407"></a>
+<span class="sourceLineNo">408</span>        if (stmt instanceof AssignStmt) {<a name="line.408"></a>
+<span class="sourceLineNo">409</span>            Local v = (Local)((AssignStmt)stmt).getLeftOp();<a name="line.409"></a>
+<span class="sourceLineNo">410</span>            if (v.getType() instanceof RefLikeType) ret = v;<a name="line.410"></a>
+<span class="sourceLineNo">411</span>        }<a name="line.411"></a>
+<span class="sourceLineNo">412</span>        Local obj = null;<a name="line.412"></a>
+<span class="sourceLineNo">413</span>        if (!(e instanceof StaticInvokeExpr)) <a name="line.413"></a>
+<span class="sourceLineNo">414</span>            obj = (Local)((InstanceInvokeExpr)e).getBase();<a name="line.414"></a>
+<span class="sourceLineNo">415</span>        List args = e.getArgs();<a name="line.415"></a>
+<span class="sourceLineNo">416</span>        <a name="line.416"></a>
+<span class="sourceLineNo">417</span>        // call methoCall on the PurityGraph<a name="line.417"></a>
+<span class="sourceLineNo">418</span>        PurityGraphBox s = (PurityGraphBox)src;<a name="line.418"></a>
+<span class="sourceLineNo">419</span>        PurityGraphBox d = (PurityGraphBox)dst;<a name="line.419"></a>
+<span class="sourceLineNo">420</span>        PurityGraph g = new PurityGraph(s.g);<a name="line.420"></a>
+<span class="sourceLineNo">421</span>        g.methodCall(((PurityGraphBox)summary).g, obj, args, ret);<a name="line.421"></a>
+<span class="sourceLineNo">422</span>        d.g = g;<a name="line.422"></a>
+<span class="sourceLineNo">423</span>    }<a name="line.423"></a>
+<span class="sourceLineNo">424</span><a name="line.424"></a>
+<span class="sourceLineNo">425</span>    protected void fillDotGraph(String prefix, Object o, DotGraph out)<a name="line.425"></a>
+<span class="sourceLineNo">426</span>    {<a name="line.426"></a>
+<span class="sourceLineNo">427</span>        PurityGraphBox b = (PurityGraphBox)o;<a name="line.427"></a>
+<span class="sourceLineNo">428</span>        b.g.fillDotGraph(prefix, out);<a name="line.428"></a>
+<span class="sourceLineNo">429</span>    }<a name="line.429"></a>
+<span class="sourceLineNo">430</span><a name="line.430"></a>
+<span class="sourceLineNo">431</span>}<a name="line.431"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

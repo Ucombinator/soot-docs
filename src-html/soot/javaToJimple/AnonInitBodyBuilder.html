@@ -1,0 +1,257 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2004 Jennifer Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.javaToJimple;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.*;<a name="line.22"></a>
+<span class="sourceLineNo">023</span><a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.*;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>import polyglot.ast.Block;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import polyglot.ast.FieldDecl;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>public class AnonInitBodyBuilder extends JimpleBodyBuilder {<a name="line.29"></a>
+<span class="sourceLineNo">030</span><a name="line.30"></a>
+<span class="sourceLineNo">031</span>    public soot.jimple.JimpleBody createBody(soot.SootMethod sootMethod){<a name="line.31"></a>
+<span class="sourceLineNo">032</span>        <a name="line.32"></a>
+<span class="sourceLineNo">033</span>        body = soot.jimple.Jimple.v().newBody(sootMethod);<a name="line.33"></a>
+<span class="sourceLineNo">034</span>       <a name="line.34"></a>
+<span class="sourceLineNo">035</span>        lg = new LocalGenerator(body);<a name="line.35"></a>
+<span class="sourceLineNo">036</span><a name="line.36"></a>
+<span class="sourceLineNo">037</span>        AnonClassInitMethodSource acims = (AnonClassInitMethodSource) body.getMethod().getSource();<a name="line.37"></a>
+<span class="sourceLineNo">038</span>        ArrayList&lt;SootField&gt; fields = acims.getFinalsList();<a name="line.38"></a>
+<span class="sourceLineNo">039</span>        boolean inStaticMethod = acims.inStaticMethod();<a name="line.39"></a>
+<span class="sourceLineNo">040</span>        boolean isSubType = acims.isSubType();<a name="line.40"></a>
+<span class="sourceLineNo">041</span>        soot.Type superOuterType = acims.superOuterType();<a name="line.41"></a>
+<span class="sourceLineNo">042</span>        soot.Type thisOuterType = acims.thisOuterType();<a name="line.42"></a>
+<span class="sourceLineNo">043</span>        ArrayList&lt;FieldDecl&gt; fieldInits = acims.getFieldInits();<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        soot.Type outerClassType = acims.outerClassType();<a name="line.44"></a>
+<span class="sourceLineNo">045</span>        polyglot.types.ClassType polyglotType = acims.polyglotType();<a name="line.45"></a>
+<span class="sourceLineNo">046</span>        polyglot.types.ClassType anonType = acims.anonType();<a name="line.46"></a>
+<span class="sourceLineNo">047</span>        <a name="line.47"></a>
+<span class="sourceLineNo">048</span>        boolean hasOuterRef = ((AnonClassInitMethodSource)body.getMethod().getSource()).hasOuterRef();<a name="line.48"></a>
+<span class="sourceLineNo">049</span>        boolean hasQualifier = ((AnonClassInitMethodSource)body.getMethod().getSource()).hasQualifier();<a name="line.49"></a>
+<span class="sourceLineNo">050</span>        <a name="line.50"></a>
+<span class="sourceLineNo">051</span>        // this formal needed<a name="line.51"></a>
+<span class="sourceLineNo">052</span>        soot.RefType type = sootMethod.getDeclaringClass().getType();<a name="line.52"></a>
+<span class="sourceLineNo">053</span>        specialThisLocal = soot.jimple.Jimple.v().newLocal("this", type);<a name="line.53"></a>
+<span class="sourceLineNo">054</span>        body.getLocals().add(specialThisLocal);<a name="line.54"></a>
+<span class="sourceLineNo">055</span><a name="line.55"></a>
+<span class="sourceLineNo">056</span>        soot.jimple.ThisRef thisRef = soot.jimple.Jimple.v().newThisRef(type);<a name="line.56"></a>
+<span class="sourceLineNo">057</span><a name="line.57"></a>
+<span class="sourceLineNo">058</span>        soot.jimple.Stmt thisStmt = soot.jimple.Jimple.v().newIdentityStmt(specialThisLocal, thisRef);<a name="line.58"></a>
+<span class="sourceLineNo">059</span>        body.getUnits().add(thisStmt);<a name="line.59"></a>
+<span class="sourceLineNo">060</span>       <a name="line.60"></a>
+<span class="sourceLineNo">061</span>        ArrayList invokeList = new ArrayList();<a name="line.61"></a>
+<span class="sourceLineNo">062</span>        ArrayList invokeTypeList = new ArrayList();<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        <a name="line.63"></a>
+<span class="sourceLineNo">064</span>        int numParams = sootMethod.getParameterCount();<a name="line.64"></a>
+<span class="sourceLineNo">065</span>        int numFinals = 0;<a name="line.65"></a>
+<span class="sourceLineNo">066</span>        <a name="line.66"></a>
+<span class="sourceLineNo">067</span>        if (fields != null){<a name="line.67"></a>
+<span class="sourceLineNo">068</span>            numFinals = fields.size();<a name="line.68"></a>
+<span class="sourceLineNo">069</span>        }<a name="line.69"></a>
+<span class="sourceLineNo">070</span>        <a name="line.70"></a>
+<span class="sourceLineNo">071</span>        int startFinals = numParams - numFinals;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        ArrayList paramsForFinals = new ArrayList();<a name="line.72"></a>
+<span class="sourceLineNo">073</span><a name="line.73"></a>
+<span class="sourceLineNo">074</span>        soot.Local outerLocal = null;<a name="line.74"></a>
+<span class="sourceLineNo">075</span>        soot.Local qualifierLocal = null;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>       <a name="line.76"></a>
+<span class="sourceLineNo">077</span>        // param<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        Iterator fIt = sootMethod.getParameterTypes().iterator();<a name="line.78"></a>
+<span class="sourceLineNo">079</span>        int counter = 0;<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        while (fIt.hasNext()){<a name="line.80"></a>
+<span class="sourceLineNo">081</span>            soot.Type fType = (soot.Type)fIt.next();<a name="line.81"></a>
+<span class="sourceLineNo">082</span>            soot.Local local = soot.jimple.Jimple.v().newLocal("r"+counter, fType);<a name="line.82"></a>
+<span class="sourceLineNo">083</span>            body.getLocals().add(local);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>            soot.jimple.ParameterRef paramRef = soot.jimple.Jimple.v().newParameterRef(fType, counter);<a name="line.84"></a>
+<span class="sourceLineNo">085</span>            <a name="line.85"></a>
+<span class="sourceLineNo">086</span>            soot.jimple.Stmt stmt = soot.jimple.Jimple.v().newIdentityStmt(local, paramRef);<a name="line.86"></a>
+<span class="sourceLineNo">087</span><a name="line.87"></a>
+<span class="sourceLineNo">088</span>            <a name="line.88"></a>
+<span class="sourceLineNo">089</span>            int realArgs = 0;<a name="line.89"></a>
+<span class="sourceLineNo">090</span>            if ((hasOuterRef) &amp;&amp; (counter == 0)){<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                // in a non static method the first param is the outer ref<a name="line.91"></a>
+<span class="sourceLineNo">092</span>                outerLocal = local;<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                realArgs = 1;<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                stmt.addTag(new soot.tagkit.EnclosingTag());<a name="line.94"></a>
+<span class="sourceLineNo">095</span>            }<a name="line.95"></a>
+<span class="sourceLineNo">096</span>            if ((hasOuterRef) &amp;&amp; (hasQualifier) &amp;&amp; (counter == 1)){<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                // here second param is qualifier if there is one<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                qualifierLocal = local;<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                realArgs = 2;<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                invokeList.add(qualifierLocal);<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                stmt.addTag(new soot.tagkit.QualifyingTag());<a name="line.101"></a>
+<span class="sourceLineNo">102</span>            }<a name="line.102"></a>
+<span class="sourceLineNo">103</span>            else if ((!hasOuterRef) &amp;&amp; (hasQualifier) &amp;&amp; (counter == 0)){<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                qualifierLocal = local;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                realArgs = 1;<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                invokeList.add(qualifierLocal);<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                stmt.addTag(new soot.tagkit.QualifyingTag());<a name="line.107"></a>
+<span class="sourceLineNo">108</span>            }<a name="line.108"></a>
+<span class="sourceLineNo">109</span>            <a name="line.109"></a>
+<span class="sourceLineNo">110</span>            if ((counter &gt;= realArgs) &amp;&amp; (counter &lt; startFinals)){<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                invokeTypeList.add(fType);<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                invokeList.add(local);<a name="line.112"></a>
+<span class="sourceLineNo">113</span>            }<a name="line.113"></a>
+<span class="sourceLineNo">114</span>            else if (counter &gt;= startFinals) {<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                paramsForFinals.add(local);<a name="line.115"></a>
+<span class="sourceLineNo">116</span>            }<a name="line.116"></a>
+<span class="sourceLineNo">117</span>            body.getUnits().add(stmt);<a name="line.117"></a>
+<span class="sourceLineNo">118</span>            counter++;<a name="line.118"></a>
+<span class="sourceLineNo">119</span>        }<a name="line.119"></a>
+<span class="sourceLineNo">120</span>        SootClass superClass = sootMethod.getDeclaringClass().getSuperclass();<a name="line.120"></a>
+<span class="sourceLineNo">121</span><a name="line.121"></a>
+<span class="sourceLineNo">122</span>        //ArrayList needsRef = needsOuterClassRef(polyglotOuterType);//soot.javaToJimple.InitialResolver.v().getHasOuterRefInInit();<a name="line.122"></a>
+<span class="sourceLineNo">123</span>        if (needsOuterClassRef(polyglotType)){<a name="line.123"></a>
+<span class="sourceLineNo">124</span>        //if ((needsRef != null) &amp;&amp; (needsRef.contains(superClass.getType())) ){<a name="line.124"></a>
+<span class="sourceLineNo">125</span>            invokeTypeList.add(0, superOuterType);<a name="line.125"></a>
+<span class="sourceLineNo">126</span>        }<a name="line.126"></a>
+<span class="sourceLineNo">127</span>        SootMethodRef callMethod = Scene.v().makeMethodRef( sootMethod.getDeclaringClass().getSuperclass(), "&lt;init&gt;",  invokeTypeList, VoidType.v(), false);<a name="line.127"></a>
+<span class="sourceLineNo">128</span>        if ((!hasQualifier) &amp;&amp; (needsOuterClassRef(polyglotType))){// &amp;&amp; (needsRef.contains(superClass.getType()))){<a name="line.128"></a>
+<span class="sourceLineNo">129</span>            if (isSubType){<a name="line.129"></a>
+<span class="sourceLineNo">130</span>                invokeList.add(0, outerLocal);<a name="line.130"></a>
+<span class="sourceLineNo">131</span>            }<a name="line.131"></a>
+<span class="sourceLineNo">132</span>            else {<a name="line.132"></a>
+<span class="sourceLineNo">133</span>                invokeList.add(0, Util.getThisGivenOuter(superOuterType, new HashMap(), body, new LocalGenerator(body), outerLocal));<a name="line.133"></a>
+<span class="sourceLineNo">134</span>            }<a name="line.134"></a>
+<span class="sourceLineNo">135</span>        }<a name="line.135"></a>
+<span class="sourceLineNo">136</span>        soot.jimple.InvokeExpr invoke = soot.jimple.Jimple.v().newSpecialInvokeExpr(specialThisLocal, callMethod, invokeList);<a name="line.136"></a>
+<span class="sourceLineNo">137</span><a name="line.137"></a>
+<span class="sourceLineNo">138</span>        soot.jimple.Stmt invokeStmt = soot.jimple.Jimple.v().newInvokeStmt(invoke);<a name="line.138"></a>
+<span class="sourceLineNo">139</span>        body.getUnits().add(invokeStmt);<a name="line.139"></a>
+<span class="sourceLineNo">140</span>       <a name="line.140"></a>
+<span class="sourceLineNo">141</span>        //System.out.println("polyglotType: "+polyglotType+" needs ref: "+needsOuterClassRef(polyglotType));<a name="line.141"></a>
+<span class="sourceLineNo">142</span>        <a name="line.142"></a>
+<span class="sourceLineNo">143</span>        // field assign<a name="line.143"></a>
+<span class="sourceLineNo">144</span>        if (!inStaticMethod &amp;&amp; needsOuterClassRef(anonType)){<a name="line.144"></a>
+<span class="sourceLineNo">145</span>            soot.SootFieldRef field = Scene.v().makeFieldRef( sootMethod.getDeclaringClass(), "this$0", outerClassType, false);<a name="line.145"></a>
+<span class="sourceLineNo">146</span>            soot.jimple.InstanceFieldRef ref = soot.jimple.Jimple.v().newInstanceFieldRef(specialThisLocal, field);<a name="line.146"></a>
+<span class="sourceLineNo">147</span>            soot.jimple.AssignStmt assign = soot.jimple.Jimple.v().newAssignStmt(ref, outerLocal);<a name="line.147"></a>
+<span class="sourceLineNo">148</span>            body.getUnits().add(assign);<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        }<a name="line.149"></a>
+<span class="sourceLineNo">150</span>        if (fields != null){<a name="line.150"></a>
+<span class="sourceLineNo">151</span>            Iterator finalsIt = paramsForFinals.iterator();<a name="line.151"></a>
+<span class="sourceLineNo">152</span>            Iterator&lt;SootField&gt; fieldsIt = fields.iterator();<a name="line.152"></a>
+<span class="sourceLineNo">153</span>            while (finalsIt.hasNext() &amp;&amp; fieldsIt.hasNext()){<a name="line.153"></a>
+<span class="sourceLineNo">154</span>            <a name="line.154"></a>
+<span class="sourceLineNo">155</span>                soot.Local pLocal = (soot.Local)finalsIt.next();<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                soot.SootField pField = fieldsIt.next();<a name="line.156"></a>
+<span class="sourceLineNo">157</span>            <a name="line.157"></a>
+<span class="sourceLineNo">158</span>                soot.jimple.FieldRef pRef = soot.jimple.Jimple.v().newInstanceFieldRef(specialThisLocal, pField.makeRef());<a name="line.158"></a>
+<span class="sourceLineNo">159</span>            <a name="line.159"></a>
+<span class="sourceLineNo">160</span>                soot.jimple.AssignStmt pAssign = soot.jimple.Jimple.v().newAssignStmt(pRef, pLocal);<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                body.getUnits().add(pAssign);<a name="line.161"></a>
+<span class="sourceLineNo">162</span> <a name="line.162"></a>
+<span class="sourceLineNo">163</span>            }<a name="line.163"></a>
+<span class="sourceLineNo">164</span>        }<a name="line.164"></a>
+<span class="sourceLineNo">165</span><a name="line.165"></a>
+<span class="sourceLineNo">166</span>        // need to be able to handle any kind of field inits -&gt; make this class<a name="line.166"></a>
+<span class="sourceLineNo">167</span>        // extend JimpleBodyBuilder to have access to everything<a name="line.167"></a>
+<span class="sourceLineNo">168</span>        <a name="line.168"></a>
+<span class="sourceLineNo">169</span>        if (fieldInits != null) {<a name="line.169"></a>
+<span class="sourceLineNo">170</span>            handleFieldInits(fieldInits);<a name="line.170"></a>
+<span class="sourceLineNo">171</span>        }<a name="line.171"></a>
+<span class="sourceLineNo">172</span>   <a name="line.172"></a>
+<span class="sourceLineNo">173</span>        ArrayList&lt;Block&gt; staticBlocks = ((AnonClassInitMethodSource)body.getMethod().getSource()).getInitializerBlocks();<a name="line.173"></a>
+<span class="sourceLineNo">174</span>        if (staticBlocks != null){<a name="line.174"></a>
+<span class="sourceLineNo">175</span>            handleStaticBlocks(staticBlocks);<a name="line.175"></a>
+<span class="sourceLineNo">176</span>        }<a name="line.176"></a>
+<span class="sourceLineNo">177</span>        <a name="line.177"></a>
+<span class="sourceLineNo">178</span>        // return<a name="line.178"></a>
+<span class="sourceLineNo">179</span>        soot.jimple.ReturnVoidStmt retStmt = soot.jimple.Jimple.v().newReturnVoidStmt();<a name="line.179"></a>
+<span class="sourceLineNo">180</span>        body.getUnits().add(retStmt);<a name="line.180"></a>
+<span class="sourceLineNo">181</span>        <a name="line.181"></a>
+<span class="sourceLineNo">182</span>    <a name="line.182"></a>
+<span class="sourceLineNo">183</span>        return body;<a name="line.183"></a>
+<span class="sourceLineNo">184</span>    }<a name="line.184"></a>
+<span class="sourceLineNo">185</span>}<a name="line.185"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

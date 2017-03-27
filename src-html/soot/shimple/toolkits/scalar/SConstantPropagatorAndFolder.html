@@ -1,0 +1,666 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2003 Navindra Umanee &lt;navindra@cs.mcgill.ca&gt;<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.shimple.toolkits.scalar;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.*;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.util.*;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.options.*;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import soot.jimple.*;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import soot.shimple.*;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import soot.toolkits.scalar.*;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.toolkits.graph.*;<a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.util.*;<a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.shimple.toolkits.scalar.SEvaluator.MetaConstant;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.shimple.toolkits.scalar.SEvaluator.TopConstant;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.shimple.toolkits.scalar.SEvaluator.BottomConstant;<a name="line.34"></a>
+<span class="sourceLineNo">035</span><a name="line.35"></a>
+<span class="sourceLineNo">036</span>/**<a name="line.36"></a>
+<span class="sourceLineNo">037</span> * A powerful constant propagator and folder based on an algorithm<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * sketched by Cytron et al that takes conditional control flow into<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * account.  This optimization demonstrates some of the benefits of<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * SSA -- particularly the fact that Phi nodes represent natural merge<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * points in the control flow.<a name="line.41"></a>
+<span class="sourceLineNo">042</span> *<a name="line.42"></a>
+<span class="sourceLineNo">043</span> * @author Navindra Umanee<a name="line.43"></a>
+<span class="sourceLineNo">044</span> * @see &lt;a<a name="line.44"></a>
+<span class="sourceLineNo">045</span> * href="http://citeseer.nj.nec.com/cytron91efficiently.html"&gt;Efficiently<a name="line.45"></a>
+<span class="sourceLineNo">046</span> * Computing Static Single Assignment Form and the Control Dependence<a name="line.46"></a>
+<span class="sourceLineNo">047</span> * Graph&lt;/a&gt;<a name="line.47"></a>
+<span class="sourceLineNo">048</span> **/<a name="line.48"></a>
+<span class="sourceLineNo">049</span>public class SConstantPropagatorAndFolder extends BodyTransformer<a name="line.49"></a>
+<span class="sourceLineNo">050</span>{<a name="line.50"></a>
+<span class="sourceLineNo">051</span>    public SConstantPropagatorAndFolder(Singletons.Global g) {}<a name="line.51"></a>
+<span class="sourceLineNo">052</span><a name="line.52"></a>
+<span class="sourceLineNo">053</span>    public static SConstantPropagatorAndFolder v()<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    { return G.v().soot_shimple_toolkits_scalar_SConstantPropagatorAndFolder(); }<a name="line.54"></a>
+<span class="sourceLineNo">055</span><a name="line.55"></a>
+<span class="sourceLineNo">056</span>    protected ShimpleBody sb;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>    protected boolean debug;<a name="line.57"></a>
+<span class="sourceLineNo">058</span>    <a name="line.58"></a>
+<span class="sourceLineNo">059</span>    protected void internalTransform(Body b, String phaseName, Map&lt;String,String&gt; options)<a name="line.59"></a>
+<span class="sourceLineNo">060</span>    {<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        if(!(b instanceof ShimpleBody))<a name="line.61"></a>
+<span class="sourceLineNo">062</span>            throw new RuntimeException("SConstantPropagatorAndFolder requires a ShimpleBody.");<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        <a name="line.63"></a>
+<span class="sourceLineNo">064</span>        this.sb = (ShimpleBody) b;<a name="line.64"></a>
+<span class="sourceLineNo">065</span><a name="line.65"></a>
+<span class="sourceLineNo">066</span>        if(!sb.isSSA())<a name="line.66"></a>
+<span class="sourceLineNo">067</span>            throw new RuntimeException("ShimpleBody is not in proper SSA form as required by SConstantPropagatorAndFolder.  You may need to rebuild it or use ConstantPropagatorAndFolder instead.");<a name="line.67"></a>
+<span class="sourceLineNo">068</span><a name="line.68"></a>
+<span class="sourceLineNo">069</span>        boolean pruneCFG = PhaseOptions.getBoolean(options, "prune-cfg");<a name="line.69"></a>
+<span class="sourceLineNo">070</span>        debug = Options.v().debug();<a name="line.70"></a>
+<span class="sourceLineNo">071</span>        debug |= sb.getOptions().debug();<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        <a name="line.72"></a>
+<span class="sourceLineNo">073</span>        if (Options.v().verbose())<a name="line.73"></a>
+<span class="sourceLineNo">074</span>            G.v().out.println("[" + sb.getMethod().getName() +<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                              "] Propagating and folding constants (SSA)...");<a name="line.75"></a>
+<span class="sourceLineNo">076</span><a name="line.76"></a>
+<span class="sourceLineNo">077</span>        // *** FIXME: What happens when Shimple is built with another UnitGraph?<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        SCPFAnalysis scpf = new SCPFAnalysis(new ExceptionalUnitGraph(sb));<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>        propagateResults(scpf.getResults());<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        if(pruneCFG){<a name="line.81"></a>
+<span class="sourceLineNo">082</span>            removeStmts(scpf.getDeadStmts());<a name="line.82"></a>
+<span class="sourceLineNo">083</span>            replaceStmts(scpf.getStmtsToReplace());<a name="line.83"></a>
+<span class="sourceLineNo">084</span>        }<a name="line.84"></a>
+<span class="sourceLineNo">085</span>    }<a name="line.85"></a>
+<span class="sourceLineNo">086</span><a name="line.86"></a>
+<span class="sourceLineNo">087</span>    /**<a name="line.87"></a>
+<span class="sourceLineNo">088</span>     * Propagates constants to the definition and uses of the relevant<a name="line.88"></a>
+<span class="sourceLineNo">089</span>     * locals given a mapping.  Notice that we use the Shimple<a name="line.89"></a>
+<span class="sourceLineNo">090</span>     * implementation of LocalDefs and LocalUses.<a name="line.90"></a>
+<span class="sourceLineNo">091</span>     **/<a name="line.91"></a>
+<span class="sourceLineNo">092</span>    protected void propagateResults(Map&lt;Local, Constant&gt; localToConstant)<a name="line.92"></a>
+<span class="sourceLineNo">093</span>    {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>        Chain&lt;Unit&gt; units = sb.getUnits();<a name="line.94"></a>
+<span class="sourceLineNo">095</span>        Collection&lt;Local&gt; locals = sb.getLocals();<a name="line.95"></a>
+<span class="sourceLineNo">096</span>        ShimpleLocalDefs localDefs = new ShimpleLocalDefs(sb);<a name="line.96"></a>
+<span class="sourceLineNo">097</span>        ShimpleLocalUses localUses = new ShimpleLocalUses(sb);<a name="line.97"></a>
+<span class="sourceLineNo">098</span>        <a name="line.98"></a>
+<span class="sourceLineNo">099</span>        Iterator&lt;Local&gt; localsIt = locals.iterator();<a name="line.99"></a>
+<span class="sourceLineNo">100</span>        while(localsIt.hasNext()){<a name="line.100"></a>
+<span class="sourceLineNo">101</span>            Local local = localsIt.next();<a name="line.101"></a>
+<span class="sourceLineNo">102</span>            Constant constant = localToConstant.get(local);<a name="line.102"></a>
+<span class="sourceLineNo">103</span>            <a name="line.103"></a>
+<span class="sourceLineNo">104</span>            if(constant instanceof MetaConstant)<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                continue;<a name="line.105"></a>
+<span class="sourceLineNo">106</span><a name="line.106"></a>
+<span class="sourceLineNo">107</span>            // update definition<a name="line.107"></a>
+<span class="sourceLineNo">108</span>            {<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                DefinitionStmt stmt =<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                    (DefinitionStmt) localDefs.getDefsOf(local).get(0);<a name="line.110"></a>
+<span class="sourceLineNo">111</span><a name="line.111"></a>
+<span class="sourceLineNo">112</span>                ValueBox defSrcBox = stmt.getRightOpBox();<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                Value defSrc = defSrcBox.getValue();<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                <a name="line.114"></a>
+<span class="sourceLineNo">115</span>                if(defSrcBox.canContainValue(constant)){<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                    defSrcBox.setValue(constant);<a name="line.116"></a>
+<span class="sourceLineNo">117</span><a name="line.117"></a>
+<span class="sourceLineNo">118</span>                    // remove dangling pointers<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                    if(defSrc instanceof UnitBoxOwner)<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                        ((UnitBoxOwner)defSrc).clearUnitBoxes();<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                }<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                else if(debug)<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                    G.v().out.println("Warning: Couldn't propagate constant " + constant + " to box " + defSrcBox.getValue() + " in unit " + stmt);<a name="line.123"></a>
+<span class="sourceLineNo">124</span>            }<a name="line.124"></a>
+<span class="sourceLineNo">125</span>            <a name="line.125"></a>
+<span class="sourceLineNo">126</span>            // update uses<a name="line.126"></a>
+<span class="sourceLineNo">127</span>            {<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                Iterator usesIt = localUses.getUsesOf(local).iterator();<a name="line.128"></a>
+<span class="sourceLineNo">129</span>                <a name="line.129"></a>
+<span class="sourceLineNo">130</span>                while(usesIt.hasNext()){<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                    UnitValueBoxPair pair = (UnitValueBoxPair) usesIt.next();<a name="line.131"></a>
+<span class="sourceLineNo">132</span>                    ValueBox useBox = pair.getValueBox();<a name="line.132"></a>
+<span class="sourceLineNo">133</span><a name="line.133"></a>
+<span class="sourceLineNo">134</span>                    if(useBox.canContainValue(constant))<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                       useBox.setValue(constant);<a name="line.135"></a>
+<span class="sourceLineNo">136</span>                    else if(debug)<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                        G.v().out.println("Warning: Couldn't propagate constant " + constant + " to box " + useBox.getValue() + " in unit " + pair.getUnit());<a name="line.137"></a>
+<span class="sourceLineNo">138</span>                }<a name="line.138"></a>
+<span class="sourceLineNo">139</span>            }<a name="line.139"></a>
+<span class="sourceLineNo">140</span>        }<a name="line.140"></a>
+<span class="sourceLineNo">141</span>    }<a name="line.141"></a>
+<span class="sourceLineNo">142</span><a name="line.142"></a>
+<span class="sourceLineNo">143</span>    /**<a name="line.143"></a>
+<span class="sourceLineNo">144</span>     * Removes the given list of fall through IfStmts from the body.<a name="line.144"></a>
+<span class="sourceLineNo">145</span>     **/<a name="line.145"></a>
+<span class="sourceLineNo">146</span>    protected void removeStmts(List&lt;IfStmt&gt; deadStmts)<a name="line.146"></a>
+<span class="sourceLineNo">147</span>    {<a name="line.147"></a>
+<span class="sourceLineNo">148</span>        Chain units = sb.getUnits();<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        Iterator&lt;IfStmt&gt; deadIt = deadStmts.iterator();<a name="line.149"></a>
+<span class="sourceLineNo">150</span>        while(deadIt.hasNext()){<a name="line.150"></a>
+<span class="sourceLineNo">151</span>            Unit dead = deadIt.next();<a name="line.151"></a>
+<span class="sourceLineNo">152</span>            units.remove(dead);<a name="line.152"></a>
+<span class="sourceLineNo">153</span>            dead.clearUnitBoxes();<a name="line.153"></a>
+<span class="sourceLineNo">154</span>        }<a name="line.154"></a>
+<span class="sourceLineNo">155</span>    }<a name="line.155"></a>
+<span class="sourceLineNo">156</span><a name="line.156"></a>
+<span class="sourceLineNo">157</span>    /**<a name="line.157"></a>
+<span class="sourceLineNo">158</span>     * Replaces conditional branches by unconditional branches as<a name="line.158"></a>
+<span class="sourceLineNo">159</span>     * given by the mapping.<a name="line.159"></a>
+<span class="sourceLineNo">160</span>     **/<a name="line.160"></a>
+<span class="sourceLineNo">161</span>    protected void replaceStmts(Map&lt;Stmt, GotoStmt&gt; stmtsToReplace)<a name="line.161"></a>
+<span class="sourceLineNo">162</span>    {<a name="line.162"></a>
+<span class="sourceLineNo">163</span>        Chain units = sb.getUnits();<a name="line.163"></a>
+<span class="sourceLineNo">164</span>        Iterator&lt;Stmt&gt; stmtsIt = stmtsToReplace.keySet().iterator();<a name="line.164"></a>
+<span class="sourceLineNo">165</span>        while(stmtsIt.hasNext()){<a name="line.165"></a>
+<span class="sourceLineNo">166</span>            // important not to call clearUnitBoxes() on booted since<a name="line.166"></a>
+<span class="sourceLineNo">167</span>            // replacement uses the same UnitBox<a name="line.167"></a>
+<span class="sourceLineNo">168</span>            Unit booted = stmtsIt.next();<a name="line.168"></a>
+<span class="sourceLineNo">169</span>            Unit replacement = stmtsToReplace.get(booted);<a name="line.169"></a>
+<span class="sourceLineNo">170</span>            units.swapWith(booted, replacement);<a name="line.170"></a>
+<span class="sourceLineNo">171</span>        }<a name="line.171"></a>
+<span class="sourceLineNo">172</span>    }<a name="line.172"></a>
+<span class="sourceLineNo">173</span>}<a name="line.173"></a>
+<span class="sourceLineNo">174</span><a name="line.174"></a>
+<span class="sourceLineNo">175</span>/**<a name="line.175"></a>
+<span class="sourceLineNo">176</span> * The actual branching flow analysis implementation.  Briefly, a<a name="line.176"></a>
+<span class="sourceLineNo">177</span> * sketch of the sketch from the Cytron et al paper:<a name="line.177"></a>
+<span class="sourceLineNo">178</span> *<a name="line.178"></a>
+<span class="sourceLineNo">179</span> * &lt;p&gt; Initially the algorithm assumes that each edge is unexecutable<a name="line.179"></a>
+<span class="sourceLineNo">180</span> * (the entry nodes are reachable) and that each variable is constant<a name="line.180"></a>
+<span class="sourceLineNo">181</span> * with an unknown value, Top.  Assumptions are corrected until they<a name="line.181"></a>
+<span class="sourceLineNo">182</span> * stabilise.<a name="line.182"></a>
+<span class="sourceLineNo">183</span> *<a name="line.183"></a>
+<span class="sourceLineNo">184</span> * &lt;p&gt; For example, if &lt;tt&gt;q&lt;/tt&gt; is found to be not a constant (Bottom)<a name="line.184"></a>
+<span class="sourceLineNo">185</span> * in &lt;tt&gt;if(q == 0) goto label1&lt;/tt&gt; then both edges leaving the the<a name="line.185"></a>
+<span class="sourceLineNo">186</span> * statement are considered executable, if &lt;tt&gt;q&lt;/tt&gt; is found to be a<a name="line.186"></a>
+<span class="sourceLineNo">187</span> * constant then only one of the edges are executable.<a name="line.187"></a>
+<span class="sourceLineNo">188</span> *<a name="line.188"></a>
+<span class="sourceLineNo">189</span> * &lt;p&gt; Whenever a reachable definition statement such as "x = 3" is<a name="line.189"></a>
+<span class="sourceLineNo">190</span> * found, the information is propagated to all uses of x (this works<a name="line.190"></a>
+<span class="sourceLineNo">191</span> * due to the SSA property).<a name="line.191"></a>
+<span class="sourceLineNo">192</span> *<a name="line.192"></a>
+<span class="sourceLineNo">193</span> * &lt;p&gt; Perhaps the crucial point is that if a node such as &lt;tt&gt;x =<a name="line.193"></a>
+<span class="sourceLineNo">194</span> * Phi(x_1, x_2)&lt;/tt&gt; is ever found, information on &lt;tt&gt;x&lt;/tt&gt; is<a name="line.194"></a>
+<span class="sourceLineNo">195</span> * assumed as follows:<a name="line.195"></a>
+<span class="sourceLineNo">196</span> *<a name="line.196"></a>
+<span class="sourceLineNo">197</span> * &lt;ul&gt;<a name="line.197"></a>
+<span class="sourceLineNo">198</span> *  &lt;li&gt;If &lt;tt&gt;x_1&lt;/tt&gt; and &lt;tt&gt;x_2&lt;/tt&gt; are the same assumed<a name="line.198"></a>
+<span class="sourceLineNo">199</span> *  constant, &lt;tt&gt;x&lt;/tt&gt; is assumed to be that constant.  If they are<a name="line.199"></a>
+<span class="sourceLineNo">200</span> *  not the same constant, &lt;tt&gt;x&lt;/tt&gt; is Bottom.&lt;/li&gt;<a name="line.200"></a>
+<span class="sourceLineNo">201</span> *<a name="line.201"></a>
+<span class="sourceLineNo">202</span> *  &lt;li&gt;If either one is Top and the other is a constant, &lt;tt&gt;x&lt;/tt&gt;<a name="line.202"></a>
+<span class="sourceLineNo">203</span> *  is assumed to be the same as the known constant.&lt;/li&gt;<a name="line.203"></a>
+<span class="sourceLineNo">204</span> *<a name="line.204"></a>
+<span class="sourceLineNo">205</span> *  &lt;li&gt;If either is Bottom, &lt;tt&gt;x&lt;/tt&gt; is assumed to be Bottom.&lt;/li&gt;<a name="line.205"></a>
+<span class="sourceLineNo">206</span> * &lt;/ul&gt;<a name="line.206"></a>
+<span class="sourceLineNo">207</span> *<a name="line.207"></a>
+<span class="sourceLineNo">208</span> * &lt;p&gt; The crucial point about the crucial point is that if<a name="line.208"></a>
+<span class="sourceLineNo">209</span> * definitions of &lt;tt&gt;x_1&lt;/tt&gt; or &lt;tt&gt;x_2&lt;/tt&gt; are never reached, the<a name="line.209"></a>
+<span class="sourceLineNo">210</span> * Phi node will still assume them to be Top and hence they will not<a name="line.210"></a>
+<span class="sourceLineNo">211</span> * influence the decision as to whether &lt;tt&gt;x&lt;/tt&gt; is a constant or not.<a name="line.211"></a>
+<span class="sourceLineNo">212</span> **/<a name="line.212"></a>
+<span class="sourceLineNo">213</span>class SCPFAnalysis extends ForwardBranchedFlowAnalysis<a name="line.213"></a>
+<span class="sourceLineNo">214</span>{<a name="line.214"></a>
+<span class="sourceLineNo">215</span>    protected FlowSet emptySet;<a name="line.215"></a>
+<span class="sourceLineNo">216</span><a name="line.216"></a>
+<span class="sourceLineNo">217</span>    /**<a name="line.217"></a>
+<span class="sourceLineNo">218</span>     * A mapping of the locals to their current assumed constant value<a name="line.218"></a>
+<span class="sourceLineNo">219</span>     * (which may be Top or Bottom).<a name="line.219"></a>
+<span class="sourceLineNo">220</span>     **/<a name="line.220"></a>
+<span class="sourceLineNo">221</span>    protected Map&lt;Local, Constant&gt; localToConstant;<a name="line.221"></a>
+<span class="sourceLineNo">222</span><a name="line.222"></a>
+<span class="sourceLineNo">223</span>    /**<a name="line.223"></a>
+<span class="sourceLineNo">224</span>     * A map from conditional branches to their possible replacement <a name="line.224"></a>
+<span class="sourceLineNo">225</span>     * unit, an unconditional branch.<a name="line.225"></a>
+<span class="sourceLineNo">226</span>     **/<a name="line.226"></a>
+<span class="sourceLineNo">227</span>    protected Map&lt;Stmt, GotoStmt&gt; stmtToReplacement;<a name="line.227"></a>
+<span class="sourceLineNo">228</span><a name="line.228"></a>
+<span class="sourceLineNo">229</span>    /**<a name="line.229"></a>
+<span class="sourceLineNo">230</span>     * A list of IfStmts that always fall through.<a name="line.230"></a>
+<span class="sourceLineNo">231</span>     **/<a name="line.231"></a>
+<span class="sourceLineNo">232</span>    protected List&lt;IfStmt&gt; deadStmts;<a name="line.232"></a>
+<span class="sourceLineNo">233</span><a name="line.233"></a>
+<span class="sourceLineNo">234</span><a name="line.234"></a>
+<span class="sourceLineNo">235</span>    /**<a name="line.235"></a>
+<span class="sourceLineNo">236</span>     * Returns the localToConstant map.<a name="line.236"></a>
+<span class="sourceLineNo">237</span>     **/<a name="line.237"></a>
+<span class="sourceLineNo">238</span>    public Map&lt;Local, Constant&gt; getResults()<a name="line.238"></a>
+<span class="sourceLineNo">239</span>    {<a name="line.239"></a>
+<span class="sourceLineNo">240</span>        return localToConstant;<a name="line.240"></a>
+<span class="sourceLineNo">241</span>    }<a name="line.241"></a>
+<span class="sourceLineNo">242</span><a name="line.242"></a>
+<span class="sourceLineNo">243</span>    /**<a name="line.243"></a>
+<span class="sourceLineNo">244</span>     * Returns the list of fall through IfStmts.<a name="line.244"></a>
+<span class="sourceLineNo">245</span>     **/<a name="line.245"></a>
+<span class="sourceLineNo">246</span>    public List&lt;IfStmt&gt; getDeadStmts()<a name="line.246"></a>
+<span class="sourceLineNo">247</span>    {<a name="line.247"></a>
+<span class="sourceLineNo">248</span>        return deadStmts;<a name="line.248"></a>
+<span class="sourceLineNo">249</span>    }<a name="line.249"></a>
+<span class="sourceLineNo">250</span><a name="line.250"></a>
+<span class="sourceLineNo">251</span>    /**<a name="line.251"></a>
+<span class="sourceLineNo">252</span>     * Returns a Map from conditional branches to the unconditional branches<a name="line.252"></a>
+<span class="sourceLineNo">253</span>     * that can replace them.<a name="line.253"></a>
+<span class="sourceLineNo">254</span>     **/<a name="line.254"></a>
+<span class="sourceLineNo">255</span>    public Map&lt;Stmt, GotoStmt&gt; getStmtsToReplace()<a name="line.255"></a>
+<span class="sourceLineNo">256</span>    {<a name="line.256"></a>
+<span class="sourceLineNo">257</span>        return stmtToReplacement;<a name="line.257"></a>
+<span class="sourceLineNo">258</span>    }<a name="line.258"></a>
+<span class="sourceLineNo">259</span>    <a name="line.259"></a>
+<span class="sourceLineNo">260</span>    public SCPFAnalysis(UnitGraph graph)<a name="line.260"></a>
+<span class="sourceLineNo">261</span>    {<a name="line.261"></a>
+<span class="sourceLineNo">262</span>        super(graph);<a name="line.262"></a>
+<span class="sourceLineNo">263</span>        emptySet = new ArraySparseSet();<a name="line.263"></a>
+<span class="sourceLineNo">264</span>        stmtToReplacement = new HashMap&lt;Stmt, GotoStmt&gt;();<a name="line.264"></a>
+<span class="sourceLineNo">265</span>        deadStmts = new ArrayList&lt;IfStmt&gt;();<a name="line.265"></a>
+<span class="sourceLineNo">266</span>        <a name="line.266"></a>
+<span class="sourceLineNo">267</span>        // initialise localToConstant map -- assume all scalars are<a name="line.267"></a>
+<span class="sourceLineNo">268</span>        // constant (Top)<a name="line.268"></a>
+<span class="sourceLineNo">269</span>        {<a name="line.269"></a>
+<span class="sourceLineNo">270</span>                Collection&lt;Local&gt; locals = graph.getBody().getLocals();<a name="line.270"></a>
+<span class="sourceLineNo">271</span>            Iterator&lt;Local&gt; localsIt = locals.iterator();<a name="line.271"></a>
+<span class="sourceLineNo">272</span>            localToConstant = new HashMap&lt;Local, Constant&gt;(graph.size() * 2 + 1, 0.7f);<a name="line.272"></a>
+<span class="sourceLineNo">273</span><a name="line.273"></a>
+<span class="sourceLineNo">274</span>            while(localsIt.hasNext()){<a name="line.274"></a>
+<span class="sourceLineNo">275</span>                Local local = (Local) localsIt.next();<a name="line.275"></a>
+<span class="sourceLineNo">276</span>                localToConstant.put(local, TopConstant.v());<a name="line.276"></a>
+<span class="sourceLineNo">277</span>            }<a name="line.277"></a>
+<span class="sourceLineNo">278</span>        }<a name="line.278"></a>
+<span class="sourceLineNo">279</span><a name="line.279"></a>
+<span class="sourceLineNo">280</span>        doAnalysis();<a name="line.280"></a>
+<span class="sourceLineNo">281</span>    }<a name="line.281"></a>
+<span class="sourceLineNo">282</span><a name="line.282"></a>
+<span class="sourceLineNo">283</span>    // *** NOTE: this is here because ForwardBranchedFlowAnalysis does<a name="line.283"></a>
+<span class="sourceLineNo">284</span>    // *** not handle exceptional control flow properly in the<a name="line.284"></a>
+<span class="sourceLineNo">285</span>    // *** dataflow analysis.  this should be removed when<a name="line.285"></a>
+<span class="sourceLineNo">286</span>    // *** ForwardBranchedFlowAnalysis is fixed.<a name="line.286"></a>
+<span class="sourceLineNo">287</span>    protected boolean treatTrapHandlersAsEntries()<a name="line.287"></a>
+<span class="sourceLineNo">288</span>    {<a name="line.288"></a>
+<span class="sourceLineNo">289</span>        return true;<a name="line.289"></a>
+<span class="sourceLineNo">290</span>    }<a name="line.290"></a>
+<span class="sourceLineNo">291</span><a name="line.291"></a>
+<span class="sourceLineNo">292</span>    /**<a name="line.292"></a>
+<span class="sourceLineNo">293</span>     * If a node has empty IN sets we assume that it is not reachable.<a name="line.293"></a>
+<span class="sourceLineNo">294</span>     * Hence, we initialise the entry sets to be non-empty to indicate<a name="line.294"></a>
+<span class="sourceLineNo">295</span>     * that they are reachable.<a name="line.295"></a>
+<span class="sourceLineNo">296</span>     **/<a name="line.296"></a>
+<span class="sourceLineNo">297</span>    protected Object entryInitialFlow()<a name="line.297"></a>
+<span class="sourceLineNo">298</span>    {<a name="line.298"></a>
+<span class="sourceLineNo">299</span>        FlowSet entrySet = (FlowSet) emptySet.emptySet();<a name="line.299"></a>
+<span class="sourceLineNo">300</span>        entrySet.add(TopConstant.v());<a name="line.300"></a>
+<span class="sourceLineNo">301</span>        return entrySet;<a name="line.301"></a>
+<span class="sourceLineNo">302</span>    }<a name="line.302"></a>
+<span class="sourceLineNo">303</span><a name="line.303"></a>
+<span class="sourceLineNo">304</span>    /**<a name="line.304"></a>
+<span class="sourceLineNo">305</span>     * All other nodes are assumed to be unreachable by default.<a name="line.305"></a>
+<span class="sourceLineNo">306</span>     **/<a name="line.306"></a>
+<span class="sourceLineNo">307</span>    protected Object newInitialFlow()<a name="line.307"></a>
+<span class="sourceLineNo">308</span>    {<a name="line.308"></a>
+<span class="sourceLineNo">309</span>        return emptySet.emptySet();<a name="line.309"></a>
+<span class="sourceLineNo">310</span>    }<a name="line.310"></a>
+<span class="sourceLineNo">311</span><a name="line.311"></a>
+<span class="sourceLineNo">312</span>    /**<a name="line.312"></a>
+<span class="sourceLineNo">313</span>     * Since we are interested in control flow from all branches,<a name="line.313"></a>
+<span class="sourceLineNo">314</span>     * take the union.<a name="line.314"></a>
+<span class="sourceLineNo">315</span>     **/<a name="line.315"></a>
+<span class="sourceLineNo">316</span>    protected void merge(Object in1, Object in2, Object out)<a name="line.316"></a>
+<span class="sourceLineNo">317</span>    {<a name="line.317"></a>
+<span class="sourceLineNo">318</span>        FlowSet fin1 = (FlowSet) in1;<a name="line.318"></a>
+<span class="sourceLineNo">319</span>        FlowSet fin2 = (FlowSet) in2;<a name="line.319"></a>
+<span class="sourceLineNo">320</span>        FlowSet fout = (FlowSet) out;<a name="line.320"></a>
+<span class="sourceLineNo">321</span><a name="line.321"></a>
+<span class="sourceLineNo">322</span>        fin1.union(fin2, fout);<a name="line.322"></a>
+<span class="sourceLineNo">323</span>    }<a name="line.323"></a>
+<span class="sourceLineNo">324</span><a name="line.324"></a>
+<span class="sourceLineNo">325</span>    /**<a name="line.325"></a>
+<span class="sourceLineNo">326</span>     * Defer copy to FlowSet.<a name="line.326"></a>
+<span class="sourceLineNo">327</span>     **/<a name="line.327"></a>
+<span class="sourceLineNo">328</span>    protected void copy(Object source, Object dest)<a name="line.328"></a>
+<span class="sourceLineNo">329</span>    {<a name="line.329"></a>
+<span class="sourceLineNo">330</span>        FlowSet fource = (FlowSet) source;<a name="line.330"></a>
+<span class="sourceLineNo">331</span>        FlowSet fest = (FlowSet) dest;<a name="line.331"></a>
+<span class="sourceLineNo">332</span><a name="line.332"></a>
+<span class="sourceLineNo">333</span>        fource.copy(fest);<a name="line.333"></a>
+<span class="sourceLineNo">334</span>    }<a name="line.334"></a>
+<span class="sourceLineNo">335</span><a name="line.335"></a>
+<span class="sourceLineNo">336</span>    /**<a name="line.336"></a>
+<span class="sourceLineNo">337</span>     * If a node has an empty in set, it is considered unreachable.<a name="line.337"></a>
+<span class="sourceLineNo">338</span>     * Otherwise the node is examined and if any assumptions have to<a name="line.338"></a>
+<span class="sourceLineNo">339</span>     * be corrected, a Pair containing the corrected assumptions is<a name="line.339"></a>
+<span class="sourceLineNo">340</span>     * flowed to the reachable nodes.  If no assumptions have to be<a name="line.340"></a>
+<span class="sourceLineNo">341</span>     * corrected then no information other than the in set is<a name="line.341"></a>
+<span class="sourceLineNo">342</span>     * propagated to the reachable nodes.<a name="line.342"></a>
+<span class="sourceLineNo">343</span>     *<a name="line.343"></a>
+<span class="sourceLineNo">344</span>     * &lt;p&gt; Pair serves no other purpose than to keep the analysis<a name="line.344"></a>
+<span class="sourceLineNo">345</span>     * flowing for as long as needed.  The final results are<a name="line.345"></a>
+<span class="sourceLineNo">346</span>     * accumulated in the localToConstant map.<a name="line.346"></a>
+<span class="sourceLineNo">347</span>     **/<a name="line.347"></a>
+<span class="sourceLineNo">348</span>    protected void flowThrough(Object in, Unit s, List fallOut, List branchOuts)<a name="line.348"></a>
+<span class="sourceLineNo">349</span>    {<a name="line.349"></a>
+<span class="sourceLineNo">350</span>        FlowSet fin = ((FlowSet)in).clone();<a name="line.350"></a>
+<span class="sourceLineNo">351</span><a name="line.351"></a>
+<span class="sourceLineNo">352</span>        // not reachable<a name="line.352"></a>
+<span class="sourceLineNo">353</span>        if(fin.isEmpty())<a name="line.353"></a>
+<span class="sourceLineNo">354</span>            return;<a name="line.354"></a>
+<span class="sourceLineNo">355</span>        <a name="line.355"></a>
+<span class="sourceLineNo">356</span>        // If s is a definition, check if any assumptions have to be<a name="line.356"></a>
+<span class="sourceLineNo">357</span>        // corrected.<a name="line.357"></a>
+<span class="sourceLineNo">358</span>        Pair pair = processDefinitionStmt(s);<a name="line.358"></a>
+<span class="sourceLineNo">359</span><a name="line.359"></a>
+<span class="sourceLineNo">360</span>        if(pair != null)<a name="line.360"></a>
+<span class="sourceLineNo">361</span>            fin.add(pair);<a name="line.361"></a>
+<span class="sourceLineNo">362</span>        <a name="line.362"></a>
+<span class="sourceLineNo">363</span>        // normal, non-branching statement<a name="line.363"></a>
+<span class="sourceLineNo">364</span>        if(!s.branches() &amp;&amp; s.fallsThrough()){<a name="line.364"></a>
+<span class="sourceLineNo">365</span>            Iterator fallOutIt = fallOut.iterator();<a name="line.365"></a>
+<span class="sourceLineNo">366</span>            while(fallOutIt.hasNext()){<a name="line.366"></a>
+<span class="sourceLineNo">367</span>                FlowSet fallSet = (FlowSet) fallOutIt.next();<a name="line.367"></a>
+<span class="sourceLineNo">368</span>                fallSet.union(fin);<a name="line.368"></a>
+<span class="sourceLineNo">369</span>            }<a name="line.369"></a>
+<span class="sourceLineNo">370</span><a name="line.370"></a>
+<span class="sourceLineNo">371</span>            return;<a name="line.371"></a>
+<span class="sourceLineNo">372</span>        }<a name="line.372"></a>
+<span class="sourceLineNo">373</span><a name="line.373"></a>
+<span class="sourceLineNo">374</span>        /* determine which nodes are reachable. */<a name="line.374"></a>
+<span class="sourceLineNo">375</span>        <a name="line.375"></a>
+<span class="sourceLineNo">376</span>        boolean conservative = true;<a name="line.376"></a>
+<span class="sourceLineNo">377</span>        boolean fall = false;<a name="line.377"></a>
+<span class="sourceLineNo">378</span>        boolean branch = false;<a name="line.378"></a>
+<span class="sourceLineNo">379</span>        FlowSet oneBranch = null;<a name="line.379"></a>
+<span class="sourceLineNo">380</span>        <a name="line.380"></a>
+<span class="sourceLineNo">381</span>        IFSTMT:<a name="line.381"></a>
+<span class="sourceLineNo">382</span>        {<a name="line.382"></a>
+<span class="sourceLineNo">383</span>        if(s instanceof IfStmt){<a name="line.383"></a>
+<span class="sourceLineNo">384</span>            IfStmt ifStmt = (IfStmt) s;<a name="line.384"></a>
+<span class="sourceLineNo">385</span>            Value cond = ifStmt.getCondition();<a name="line.385"></a>
+<span class="sourceLineNo">386</span>            Constant constant =<a name="line.386"></a>
+<span class="sourceLineNo">387</span>                SEvaluator.getFuzzyConstantValueOf(cond, localToConstant);<a name="line.387"></a>
+<span class="sourceLineNo">388</span>            <a name="line.388"></a>
+<span class="sourceLineNo">389</span>            // flow both ways<a name="line.389"></a>
+<span class="sourceLineNo">390</span>            if(constant instanceof BottomConstant){<a name="line.390"></a>
+<span class="sourceLineNo">391</span>                deadStmts.remove(ifStmt);<a name="line.391"></a>
+<span class="sourceLineNo">392</span>                stmtToReplacement.remove(ifStmt);<a name="line.392"></a>
+<span class="sourceLineNo">393</span>                break IFSTMT;<a name="line.393"></a>
+<span class="sourceLineNo">394</span>            }<a name="line.394"></a>
+<span class="sourceLineNo">395</span><a name="line.395"></a>
+<span class="sourceLineNo">396</span>            // no flow<a name="line.396"></a>
+<span class="sourceLineNo">397</span>            if(constant instanceof TopConstant)<a name="line.397"></a>
+<span class="sourceLineNo">398</span>                return;<a name="line.398"></a>
+<span class="sourceLineNo">399</span><a name="line.399"></a>
+<span class="sourceLineNo">400</span>            /* determine whether to flow through or branch */<a name="line.400"></a>
+<span class="sourceLineNo">401</span>            <a name="line.401"></a>
+<span class="sourceLineNo">402</span>            conservative = false;<a name="line.402"></a>
+<span class="sourceLineNo">403</span><a name="line.403"></a>
+<span class="sourceLineNo">404</span>            Constant trueC = IntConstant.v(1);<a name="line.404"></a>
+<span class="sourceLineNo">405</span>            Constant falseC = IntConstant.v(0);<a name="line.405"></a>
+<span class="sourceLineNo">406</span><a name="line.406"></a>
+<span class="sourceLineNo">407</span>            if(constant.equals(trueC)){<a name="line.407"></a>
+<span class="sourceLineNo">408</span>                branch = true;<a name="line.408"></a>
+<span class="sourceLineNo">409</span>                GotoStmt gotoStmt =<a name="line.409"></a>
+<span class="sourceLineNo">410</span>                    Jimple.v().newGotoStmt(ifStmt.getTargetBox());<a name="line.410"></a>
+<span class="sourceLineNo">411</span>                stmtToReplacement.put(ifStmt, gotoStmt);<a name="line.411"></a>
+<span class="sourceLineNo">412</span>            }<a name="line.412"></a>
+<span class="sourceLineNo">413</span><a name="line.413"></a>
+<span class="sourceLineNo">414</span>            if(constant.equals(falseC)){<a name="line.414"></a>
+<span class="sourceLineNo">415</span>                fall = true;<a name="line.415"></a>
+<span class="sourceLineNo">416</span>                deadStmts.add(ifStmt);<a name="line.416"></a>
+<span class="sourceLineNo">417</span>            }<a name="line.417"></a>
+<span class="sourceLineNo">418</span>        }<a name="line.418"></a>
+<span class="sourceLineNo">419</span>        } // end IFSTMT<a name="line.419"></a>
+<span class="sourceLineNo">420</span><a name="line.420"></a>
+<span class="sourceLineNo">421</span>        TABLESWITCHSTMT:<a name="line.421"></a>
+<span class="sourceLineNo">422</span>        {<a name="line.422"></a>
+<span class="sourceLineNo">423</span>        if(s instanceof TableSwitchStmt){<a name="line.423"></a>
+<span class="sourceLineNo">424</span>            TableSwitchStmt table = (TableSwitchStmt) s;<a name="line.424"></a>
+<span class="sourceLineNo">425</span>            Value keyV = table.getKey();<a name="line.425"></a>
+<span class="sourceLineNo">426</span>            Constant keyC =<a name="line.426"></a>
+<span class="sourceLineNo">427</span>                SEvaluator.getFuzzyConstantValueOf(keyV, localToConstant);<a name="line.427"></a>
+<span class="sourceLineNo">428</span><a name="line.428"></a>
+<span class="sourceLineNo">429</span>            // flow all branches<a name="line.429"></a>
+<span class="sourceLineNo">430</span>            if(keyC instanceof BottomConstant){<a name="line.430"></a>
+<span class="sourceLineNo">431</span>                stmtToReplacement.remove(table);<a name="line.431"></a>
+<span class="sourceLineNo">432</span>                break TABLESWITCHSTMT;<a name="line.432"></a>
+<span class="sourceLineNo">433</span>            }<a name="line.433"></a>
+<span class="sourceLineNo">434</span><a name="line.434"></a>
+<span class="sourceLineNo">435</span>            // no flow<a name="line.435"></a>
+<span class="sourceLineNo">436</span>            if(keyC instanceof TopConstant)<a name="line.436"></a>
+<span class="sourceLineNo">437</span>                return;<a name="line.437"></a>
+<span class="sourceLineNo">438</span><a name="line.438"></a>
+<span class="sourceLineNo">439</span>            // flow all branches<a name="line.439"></a>
+<span class="sourceLineNo">440</span>            if(!(keyC instanceof IntConstant))<a name="line.440"></a>
+<span class="sourceLineNo">441</span>                break TABLESWITCHSTMT;<a name="line.441"></a>
+<span class="sourceLineNo">442</span><a name="line.442"></a>
+<span class="sourceLineNo">443</span>            /* find the one branch we need to flow to */<a name="line.443"></a>
+<span class="sourceLineNo">444</span><a name="line.444"></a>
+<span class="sourceLineNo">445</span>            conservative = false;<a name="line.445"></a>
+<span class="sourceLineNo">446</span>            <a name="line.446"></a>
+<span class="sourceLineNo">447</span>            int key = ((IntConstant)keyC).value;<a name="line.447"></a>
+<span class="sourceLineNo">448</span>            int low = table.getLowIndex();<a name="line.448"></a>
+<span class="sourceLineNo">449</span>            int high = table.getHighIndex();<a name="line.449"></a>
+<span class="sourceLineNo">450</span>            int index = key - low;<a name="line.450"></a>
+<span class="sourceLineNo">451</span><a name="line.451"></a>
+<span class="sourceLineNo">452</span>            UnitBox branchBox = null;<a name="line.452"></a>
+<span class="sourceLineNo">453</span>            if(index &lt; 0 || index &gt; high)<a name="line.453"></a>
+<span class="sourceLineNo">454</span>                branchBox = table.getDefaultTargetBox();<a name="line.454"></a>
+<span class="sourceLineNo">455</span>            else<a name="line.455"></a>
+<span class="sourceLineNo">456</span>                branchBox = table.getTargetBox(index);<a name="line.456"></a>
+<span class="sourceLineNo">457</span><a name="line.457"></a>
+<span class="sourceLineNo">458</span>            GotoStmt gotoStmt = Jimple.v().newGotoStmt(branchBox);<a name="line.458"></a>
+<span class="sourceLineNo">459</span>            stmtToReplacement.put(table, gotoStmt);<a name="line.459"></a>
+<span class="sourceLineNo">460</span>            <a name="line.460"></a>
+<span class="sourceLineNo">461</span>            List unitBoxes = table.getUnitBoxes();<a name="line.461"></a>
+<span class="sourceLineNo">462</span>            int setIndex = unitBoxes.indexOf(branchBox);<a name="line.462"></a>
+<span class="sourceLineNo">463</span>            oneBranch = (FlowSet) branchOuts.get(setIndex);<a name="line.463"></a>
+<span class="sourceLineNo">464</span>        }<a name="line.464"></a>
+<span class="sourceLineNo">465</span>        } // end TABLESWITCHSTMT<a name="line.465"></a>
+<span class="sourceLineNo">466</span><a name="line.466"></a>
+<span class="sourceLineNo">467</span>        LOOKUPSWITCHSTMT:<a name="line.467"></a>
+<span class="sourceLineNo">468</span>        {<a name="line.468"></a>
+<span class="sourceLineNo">469</span>        if(s instanceof LookupSwitchStmt){<a name="line.469"></a>
+<span class="sourceLineNo">470</span>            LookupSwitchStmt lookup = (LookupSwitchStmt) s;<a name="line.470"></a>
+<span class="sourceLineNo">471</span>            Value keyV = lookup.getKey();<a name="line.471"></a>
+<span class="sourceLineNo">472</span>            Constant keyC =<a name="line.472"></a>
+<span class="sourceLineNo">473</span>                SEvaluator.getFuzzyConstantValueOf(keyV, localToConstant);<a name="line.473"></a>
+<span class="sourceLineNo">474</span><a name="line.474"></a>
+<span class="sourceLineNo">475</span>            // flow all branches<a name="line.475"></a>
+<span class="sourceLineNo">476</span>            if(keyC instanceof BottomConstant){<a name="line.476"></a>
+<span class="sourceLineNo">477</span>                stmtToReplacement.remove(lookup);<a name="line.477"></a>
+<span class="sourceLineNo">478</span>                break LOOKUPSWITCHSTMT;<a name="line.478"></a>
+<span class="sourceLineNo">479</span>            }<a name="line.479"></a>
+<span class="sourceLineNo">480</span><a name="line.480"></a>
+<span class="sourceLineNo">481</span>            // no flow<a name="line.481"></a>
+<span class="sourceLineNo">482</span>            if(keyC instanceof TopConstant)<a name="line.482"></a>
+<span class="sourceLineNo">483</span>                return;<a name="line.483"></a>
+<span class="sourceLineNo">484</span><a name="line.484"></a>
+<span class="sourceLineNo">485</span>            // flow all branches<a name="line.485"></a>
+<span class="sourceLineNo">486</span>            if(!(keyC instanceof IntConstant))<a name="line.486"></a>
+<span class="sourceLineNo">487</span>                break LOOKUPSWITCHSTMT;<a name="line.487"></a>
+<span class="sourceLineNo">488</span><a name="line.488"></a>
+<span class="sourceLineNo">489</span>            /* find the one branch we need to flow to */<a name="line.489"></a>
+<span class="sourceLineNo">490</span><a name="line.490"></a>
+<span class="sourceLineNo">491</span>            conservative = false;<a name="line.491"></a>
+<span class="sourceLineNo">492</span>            <a name="line.492"></a>
+<span class="sourceLineNo">493</span>            int index = lookup.getLookupValues().indexOf(keyC);<a name="line.493"></a>
+<span class="sourceLineNo">494</span><a name="line.494"></a>
+<span class="sourceLineNo">495</span>            UnitBox branchBox = null;<a name="line.495"></a>
+<span class="sourceLineNo">496</span>            if(index == -1)<a name="line.496"></a>
+<span class="sourceLineNo">497</span>                branchBox = lookup.getDefaultTargetBox();<a name="line.497"></a>
+<span class="sourceLineNo">498</span>            else<a name="line.498"></a>
+<span class="sourceLineNo">499</span>                branchBox = lookup.getTargetBox(index);<a name="line.499"></a>
+<span class="sourceLineNo">500</span><a name="line.500"></a>
+<span class="sourceLineNo">501</span>            GotoStmt gotoStmt = Jimple.v().newGotoStmt(branchBox);<a name="line.501"></a>
+<span class="sourceLineNo">502</span>            stmtToReplacement.put(lookup, gotoStmt);<a name="line.502"></a>
+<span class="sourceLineNo">503</span>            <a name="line.503"></a>
+<span class="sourceLineNo">504</span>            List unitBoxes = lookup.getUnitBoxes();<a name="line.504"></a>
+<span class="sourceLineNo">505</span>            int setIndex = unitBoxes.indexOf(branchBox);<a name="line.505"></a>
+<span class="sourceLineNo">506</span>            oneBranch = (FlowSet) branchOuts.get(setIndex);<a name="line.506"></a>
+<span class="sourceLineNo">507</span>        }<a name="line.507"></a>
+<span class="sourceLineNo">508</span>        } // end LOOKUPSWITCHSTMT<a name="line.508"></a>
+<span class="sourceLineNo">509</span>        <a name="line.509"></a>
+<span class="sourceLineNo">510</span>        // conservative control flow estimates<a name="line.510"></a>
+<span class="sourceLineNo">511</span>        if(conservative){<a name="line.511"></a>
+<span class="sourceLineNo">512</span>            fall = s.fallsThrough();<a name="line.512"></a>
+<span class="sourceLineNo">513</span>            branch = s.branches();<a name="line.513"></a>
+<span class="sourceLineNo">514</span>        }<a name="line.514"></a>
+<span class="sourceLineNo">515</span><a name="line.515"></a>
+<span class="sourceLineNo">516</span>        if(fall){<a name="line.516"></a>
+<span class="sourceLineNo">517</span>            Iterator fallOutIt = fallOut.iterator();<a name="line.517"></a>
+<span class="sourceLineNo">518</span>            while(fallOutIt.hasNext()){<a name="line.518"></a>
+<span class="sourceLineNo">519</span>                FlowSet fallSet = (FlowSet) fallOutIt.next();<a name="line.519"></a>
+<span class="sourceLineNo">520</span>                fallSet.union(fin);<a name="line.520"></a>
+<span class="sourceLineNo">521</span>            }<a name="line.521"></a>
+<span class="sourceLineNo">522</span>        }<a name="line.522"></a>
+<span class="sourceLineNo">523</span>        <a name="line.523"></a>
+<span class="sourceLineNo">524</span>        if(branch){<a name="line.524"></a>
+<span class="sourceLineNo">525</span>            Iterator branchOutsIt = branchOuts.iterator();<a name="line.525"></a>
+<span class="sourceLineNo">526</span>            while(branchOutsIt.hasNext()){<a name="line.526"></a>
+<span class="sourceLineNo">527</span>                FlowSet branchSet = (FlowSet) branchOutsIt.next();<a name="line.527"></a>
+<span class="sourceLineNo">528</span>                branchSet.union(fin);<a name="line.528"></a>
+<span class="sourceLineNo">529</span>            }<a name="line.529"></a>
+<span class="sourceLineNo">530</span>        }<a name="line.530"></a>
+<span class="sourceLineNo">531</span><a name="line.531"></a>
+<span class="sourceLineNo">532</span>        if(oneBranch != null){<a name="line.532"></a>
+<span class="sourceLineNo">533</span>            oneBranch.union(fin);<a name="line.533"></a>
+<span class="sourceLineNo">534</span>        }<a name="line.534"></a>
+<span class="sourceLineNo">535</span>    }<a name="line.535"></a>
+<span class="sourceLineNo">536</span><a name="line.536"></a>
+<span class="sourceLineNo">537</span>    /**<a name="line.537"></a>
+<span class="sourceLineNo">538</span>     * Returns (Unit, Constant) pair if an assumption has  changed <a name="line.538"></a>
+<span class="sourceLineNo">539</span>     * due to the fact that u is reachable.  Else returns null.<a name="line.539"></a>
+<span class="sourceLineNo">540</span>     **/<a name="line.540"></a>
+<span class="sourceLineNo">541</span>    protected Pair processDefinitionStmt(Unit u)<a name="line.541"></a>
+<span class="sourceLineNo">542</span>    {<a name="line.542"></a>
+<span class="sourceLineNo">543</span>        if(!(u instanceof DefinitionStmt))<a name="line.543"></a>
+<span class="sourceLineNo">544</span>            return null;<a name="line.544"></a>
+<span class="sourceLineNo">545</span><a name="line.545"></a>
+<span class="sourceLineNo">546</span>        DefinitionStmt dStmt = (DefinitionStmt) u;<a name="line.546"></a>
+<span class="sourceLineNo">547</span>        <a name="line.547"></a>
+<span class="sourceLineNo">548</span>        Local local;<a name="line.548"></a>
+<span class="sourceLineNo">549</span><a name="line.549"></a>
+<span class="sourceLineNo">550</span>        {<a name="line.550"></a>
+<span class="sourceLineNo">551</span>            Value value = dStmt.getLeftOp();<a name="line.551"></a>
+<span class="sourceLineNo">552</span>            if(!(value instanceof Local))<a name="line.552"></a>
+<span class="sourceLineNo">553</span>                return null;<a name="line.553"></a>
+<span class="sourceLineNo">554</span>            local = (Local) value;<a name="line.554"></a>
+<span class="sourceLineNo">555</span>        }<a name="line.555"></a>
+<span class="sourceLineNo">556</span><a name="line.556"></a>
+<span class="sourceLineNo">557</span>        /* update assumptions */<a name="line.557"></a>
+<span class="sourceLineNo">558</span><a name="line.558"></a>
+<span class="sourceLineNo">559</span>        Value rightOp = dStmt.getRightOp();<a name="line.559"></a>
+<span class="sourceLineNo">560</span>        Constant constant =<a name="line.560"></a>
+<span class="sourceLineNo">561</span>            SEvaluator.getFuzzyConstantValueOf(rightOp, localToConstant);<a name="line.561"></a>
+<span class="sourceLineNo">562</span>        <a name="line.562"></a>
+<span class="sourceLineNo">563</span>        if(!merge(local, constant))<a name="line.563"></a>
+<span class="sourceLineNo">564</span>            return null;<a name="line.564"></a>
+<span class="sourceLineNo">565</span><a name="line.565"></a>
+<span class="sourceLineNo">566</span>        return new Pair(u, localToConstant.get(local));<a name="line.566"></a>
+<span class="sourceLineNo">567</span>    }<a name="line.567"></a>
+<span class="sourceLineNo">568</span>    <a name="line.568"></a>
+<span class="sourceLineNo">569</span>    /**<a name="line.569"></a>
+<span class="sourceLineNo">570</span>     * Verifies if the given assumption "constant" changes the<a name="line.570"></a>
+<span class="sourceLineNo">571</span>     * previous assumption about "local" and merges the information<a name="line.571"></a>
+<span class="sourceLineNo">572</span>     * into the localToConstant map.  Returns true if something<a name="line.572"></a>
+<span class="sourceLineNo">573</span>     * changed.<a name="line.573"></a>
+<span class="sourceLineNo">574</span>     **/<a name="line.574"></a>
+<span class="sourceLineNo">575</span>    protected boolean merge(Local local, Constant constant)<a name="line.575"></a>
+<span class="sourceLineNo">576</span>    {<a name="line.576"></a>
+<span class="sourceLineNo">577</span>        Constant current = localToConstant.get(local);<a name="line.577"></a>
+<span class="sourceLineNo">578</span><a name="line.578"></a>
+<span class="sourceLineNo">579</span>        if(current instanceof BottomConstant) <a name="line.579"></a>
+<span class="sourceLineNo">580</span>            return false;<a name="line.580"></a>
+<span class="sourceLineNo">581</span><a name="line.581"></a>
+<span class="sourceLineNo">582</span>        if(current instanceof TopConstant){<a name="line.582"></a>
+<span class="sourceLineNo">583</span>            localToConstant.put(local, constant);<a name="line.583"></a>
+<span class="sourceLineNo">584</span>            return true;<a name="line.584"></a>
+<span class="sourceLineNo">585</span>        }<a name="line.585"></a>
+<span class="sourceLineNo">586</span><a name="line.586"></a>
+<span class="sourceLineNo">587</span>        if(current.equals(constant))<a name="line.587"></a>
+<span class="sourceLineNo">588</span>            return false;<a name="line.588"></a>
+<span class="sourceLineNo">589</span><a name="line.589"></a>
+<span class="sourceLineNo">590</span>        // not equal<a name="line.590"></a>
+<span class="sourceLineNo">591</span>        localToConstant.put(local, BottomConstant.v());<a name="line.591"></a>
+<span class="sourceLineNo">592</span>        return true;<a name="line.592"></a>
+<span class="sourceLineNo">593</span>    }<a name="line.593"></a>
+<span class="sourceLineNo">594</span>}<a name="line.594"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

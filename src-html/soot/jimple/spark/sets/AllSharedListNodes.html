@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>package soot.jimple.spark.sets;<a name="line.1"></a>
+<span class="sourceLineNo">002</span><a name="line.2"></a>
+<span class="sourceLineNo">003</span>import java.util.HashMap;<a name="line.3"></a>
+<span class="sourceLineNo">004</span>import java.util.Map;<a name="line.4"></a>
+<span class="sourceLineNo">005</span><a name="line.5"></a>
+<span class="sourceLineNo">006</span>import soot.G;<a name="line.6"></a>
+<span class="sourceLineNo">007</span>import soot.Singletons;<a name="line.7"></a>
+<span class="sourceLineNo">008</span>import soot.jimple.spark.sets.SharedListSet.ListNode;<a name="line.8"></a>
+<span class="sourceLineNo">009</span>import soot.jimple.spark.sets.SharedListSet.Pair;<a name="line.9"></a>
+<span class="sourceLineNo">010</span><a name="line.10"></a>
+<span class="sourceLineNo">011</span>/**A singleton to hold the hash table for SharedListSet*/<a name="line.11"></a>
+<span class="sourceLineNo">012</span><a name="line.12"></a>
+<span class="sourceLineNo">013</span>public class AllSharedListNodes {<a name="line.13"></a>
+<span class="sourceLineNo">014</span>    public AllSharedListNodes( Singletons.Global g ) {}<a name="line.14"></a>
+<span class="sourceLineNo">015</span>    public static AllSharedListNodes v() { return G.v().soot_jimple_spark_sets_AllSharedListNodes(); }<a name="line.15"></a>
+<span class="sourceLineNo">016</span>        public Map&lt;Pair, ListNode&gt; allNodes = new HashMap&lt;Pair, ListNode&gt;();<a name="line.16"></a>
+<span class="sourceLineNo">017</span>}<a name="line.17"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

@@ -1,0 +1,642 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2004 Jennifer Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.javaToJimple;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.util.ArrayList;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.HashMap;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.Iterator;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.List;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>import polyglot.ast.ClassDecl;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import polyglot.ast.New;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import polyglot.ast.Node;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import polyglot.types.ConstructorInstance;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import polyglot.util.IdentityKey;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import soot.FastHierarchy;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.SootClass;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.SootMethod;<a name="line.33"></a>
+<span class="sourceLineNo">034</span><a name="line.34"></a>
+<span class="sourceLineNo">035</span>public class InitialResolver implements IInitialResolver {<a name="line.35"></a>
+<span class="sourceLineNo">036</span><a name="line.36"></a>
+<span class="sourceLineNo">037</span>    private polyglot.ast.Node astNode;  // source node<a name="line.37"></a>
+<span class="sourceLineNo">038</span>    private polyglot.frontend.Compiler compiler; <a name="line.38"></a>
+<span class="sourceLineNo">039</span>    private BiMap anonClassMap;   // maps New to SootClass (name)<a name="line.39"></a>
+<span class="sourceLineNo">040</span>    private HashMap&lt;IdentityKey, String&gt; anonTypeMap;    //maps polyglot types to soot types<a name="line.40"></a>
+<span class="sourceLineNo">041</span>    private BiMap localClassMap;  // maps LocalClassDecl to SootClass (name)<a name="line.41"></a>
+<span class="sourceLineNo">042</span>    private HashMap&lt;IdentityKey, String&gt; localTypeMap;   // maps polyglot types to soot types<a name="line.42"></a>
+<span class="sourceLineNo">043</span>    private int privateAccessCounter = 0; // global for whole program because<a name="line.43"></a>
+<span class="sourceLineNo">044</span>                                          // the methods created are static <a name="line.44"></a>
+<span class="sourceLineNo">045</span>    private HashMap&lt;IdentityKey, AnonLocalClassInfo&gt; finalLocalInfo; // new or lcd mapped to list of final locals avail in current meth and the whether its static<a name="line.45"></a>
+<span class="sourceLineNo">046</span>    private HashMap&lt;String, Node&gt; sootNameToAST = null;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>    private ArrayList hasOuterRefInInit; // list of sootclass types that need an outer class this param in for init<a name="line.47"></a>
+<span class="sourceLineNo">048</span>   <a name="line.48"></a>
+<span class="sourceLineNo">049</span>    private HashMap&lt;String, String&gt; classToSourceMap;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>    private HashMap&lt;SootClass, SootClass&gt; specialAnonMap;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>    private HashMap&lt;IdentityKey, SootMethod&gt; privateFieldGetAccessMap;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>    private HashMap&lt;IdentityKey, SootMethod&gt; privateFieldSetAccessMap;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    private HashMap&lt;IdentityKey, SootMethod&gt; privateMethodGetAccessMap;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    private ArrayList&lt;String&gt; interfacesList;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>    private ArrayList&lt;Node&gt; cCallList;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>    <a name="line.56"></a>
+<span class="sourceLineNo">057</span>    private HashMap&lt;New, ConstructorInstance&gt; anonConstructorMap;<a name="line.57"></a>
+<span class="sourceLineNo">058</span><a name="line.58"></a>
+<span class="sourceLineNo">059</span>    public void addToAnonConstructorMap(polyglot.ast.New anonNew, polyglot.types.ConstructorInstance ci){<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        if (anonConstructorMap == null){<a name="line.60"></a>
+<span class="sourceLineNo">061</span>            anonConstructorMap = new HashMap&lt;New, ConstructorInstance&gt;();<a name="line.61"></a>
+<span class="sourceLineNo">062</span>        }<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        anonConstructorMap.put(anonNew, ci);<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    }<a name="line.64"></a>
+<span class="sourceLineNo">065</span>   <a name="line.65"></a>
+<span class="sourceLineNo">066</span>    public polyglot.types.ConstructorInstance getConstructorForAnon(polyglot.ast.New anonNew){<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        if (anonConstructorMap == null) return null;<a name="line.67"></a>
+<span class="sourceLineNo">068</span>        return anonConstructorMap.get(anonNew);<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    }<a name="line.69"></a>
+<span class="sourceLineNo">070</span><a name="line.70"></a>
+<span class="sourceLineNo">071</span>    private FastHierarchy hierarchy;<a name="line.71"></a>
+<span class="sourceLineNo">072</span><a name="line.72"></a>
+<span class="sourceLineNo">073</span>    private AbstractJBBFactory jbbFactory = new JimpleBodyBuilderFactory();<a name="line.73"></a>
+<span class="sourceLineNo">074</span><a name="line.74"></a>
+<span class="sourceLineNo">075</span>    public void setJBBFactory(AbstractJBBFactory jbbFactory){<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        this.jbbFactory = jbbFactory;<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    }<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    <a name="line.78"></a>
+<span class="sourceLineNo">079</span>    public AbstractJBBFactory getJBBFactory(){<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        return jbbFactory;<a name="line.80"></a>
+<span class="sourceLineNo">081</span>    }<a name="line.81"></a>
+<span class="sourceLineNo">082</span>    <a name="line.82"></a>
+<span class="sourceLineNo">083</span>    /**<a name="line.83"></a>
+<span class="sourceLineNo">084</span>     * returns true if there is an AST avail for given soot class<a name="line.84"></a>
+<span class="sourceLineNo">085</span>     */<a name="line.85"></a>
+<span class="sourceLineNo">086</span>    public boolean hasASTForSootName(String name){<a name="line.86"></a>
+<span class="sourceLineNo">087</span>       if (sootNameToAST == null) return false;<a name="line.87"></a>
+<span class="sourceLineNo">088</span>       if (sootNameToAST.containsKey(name)) return true;<a name="line.88"></a>
+<span class="sourceLineNo">089</span>       return false;<a name="line.89"></a>
+<span class="sourceLineNo">090</span>    }<a name="line.90"></a>
+<span class="sourceLineNo">091</span>    <a name="line.91"></a>
+<span class="sourceLineNo">092</span>    /**<a name="line.92"></a>
+<span class="sourceLineNo">093</span>     * sets AST for given soot class if possible<a name="line.93"></a>
+<span class="sourceLineNo">094</span>     */<a name="line.94"></a>
+<span class="sourceLineNo">095</span>    public void setASTForSootName(String name){<a name="line.95"></a>
+<span class="sourceLineNo">096</span>        if (!hasASTForSootName(name)) {<a name="line.96"></a>
+<span class="sourceLineNo">097</span>            throw new RuntimeException("Can only set AST for name if it exists. You should probably not be calling this method unless you know what you're doing!");<a name="line.97"></a>
+<span class="sourceLineNo">098</span>        }<a name="line.98"></a>
+<span class="sourceLineNo">099</span>        setAst(sootNameToAST.get(name));<a name="line.99"></a>
+<span class="sourceLineNo">100</span>    }<a name="line.100"></a>
+<span class="sourceLineNo">101</span>   <a name="line.101"></a>
+<span class="sourceLineNo">102</span>    public InitialResolver(soot.Singletons.Global g){}<a name="line.102"></a>
+<span class="sourceLineNo">103</span>    public static InitialResolver v() {<a name="line.103"></a>
+<span class="sourceLineNo">104</span>        return soot.G.v().soot_javaToJimple_InitialResolver();<a name="line.104"></a>
+<span class="sourceLineNo">105</span>    }<a name="line.105"></a>
+<span class="sourceLineNo">106</span>    <a name="line.106"></a>
+<span class="sourceLineNo">107</span><a name="line.107"></a>
+<span class="sourceLineNo">108</span>    <a name="line.108"></a>
+<span class="sourceLineNo">109</span>    /**<a name="line.109"></a>
+<span class="sourceLineNo">110</span>     * Invokes polyglot and gets the AST for the source given in fullPath<a name="line.110"></a>
+<span class="sourceLineNo">111</span>     */<a name="line.111"></a>
+<span class="sourceLineNo">112</span>    public void formAst(String fullPath, List&lt;String&gt; locations, String className){<a name="line.112"></a>
+<span class="sourceLineNo">113</span>    <a name="line.113"></a>
+<span class="sourceLineNo">114</span>        JavaToJimple jtj = new JavaToJimple();<a name="line.114"></a>
+<span class="sourceLineNo">115</span>        polyglot.frontend.ExtensionInfo extInfo = jtj.initExtInfo(fullPath, locations);<a name="line.115"></a>
+<span class="sourceLineNo">116</span>        // only have one compiler - for memory issues<a name="line.116"></a>
+<span class="sourceLineNo">117</span>        if (compiler == null) {<a name="line.117"></a>
+<span class="sourceLineNo">118</span>            compiler = new polyglot.frontend.Compiler(extInfo);<a name="line.118"></a>
+<span class="sourceLineNo">119</span>        }<a name="line.119"></a>
+<span class="sourceLineNo">120</span>        // build ast<a name="line.120"></a>
+<span class="sourceLineNo">121</span>        astNode = jtj.compile(compiler, fullPath, extInfo);<a name="line.121"></a>
+<span class="sourceLineNo">122</span> <a name="line.122"></a>
+<span class="sourceLineNo">123</span>        resolveAST();<a name="line.123"></a>
+<span class="sourceLineNo">124</span><a name="line.124"></a>
+<span class="sourceLineNo">125</span><a name="line.125"></a>
+<span class="sourceLineNo">126</span>    }<a name="line.126"></a>
+<span class="sourceLineNo">127</span><a name="line.127"></a>
+<span class="sourceLineNo">128</span>    /**<a name="line.128"></a>
+<span class="sourceLineNo">129</span>     * if you have a special AST set it here then call resolveFormJavaFile<a name="line.129"></a>
+<span class="sourceLineNo">130</span>     * on the soot class<a name="line.130"></a>
+<span class="sourceLineNo">131</span>     */ <a name="line.131"></a>
+<span class="sourceLineNo">132</span>    public void setAst(polyglot.ast.Node ast) {<a name="line.132"></a>
+<span class="sourceLineNo">133</span>        astNode = ast;<a name="line.133"></a>
+<span class="sourceLineNo">134</span>    }<a name="line.134"></a>
+<span class="sourceLineNo">135</span>    <a name="line.135"></a>
+<span class="sourceLineNo">136</span>    /*<a name="line.136"></a>
+<span class="sourceLineNo">137</span>     * March 2nd, 2006 Nomair<a name="line.137"></a>
+<span class="sourceLineNo">138</span>     * Is it okkay get the ast and send it to the ASTMetrics package????<a name="line.138"></a>
+<span class="sourceLineNo">139</span>     */<a name="line.139"></a>
+<span class="sourceLineNo">140</span>    public polyglot.ast.Node getAst(){<a name="line.140"></a>
+<span class="sourceLineNo">141</span>        return astNode;<a name="line.141"></a>
+<span class="sourceLineNo">142</span>    }<a name="line.142"></a>
+<span class="sourceLineNo">143</span><a name="line.143"></a>
+<span class="sourceLineNo">144</span>    private void makeASTMap() {<a name="line.144"></a>
+<span class="sourceLineNo">145</span>        ClassDeclFinder finder = new ClassDeclFinder();<a name="line.145"></a>
+<span class="sourceLineNo">146</span>        astNode.visit(finder);<a name="line.146"></a>
+<span class="sourceLineNo">147</span>        Iterator&lt;ClassDecl&gt; it = finder.declsFound().iterator();<a name="line.147"></a>
+<span class="sourceLineNo">148</span>        while (it.hasNext()){<a name="line.148"></a>
+<span class="sourceLineNo">149</span>            polyglot.ast.ClassDecl decl = it.next();<a name="line.149"></a>
+<span class="sourceLineNo">150</span>            polyglot.types.ClassType type = decl.type();<a name="line.150"></a>
+<span class="sourceLineNo">151</span>            if (type.flags().isInterface()){<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                if (interfacesList ==  null){<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                    interfacesList = new ArrayList&lt;String&gt;();<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                }<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                interfacesList.add(Util.getSootType(type).toString());<a name="line.155"></a>
+<span class="sourceLineNo">156</span>            }<a name="line.156"></a>
+<span class="sourceLineNo">157</span>            addNameToAST(Util.getSootType(type).toString());<a name="line.157"></a>
+<span class="sourceLineNo">158</span>        }<a name="line.158"></a>
+<span class="sourceLineNo">159</span>    }<a name="line.159"></a>
+<span class="sourceLineNo">160</span>    <a name="line.160"></a>
+<span class="sourceLineNo">161</span>    /**<a name="line.161"></a>
+<span class="sourceLineNo">162</span>     * add name to AST to map - used mostly for inner and non public<a name="line.162"></a>
+<span class="sourceLineNo">163</span>     * top-level classes<a name="line.163"></a>
+<span class="sourceLineNo">164</span>     */<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    protected void addNameToAST(String name){<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        if (sootNameToAST == null){<a name="line.166"></a>
+<span class="sourceLineNo">167</span>            sootNameToAST = new HashMap&lt;String, Node&gt;();<a name="line.167"></a>
+<span class="sourceLineNo">168</span>        }   <a name="line.168"></a>
+<span class="sourceLineNo">169</span>        sootNameToAST.put(name, astNode);<a name="line.169"></a>
+<span class="sourceLineNo">170</span>    }<a name="line.170"></a>
+<span class="sourceLineNo">171</span>   <a name="line.171"></a>
+<span class="sourceLineNo">172</span>    public void resolveAST(){<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        buildInnerClassInfo();<a name="line.173"></a>
+<span class="sourceLineNo">174</span>        if (astNode instanceof polyglot.ast.SourceFile) {<a name="line.174"></a>
+<span class="sourceLineNo">175</span>            createClassToSourceMap((polyglot.ast.SourceFile)astNode);<a name="line.175"></a>
+<span class="sourceLineNo">176</span>        }<a name="line.176"></a>
+<span class="sourceLineNo">177</span>    }<a name="line.177"></a>
+<span class="sourceLineNo">178</span>    <a name="line.178"></a>
+<span class="sourceLineNo">179</span>    // resolves all types and deals with .class literals and asserts<a name="line.179"></a>
+<span class="sourceLineNo">180</span>    public Dependencies resolveFromJavaFile(soot.SootClass sc) {<a name="line.180"></a>
+<span class="sourceLineNo">181</span>        Dependencies dependencies = new Dependencies();<a name="line.181"></a>
+<span class="sourceLineNo">182</span>        //conservatively load all to signatures<a name="line.182"></a>
+<span class="sourceLineNo">183</span>        ClassResolver cr = new ClassResolver(sc, dependencies.typesToSignature);<a name="line.183"></a>
+<span class="sourceLineNo">184</span>        <a name="line.184"></a>
+<span class="sourceLineNo">185</span>        // create class to source map first <a name="line.185"></a>
+<span class="sourceLineNo">186</span>        // create source file<a name="line.186"></a>
+<span class="sourceLineNo">187</span>        if (astNode instanceof polyglot.ast.SourceFile) {<a name="line.187"></a>
+<span class="sourceLineNo">188</span>            cr.createSource((polyglot.ast.SourceFile)astNode);<a name="line.188"></a>
+<span class="sourceLineNo">189</span>        }<a name="line.189"></a>
+<span class="sourceLineNo">190</span>        <a name="line.190"></a>
+<span class="sourceLineNo">191</span>        cr.addSourceFileTag(sc);<a name="line.191"></a>
+<span class="sourceLineNo">192</span>        <a name="line.192"></a>
+<span class="sourceLineNo">193</span>        makeASTMap();<a name="line.193"></a>
+<span class="sourceLineNo">194</span>        <a name="line.194"></a>
+<span class="sourceLineNo">195</span>        <a name="line.195"></a>
+<span class="sourceLineNo">196</span>        return dependencies;<a name="line.196"></a>
+<span class="sourceLineNo">197</span>    }<a name="line.197"></a>
+<span class="sourceLineNo">198</span>    <a name="line.198"></a>
+<span class="sourceLineNo">199</span><a name="line.199"></a>
+<span class="sourceLineNo">200</span>    private void createClassToSourceMap(polyglot.ast.SourceFile src){<a name="line.200"></a>
+<span class="sourceLineNo">201</span>       <a name="line.201"></a>
+<span class="sourceLineNo">202</span>        String srcName = src.source().path();<a name="line.202"></a>
+<span class="sourceLineNo">203</span>        String srcFileName = null;<a name="line.203"></a>
+<span class="sourceLineNo">204</span>        if (src.package_() != null){<a name="line.204"></a>
+<span class="sourceLineNo">205</span>            String slashedPkg = src.package_().package_().fullName().replaceAll(".", System.getProperty("file.separator"));<a name="line.205"></a>
+<span class="sourceLineNo">206</span>            srcFileName = srcName.substring(srcName.lastIndexOf(slashedPkg));<a name="line.206"></a>
+<span class="sourceLineNo">207</span>        }<a name="line.207"></a>
+<span class="sourceLineNo">208</span>        else {<a name="line.208"></a>
+<span class="sourceLineNo">209</span>            srcFileName = srcName.substring(srcName.lastIndexOf(System.getProperty("file.separator"))+1);<a name="line.209"></a>
+<span class="sourceLineNo">210</span>        }<a name="line.210"></a>
+<span class="sourceLineNo">211</span><a name="line.211"></a>
+<span class="sourceLineNo">212</span>        ArrayList list = new ArrayList();<a name="line.212"></a>
+<span class="sourceLineNo">213</span>        Iterator it = src.decls().iterator();<a name="line.213"></a>
+<span class="sourceLineNo">214</span>        while (it.hasNext()){<a name="line.214"></a>
+<span class="sourceLineNo">215</span>            polyglot.ast.ClassDecl nextDecl = (polyglot.ast.ClassDecl)it.next();<a name="line.215"></a>
+<span class="sourceLineNo">216</span>            addToClassToSourceMap(Util.getSootType(nextDecl.type()).toString(), srcFileName); <a name="line.216"></a>
+<span class="sourceLineNo">217</span>        }<a name="line.217"></a>
+<span class="sourceLineNo">218</span><a name="line.218"></a>
+<span class="sourceLineNo">219</span>    }<a name="line.219"></a>
+<span class="sourceLineNo">220</span><a name="line.220"></a>
+<span class="sourceLineNo">221</span>    private void createLocalAndAnonClassNames(ArrayList&lt;Node&gt; anonBodyList, ArrayList&lt;Node&gt; localClassDeclList){<a name="line.221"></a>
+<span class="sourceLineNo">222</span>        Iterator&lt;Node&gt; anonBodyIt = anonBodyList.iterator();<a name="line.222"></a>
+<span class="sourceLineNo">223</span>        while (anonBodyIt.hasNext()){<a name="line.223"></a>
+<span class="sourceLineNo">224</span>            createAnonClassName((polyglot.ast.New)anonBodyIt.next());<a name="line.224"></a>
+<span class="sourceLineNo">225</span>        }<a name="line.225"></a>
+<span class="sourceLineNo">226</span>        Iterator&lt;Node&gt; localClassDeclIt = localClassDeclList.iterator();<a name="line.226"></a>
+<span class="sourceLineNo">227</span>        while (localClassDeclIt.hasNext()){<a name="line.227"></a>
+<span class="sourceLineNo">228</span>            createLocalClassName((polyglot.ast.LocalClassDecl)localClassDeclIt.next());<a name="line.228"></a>
+<span class="sourceLineNo">229</span>        }<a name="line.229"></a>
+<span class="sourceLineNo">230</span>    }<a name="line.230"></a>
+<span class="sourceLineNo">231</span><a name="line.231"></a>
+<span class="sourceLineNo">232</span>    protected int getNextAnonNum(){<a name="line.232"></a>
+<span class="sourceLineNo">233</span>        if (anonTypeMap == null) return 1;<a name="line.233"></a>
+<span class="sourceLineNo">234</span>        else return anonTypeMap.size()+1;<a name="line.234"></a>
+<span class="sourceLineNo">235</span>    }<a name="line.235"></a>
+<span class="sourceLineNo">236</span>    <a name="line.236"></a>
+<span class="sourceLineNo">237</span>    private void createAnonClassName(polyglot.ast.New nextNew){<a name="line.237"></a>
+<span class="sourceLineNo">238</span>        // maybe this anon has already been resolved<a name="line.238"></a>
+<span class="sourceLineNo">239</span>        if (anonClassMap == null){<a name="line.239"></a>
+<span class="sourceLineNo">240</span>            anonClassMap = new BiMap();<a name="line.240"></a>
+<span class="sourceLineNo">241</span>        }<a name="line.241"></a>
+<span class="sourceLineNo">242</span>        if (anonTypeMap == null){<a name="line.242"></a>
+<span class="sourceLineNo">243</span>            anonTypeMap = new HashMap&lt;IdentityKey, String&gt;();<a name="line.243"></a>
+<span class="sourceLineNo">244</span>        }<a name="line.244"></a>
+<span class="sourceLineNo">245</span>        if (!anonClassMap.containsKey(nextNew)){<a name="line.245"></a>
+<span class="sourceLineNo">246</span>            int nextAvailNum = 1;<a name="line.246"></a>
+<span class="sourceLineNo">247</span>            polyglot.types.ClassType outerToMatch = nextNew.anonType().outer();<a name="line.247"></a>
+<span class="sourceLineNo">248</span>            while (outerToMatch.isNested()){<a name="line.248"></a>
+<span class="sourceLineNo">249</span>                outerToMatch = outerToMatch.outer();<a name="line.249"></a>
+<span class="sourceLineNo">250</span>            }<a name="line.250"></a>
+<span class="sourceLineNo">251</span><a name="line.251"></a>
+<span class="sourceLineNo">252</span>            if (!anonTypeMap.isEmpty()){<a name="line.252"></a>
+<span class="sourceLineNo">253</span>                Iterator&lt;IdentityKey&gt; matchIt = anonTypeMap.keySet().iterator();<a name="line.253"></a>
+<span class="sourceLineNo">254</span>                while (matchIt.hasNext()){<a name="line.254"></a>
+<span class="sourceLineNo">255</span>                    polyglot.types.ClassType pType = (polyglot.types.ClassType)matchIt.next().object();<a name="line.255"></a>
+<span class="sourceLineNo">256</span>                    polyglot.types.ClassType outerMatch = pType.outer();<a name="line.256"></a>
+<span class="sourceLineNo">257</span>                    while (outerMatch.isNested()){<a name="line.257"></a>
+<span class="sourceLineNo">258</span>                        outerMatch = outerMatch.outer();<a name="line.258"></a>
+<span class="sourceLineNo">259</span>                    }<a name="line.259"></a>
+<span class="sourceLineNo">260</span>                    if (outerMatch.equals(outerToMatch)){<a name="line.260"></a>
+<span class="sourceLineNo">261</span>                        int numFound = getAnonClassNum(anonTypeMap.get(new polyglot.util.IdentityKey(pType)));<a name="line.261"></a>
+<span class="sourceLineNo">262</span>                        if (numFound &gt;= nextAvailNum){<a name="line.262"></a>
+<span class="sourceLineNo">263</span>                            nextAvailNum = numFound+1;<a name="line.263"></a>
+<span class="sourceLineNo">264</span>                        }<a name="line.264"></a>
+<span class="sourceLineNo">265</span>                    }<a name="line.265"></a>
+<span class="sourceLineNo">266</span>                }<a name="line.266"></a>
+<span class="sourceLineNo">267</span>            }<a name="line.267"></a>
+<span class="sourceLineNo">268</span>            <a name="line.268"></a>
+<span class="sourceLineNo">269</span>            String realName = outerToMatch.fullName()+"$"+nextAvailNum;<a name="line.269"></a>
+<span class="sourceLineNo">270</span>            anonClassMap.put(nextNew, realName);<a name="line.270"></a>
+<span class="sourceLineNo">271</span>            anonTypeMap.put(new polyglot.util.IdentityKey(nextNew.anonType()), realName);<a name="line.271"></a>
+<span class="sourceLineNo">272</span>            addNameToAST(realName);<a name="line.272"></a>
+<span class="sourceLineNo">273</span>            <a name="line.273"></a>
+<span class="sourceLineNo">274</span>        }<a name="line.274"></a>
+<span class="sourceLineNo">275</span>    }<a name="line.275"></a>
+<span class="sourceLineNo">276</span>    <a name="line.276"></a>
+<span class="sourceLineNo">277</span>    private void createLocalClassName(polyglot.ast.LocalClassDecl lcd){<a name="line.277"></a>
+<span class="sourceLineNo">278</span>        // maybe this localdecl has already been resolved <a name="line.278"></a>
+<span class="sourceLineNo">279</span>        if (localClassMap == null){<a name="line.279"></a>
+<span class="sourceLineNo">280</span>            localClassMap = new BiMap();<a name="line.280"></a>
+<span class="sourceLineNo">281</span>        }<a name="line.281"></a>
+<span class="sourceLineNo">282</span>        if (localTypeMap == null){<a name="line.282"></a>
+<span class="sourceLineNo">283</span>            localTypeMap = new HashMap&lt;IdentityKey, String&gt;();<a name="line.283"></a>
+<span class="sourceLineNo">284</span>        }<a name="line.284"></a>
+<span class="sourceLineNo">285</span>        <a name="line.285"></a>
+<span class="sourceLineNo">286</span>        if (!localClassMap.containsKey(lcd)){<a name="line.286"></a>
+<span class="sourceLineNo">287</span>            int nextAvailNum = 1;<a name="line.287"></a>
+<span class="sourceLineNo">288</span>            polyglot.types.ClassType outerToMatch = lcd.decl().type().outer();<a name="line.288"></a>
+<span class="sourceLineNo">289</span>            while (outerToMatch.isNested()){<a name="line.289"></a>
+<span class="sourceLineNo">290</span>                outerToMatch = outerToMatch.outer();<a name="line.290"></a>
+<span class="sourceLineNo">291</span>            }<a name="line.291"></a>
+<span class="sourceLineNo">292</span><a name="line.292"></a>
+<span class="sourceLineNo">293</span>            if (!localTypeMap.isEmpty()){<a name="line.293"></a>
+<span class="sourceLineNo">294</span>                Iterator&lt;IdentityKey&gt; matchIt = localTypeMap.keySet().iterator();<a name="line.294"></a>
+<span class="sourceLineNo">295</span>                while (matchIt.hasNext()){<a name="line.295"></a>
+<span class="sourceLineNo">296</span>                    polyglot.types.ClassType pType = (polyglot.types.ClassType)matchIt.next().object();<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                    polyglot.types.ClassType outerMatch = pType.outer();<a name="line.297"></a>
+<span class="sourceLineNo">298</span>                    while (outerMatch.isNested()){<a name="line.298"></a>
+<span class="sourceLineNo">299</span>                        outerMatch = outerMatch.outer();<a name="line.299"></a>
+<span class="sourceLineNo">300</span>                    }<a name="line.300"></a>
+<span class="sourceLineNo">301</span>                    if (outerMatch.equals(outerToMatch)){<a name="line.301"></a>
+<span class="sourceLineNo">302</span>                        int numFound = getLocalClassNum(localTypeMap.get(new polyglot.util.IdentityKey(pType)), lcd.decl().name());<a name="line.302"></a>
+<span class="sourceLineNo">303</span>                        if (numFound &gt;= nextAvailNum){<a name="line.303"></a>
+<span class="sourceLineNo">304</span>                            nextAvailNum = numFound+1;<a name="line.304"></a>
+<span class="sourceLineNo">305</span>                        }<a name="line.305"></a>
+<span class="sourceLineNo">306</span>                    }<a name="line.306"></a>
+<span class="sourceLineNo">307</span>                }<a name="line.307"></a>
+<span class="sourceLineNo">308</span>            }<a name="line.308"></a>
+<span class="sourceLineNo">309</span><a name="line.309"></a>
+<span class="sourceLineNo">310</span>            String realName = outerToMatch.fullName()+"$"+nextAvailNum+lcd.decl().name();<a name="line.310"></a>
+<span class="sourceLineNo">311</span>            localClassMap.put(lcd, realName);<a name="line.311"></a>
+<span class="sourceLineNo">312</span>            localTypeMap.put(new polyglot.util.IdentityKey(lcd.decl().type()), realName);<a name="line.312"></a>
+<span class="sourceLineNo">313</span>            addNameToAST(realName);<a name="line.313"></a>
+<span class="sourceLineNo">314</span>        }<a name="line.314"></a>
+<span class="sourceLineNo">315</span>    }<a name="line.315"></a>
+<span class="sourceLineNo">316</span><a name="line.316"></a>
+<span class="sourceLineNo">317</span>    private static final int NO_MATCH = 0;<a name="line.317"></a>
+<span class="sourceLineNo">318</span>    <a name="line.318"></a>
+<span class="sourceLineNo">319</span>    private int getLocalClassNum(String realName, String simpleName){<a name="line.319"></a>
+<span class="sourceLineNo">320</span>        // a local inner class is named outer$NsimpleName where outer <a name="line.320"></a>
+<span class="sourceLineNo">321</span>        // is the very outer most class<a name="line.321"></a>
+<span class="sourceLineNo">322</span>        int dIndex = realName.indexOf("$");<a name="line.322"></a>
+<span class="sourceLineNo">323</span>        int nIndex = realName.indexOf(simpleName, dIndex);<a name="line.323"></a>
+<span class="sourceLineNo">324</span>        if (nIndex == -1) return NO_MATCH;<a name="line.324"></a>
+<span class="sourceLineNo">325</span>        if (dIndex == -1) {<a name="line.325"></a>
+<span class="sourceLineNo">326</span>            throw new RuntimeException("Matching an incorrectly named local inner class: "+realName);<a name="line.326"></a>
+<span class="sourceLineNo">327</span>        }<a name="line.327"></a>
+<span class="sourceLineNo">328</span>        String numString = realName.substring(dIndex+1, nIndex);<a name="line.328"></a>
+<span class="sourceLineNo">329</span>        for (int i = 0; i &lt; numString.length(); i++){<a name="line.329"></a>
+<span class="sourceLineNo">330</span>            if (!Character.isDigit(numString.charAt(i))) return NO_MATCH;<a name="line.330"></a>
+<span class="sourceLineNo">331</span>        }<a name="line.331"></a>
+<span class="sourceLineNo">332</span>        return (new Integer(numString)).intValue();<a name="line.332"></a>
+<span class="sourceLineNo">333</span>    }<a name="line.333"></a>
+<span class="sourceLineNo">334</span>    <a name="line.334"></a>
+<span class="sourceLineNo">335</span>    private int getAnonClassNum(String realName){<a name="line.335"></a>
+<span class="sourceLineNo">336</span>        // a anon inner class is named outer$N where outer <a name="line.336"></a>
+<span class="sourceLineNo">337</span>        // is the very outer most class<a name="line.337"></a>
+<span class="sourceLineNo">338</span>        int dIndex = realName.indexOf("$");<a name="line.338"></a>
+<span class="sourceLineNo">339</span>        if (dIndex == -1) {<a name="line.339"></a>
+<span class="sourceLineNo">340</span>            throw new RuntimeException("Matching an incorrectly named anon inner class: "+realName);<a name="line.340"></a>
+<span class="sourceLineNo">341</span>        }<a name="line.341"></a>
+<span class="sourceLineNo">342</span>        return (new Integer(realName.substring(dIndex+1))).intValue();<a name="line.342"></a>
+<span class="sourceLineNo">343</span>    }<a name="line.343"></a>
+<span class="sourceLineNo">344</span>    <a name="line.344"></a>
+<span class="sourceLineNo">345</span><a name="line.345"></a>
+<span class="sourceLineNo">346</span>    /**<a name="line.346"></a>
+<span class="sourceLineNo">347</span>     * ClassToSourceMap is for classes whos names don't match the source file<a name="line.347"></a>
+<span class="sourceLineNo">348</span>     * name - ex: multiple top level classes in a single file<a name="line.348"></a>
+<span class="sourceLineNo">349</span>     */<a name="line.349"></a>
+<span class="sourceLineNo">350</span>    private void addToClassToSourceMap(String className, String sourceName) {<a name="line.350"></a>
+<span class="sourceLineNo">351</span>            <a name="line.351"></a>
+<span class="sourceLineNo">352</span>        if (classToSourceMap == null){<a name="line.352"></a>
+<span class="sourceLineNo">353</span>            classToSourceMap = new HashMap&lt;String, String&gt;();<a name="line.353"></a>
+<span class="sourceLineNo">354</span>        }<a name="line.354"></a>
+<span class="sourceLineNo">355</span>        classToSourceMap.put(className, sourceName);<a name="line.355"></a>
+<span class="sourceLineNo">356</span>    }<a name="line.356"></a>
+<span class="sourceLineNo">357</span>    <a name="line.357"></a>
+<span class="sourceLineNo">358</span><a name="line.358"></a>
+<span class="sourceLineNo">359</span>    public boolean hasClassInnerTag(soot.SootClass sc, String innerName){<a name="line.359"></a>
+<span class="sourceLineNo">360</span>        Iterator it = sc.getTags().iterator();<a name="line.360"></a>
+<span class="sourceLineNo">361</span>        while (it.hasNext()){<a name="line.361"></a>
+<span class="sourceLineNo">362</span>            soot.tagkit.Tag t = (soot.tagkit.Tag)it.next();<a name="line.362"></a>
+<span class="sourceLineNo">363</span>            if (t instanceof soot.tagkit.InnerClassTag) {<a name="line.363"></a>
+<span class="sourceLineNo">364</span>                soot.tagkit.InnerClassTag tag = (soot.tagkit.InnerClassTag)t;<a name="line.364"></a>
+<span class="sourceLineNo">365</span>                if (tag.getInnerClass().equals(innerName)) return true;<a name="line.365"></a>
+<span class="sourceLineNo">366</span>            }<a name="line.366"></a>
+<span class="sourceLineNo">367</span>        }<a name="line.367"></a>
+<span class="sourceLineNo">368</span>        return false;<a name="line.368"></a>
+<span class="sourceLineNo">369</span>    }<a name="line.369"></a>
+<span class="sourceLineNo">370</span>   <a name="line.370"></a>
+<span class="sourceLineNo">371</span>    private void buildInnerClassInfo(){<a name="line.371"></a>
+<span class="sourceLineNo">372</span>        InnerClassInfoFinder icif = new InnerClassInfoFinder();<a name="line.372"></a>
+<span class="sourceLineNo">373</span>        astNode.visit(icif);<a name="line.373"></a>
+<span class="sourceLineNo">374</span>        createLocalAndAnonClassNames(icif.anonBodyList(), icif.localClassDeclList());<a name="line.374"></a>
+<span class="sourceLineNo">375</span>        buildFinalLocalMap(icif.memberList());<a name="line.375"></a>
+<span class="sourceLineNo">376</span>    }<a name="line.376"></a>
+<span class="sourceLineNo">377</span>    <a name="line.377"></a>
+<span class="sourceLineNo">378</span>    private void buildFinalLocalMap(ArrayList&lt;Node&gt; memberList){<a name="line.378"></a>
+<span class="sourceLineNo">379</span>        Iterator&lt;Node&gt; it = memberList.iterator();<a name="line.379"></a>
+<span class="sourceLineNo">380</span>        while (it.hasNext()){<a name="line.380"></a>
+<span class="sourceLineNo">381</span>            handleFinalLocals((polyglot.ast.ClassMember)it.next());<a name="line.381"></a>
+<span class="sourceLineNo">382</span>        }<a name="line.382"></a>
+<span class="sourceLineNo">383</span>    }<a name="line.383"></a>
+<span class="sourceLineNo">384</span>    <a name="line.384"></a>
+<span class="sourceLineNo">385</span>    private void handleFinalLocals(polyglot.ast.ClassMember member){<a name="line.385"></a>
+<span class="sourceLineNo">386</span>        MethodFinalsChecker mfc = new MethodFinalsChecker();<a name="line.386"></a>
+<span class="sourceLineNo">387</span>        member.visit(mfc);<a name="line.387"></a>
+<span class="sourceLineNo">388</span>        //System.out.println("member: "+member);<a name="line.388"></a>
+<span class="sourceLineNo">389</span>        //System.out.println("mcf final locals avail: "+mfc.finalLocals());<a name="line.389"></a>
+<span class="sourceLineNo">390</span>        //System.out.println("mcf locals used: "+mfc.typeToLocalsUsed());<a name="line.390"></a>
+<span class="sourceLineNo">391</span>        //System.out.println("mfc inners: "+mfc.inners());<a name="line.391"></a>
+<span class="sourceLineNo">392</span>        if (cCallList == null){<a name="line.392"></a>
+<span class="sourceLineNo">393</span>            cCallList = new ArrayList&lt;Node&gt;();<a name="line.393"></a>
+<span class="sourceLineNo">394</span>        }<a name="line.394"></a>
+<span class="sourceLineNo">395</span>        cCallList.addAll(mfc.ccallList());<a name="line.395"></a>
+<span class="sourceLineNo">396</span>        //System.out.println("cCallList: "+cCallList);<a name="line.396"></a>
+<span class="sourceLineNo">397</span>        AnonLocalClassInfo alci = new AnonLocalClassInfo();<a name="line.397"></a>
+<span class="sourceLineNo">398</span>        if (member instanceof polyglot.ast.ProcedureDecl){<a name="line.398"></a>
+<span class="sourceLineNo">399</span>            polyglot.ast.ProcedureDecl procedure = (polyglot.ast.ProcedureDecl)member;<a name="line.399"></a>
+<span class="sourceLineNo">400</span>            // not sure if this will break deep nesting<a name="line.400"></a>
+<span class="sourceLineNo">401</span>            alci.finalLocalsAvail(mfc.finalLocals());<a name="line.401"></a>
+<span class="sourceLineNo">402</span>            if (procedure.flags().isStatic()){<a name="line.402"></a>
+<span class="sourceLineNo">403</span>                alci.inStaticMethod(true);<a name="line.403"></a>
+<span class="sourceLineNo">404</span>            }<a name="line.404"></a>
+<span class="sourceLineNo">405</span>        }<a name="line.405"></a>
+<span class="sourceLineNo">406</span>        else if (member instanceof polyglot.ast.FieldDecl){<a name="line.406"></a>
+<span class="sourceLineNo">407</span>            alci.finalLocalsAvail(new ArrayList&lt;IdentityKey&gt;());<a name="line.407"></a>
+<span class="sourceLineNo">408</span>            if (((polyglot.ast.FieldDecl)member).flags().isStatic()){<a name="line.408"></a>
+<span class="sourceLineNo">409</span>                alci.inStaticMethod(true);<a name="line.409"></a>
+<span class="sourceLineNo">410</span>            }<a name="line.410"></a>
+<span class="sourceLineNo">411</span>        }<a name="line.411"></a>
+<span class="sourceLineNo">412</span>        else if (member instanceof polyglot.ast.Initializer){<a name="line.412"></a>
+<span class="sourceLineNo">413</span>            // for now don't make final locals avail in init blocks<a name="line.413"></a>
+<span class="sourceLineNo">414</span>            // need to test this<a name="line.414"></a>
+<span class="sourceLineNo">415</span>            alci.finalLocalsAvail(mfc.finalLocals());<a name="line.415"></a>
+<span class="sourceLineNo">416</span>            if (((polyglot.ast.Initializer)member).flags().isStatic()){<a name="line.416"></a>
+<span class="sourceLineNo">417</span>                alci.inStaticMethod(true);<a name="line.417"></a>
+<span class="sourceLineNo">418</span>            }<a name="line.418"></a>
+<span class="sourceLineNo">419</span>        }<a name="line.419"></a>
+<span class="sourceLineNo">420</span>        if (finalLocalInfo == null){<a name="line.420"></a>
+<span class="sourceLineNo">421</span>            finalLocalInfo = new HashMap&lt;IdentityKey, AnonLocalClassInfo&gt;();<a name="line.421"></a>
+<span class="sourceLineNo">422</span>        }<a name="line.422"></a>
+<span class="sourceLineNo">423</span>        Iterator&lt;IdentityKey&gt; it = mfc.inners().iterator();<a name="line.423"></a>
+<span class="sourceLineNo">424</span>        while (it.hasNext()){<a name="line.424"></a>
+<span class="sourceLineNo">425</span>            <a name="line.425"></a>
+<span class="sourceLineNo">426</span>            polyglot.types.ClassType cType = (polyglot.types.ClassType)it.next().object();<a name="line.426"></a>
+<span class="sourceLineNo">427</span>            // do the comparison about locals avail and locals used here<a name="line.427"></a>
+<span class="sourceLineNo">428</span>            HashMap&lt;IdentityKey, ArrayList&lt;IdentityKey&gt;&gt; typeToLocalUsed = mfc.typeToLocalsUsed();<a name="line.428"></a>
+<span class="sourceLineNo">429</span>            ArrayList&lt;IdentityKey&gt; localsUsed = new ArrayList&lt;IdentityKey&gt;();<a name="line.429"></a>
+<span class="sourceLineNo">430</span>            if (typeToLocalUsed.containsKey(new polyglot.util.IdentityKey(cType))){<a name="line.430"></a>
+<span class="sourceLineNo">431</span>                ArrayList localsNeeded = typeToLocalUsed.get(new polyglot.util.IdentityKey(cType));<a name="line.431"></a>
+<span class="sourceLineNo">432</span>                Iterator usesIt = localsNeeded.iterator();<a name="line.432"></a>
+<span class="sourceLineNo">433</span>                while (usesIt.hasNext()){<a name="line.433"></a>
+<span class="sourceLineNo">434</span>                    polyglot.types.LocalInstance li = (polyglot.types.LocalInstance)((polyglot.util.IdentityKey)usesIt.next()).object();<a name="line.434"></a>
+<span class="sourceLineNo">435</span>                    if (alci.finalLocalsAvail().contains(new polyglot.util.IdentityKey(li))){<a name="line.435"></a>
+<span class="sourceLineNo">436</span>                        localsUsed.add(new polyglot.util.IdentityKey(li));<a name="line.436"></a>
+<span class="sourceLineNo">437</span>                    }<a name="line.437"></a>
+<span class="sourceLineNo">438</span>                }<a name="line.438"></a>
+<span class="sourceLineNo">439</span>            }<a name="line.439"></a>
+<span class="sourceLineNo">440</span>                <a name="line.440"></a>
+<span class="sourceLineNo">441</span>            <a name="line.441"></a>
+<span class="sourceLineNo">442</span>            AnonLocalClassInfo info = new AnonLocalClassInfo();<a name="line.442"></a>
+<span class="sourceLineNo">443</span>            info.inStaticMethod(alci.inStaticMethod());<a name="line.443"></a>
+<span class="sourceLineNo">444</span>            info.finalLocalsAvail(localsUsed);<a name="line.444"></a>
+<span class="sourceLineNo">445</span>            if (!finalLocalInfo.containsKey(new polyglot.util.IdentityKey(cType))){<a name="line.445"></a>
+<span class="sourceLineNo">446</span>                finalLocalInfo.put(new polyglot.util.IdentityKey(cType), info);<a name="line.446"></a>
+<span class="sourceLineNo">447</span>            }<a name="line.447"></a>
+<span class="sourceLineNo">448</span>        }<a name="line.448"></a>
+<span class="sourceLineNo">449</span>    }<a name="line.449"></a>
+<span class="sourceLineNo">450</span>    <a name="line.450"></a>
+<span class="sourceLineNo">451</span>    public boolean isAnonInCCall(polyglot.types.ClassType anonType){<a name="line.451"></a>
+<span class="sourceLineNo">452</span>        //System.out.println("checking type: "+anonType);<a name="line.452"></a>
+<span class="sourceLineNo">453</span>        Iterator&lt;Node&gt; it = cCallList.iterator();<a name="line.453"></a>
+<span class="sourceLineNo">454</span>        while (it.hasNext()){<a name="line.454"></a>
+<span class="sourceLineNo">455</span>            polyglot.ast.ConstructorCall cCall = (polyglot.ast.ConstructorCall)it.next();<a name="line.455"></a>
+<span class="sourceLineNo">456</span>            //System.out.println("cCall params: "+cCall.arguments());<a name="line.456"></a>
+<span class="sourceLineNo">457</span>            Iterator argsIt = cCall.arguments().iterator();<a name="line.457"></a>
+<span class="sourceLineNo">458</span>            while (argsIt.hasNext()){<a name="line.458"></a>
+<span class="sourceLineNo">459</span>                Object next = argsIt.next();<a name="line.459"></a>
+<span class="sourceLineNo">460</span>                if (next instanceof polyglot.ast.New &amp;&amp; ((polyglot.ast.New)next).anonType() != null){<a name="line.460"></a>
+<span class="sourceLineNo">461</span>                    //System.out.println("comparing: "+((polyglot.ast.New)next).anonType());<a name="line.461"></a>
+<span class="sourceLineNo">462</span>                    if (((polyglot.ast.New)next).anonType().equals(anonType)) return true;<a name="line.462"></a>
+<span class="sourceLineNo">463</span>                }<a name="line.463"></a>
+<span class="sourceLineNo">464</span>            }<a name="line.464"></a>
+<span class="sourceLineNo">465</span>        }<a name="line.465"></a>
+<span class="sourceLineNo">466</span>        return false;<a name="line.466"></a>
+<span class="sourceLineNo">467</span>    }<a name="line.467"></a>
+<span class="sourceLineNo">468</span>    <a name="line.468"></a>
+<span class="sourceLineNo">469</span>    public BiMap getAnonClassMap(){<a name="line.469"></a>
+<span class="sourceLineNo">470</span>        return anonClassMap;<a name="line.470"></a>
+<span class="sourceLineNo">471</span>    }<a name="line.471"></a>
+<span class="sourceLineNo">472</span><a name="line.472"></a>
+<span class="sourceLineNo">473</span>    public BiMap getLocalClassMap(){<a name="line.473"></a>
+<span class="sourceLineNo">474</span>        return localClassMap;<a name="line.474"></a>
+<span class="sourceLineNo">475</span>    }<a name="line.475"></a>
+<span class="sourceLineNo">476</span>    <a name="line.476"></a>
+<span class="sourceLineNo">477</span>    public HashMap&lt;IdentityKey, String&gt; getAnonTypeMap(){<a name="line.477"></a>
+<span class="sourceLineNo">478</span>        return anonTypeMap;<a name="line.478"></a>
+<span class="sourceLineNo">479</span>    }<a name="line.479"></a>
+<span class="sourceLineNo">480</span><a name="line.480"></a>
+<span class="sourceLineNo">481</span>    public HashMap&lt;IdentityKey, String&gt; getLocalTypeMap(){<a name="line.481"></a>
+<span class="sourceLineNo">482</span>        return localTypeMap;<a name="line.482"></a>
+<span class="sourceLineNo">483</span>    }<a name="line.483"></a>
+<span class="sourceLineNo">484</span>  <a name="line.484"></a>
+<span class="sourceLineNo">485</span>    public HashMap&lt;IdentityKey, AnonLocalClassInfo&gt; finalLocalInfo(){<a name="line.485"></a>
+<span class="sourceLineNo">486</span>        return finalLocalInfo;<a name="line.486"></a>
+<span class="sourceLineNo">487</span>    }<a name="line.487"></a>
+<span class="sourceLineNo">488</span><a name="line.488"></a>
+<span class="sourceLineNo">489</span>    public int getNextPrivateAccessCounter(){<a name="line.489"></a>
+<span class="sourceLineNo">490</span>        int res = privateAccessCounter;<a name="line.490"></a>
+<span class="sourceLineNo">491</span>        privateAccessCounter++;<a name="line.491"></a>
+<span class="sourceLineNo">492</span>        return res;<a name="line.492"></a>
+<span class="sourceLineNo">493</span>    }<a name="line.493"></a>
+<span class="sourceLineNo">494</span><a name="line.494"></a>
+<span class="sourceLineNo">495</span>    public ArrayList getHasOuterRefInInit(){<a name="line.495"></a>
+<span class="sourceLineNo">496</span>        return hasOuterRefInInit;<a name="line.496"></a>
+<span class="sourceLineNo">497</span>    }<a name="line.497"></a>
+<span class="sourceLineNo">498</span><a name="line.498"></a>
+<span class="sourceLineNo">499</span>    public void setHasOuterRefInInit(ArrayList list){<a name="line.499"></a>
+<span class="sourceLineNo">500</span>        hasOuterRefInInit = list;<a name="line.500"></a>
+<span class="sourceLineNo">501</span>    }<a name="line.501"></a>
+<span class="sourceLineNo">502</span><a name="line.502"></a>
+<span class="sourceLineNo">503</span>    public HashMap&lt;SootClass, SootClass&gt; specialAnonMap(){<a name="line.503"></a>
+<span class="sourceLineNo">504</span>        return specialAnonMap;<a name="line.504"></a>
+<span class="sourceLineNo">505</span>    }<a name="line.505"></a>
+<span class="sourceLineNo">506</span><a name="line.506"></a>
+<span class="sourceLineNo">507</span>    public void setSpecialAnonMap(HashMap&lt;SootClass, SootClass&gt; map){<a name="line.507"></a>
+<span class="sourceLineNo">508</span>        specialAnonMap = map;<a name="line.508"></a>
+<span class="sourceLineNo">509</span>    }<a name="line.509"></a>
+<span class="sourceLineNo">510</span><a name="line.510"></a>
+<span class="sourceLineNo">511</span>    public void hierarchy(soot.FastHierarchy fh){<a name="line.511"></a>
+<span class="sourceLineNo">512</span>        hierarchy = fh;<a name="line.512"></a>
+<span class="sourceLineNo">513</span>    }<a name="line.513"></a>
+<span class="sourceLineNo">514</span>    <a name="line.514"></a>
+<span class="sourceLineNo">515</span>    public soot.FastHierarchy hierarchy(){<a name="line.515"></a>
+<span class="sourceLineNo">516</span>        return hierarchy;<a name="line.516"></a>
+<span class="sourceLineNo">517</span>    }<a name="line.517"></a>
+<span class="sourceLineNo">518</span><a name="line.518"></a>
+<span class="sourceLineNo">519</span>    private HashMap&lt;SootClass, InnerClassInfo&gt; innerClassInfoMap;<a name="line.519"></a>
+<span class="sourceLineNo">520</span>   <a name="line.520"></a>
+<span class="sourceLineNo">521</span>    public HashMap&lt;SootClass, InnerClassInfo&gt; getInnerClassInfoMap(){<a name="line.521"></a>
+<span class="sourceLineNo">522</span>        return innerClassInfoMap;<a name="line.522"></a>
+<span class="sourceLineNo">523</span>    }<a name="line.523"></a>
+<span class="sourceLineNo">524</span> <a name="line.524"></a>
+<span class="sourceLineNo">525</span>    public void setInnerClassInfoMap(HashMap&lt;SootClass, InnerClassInfo&gt; map){<a name="line.525"></a>
+<span class="sourceLineNo">526</span>        innerClassInfoMap = map;<a name="line.526"></a>
+<span class="sourceLineNo">527</span>    }<a name="line.527"></a>
+<span class="sourceLineNo">528</span> <a name="line.528"></a>
+<span class="sourceLineNo">529</span>    protected HashMap&lt;String, String&gt; classToSourceMap(){<a name="line.529"></a>
+<span class="sourceLineNo">530</span>        return classToSourceMap;<a name="line.530"></a>
+<span class="sourceLineNo">531</span>    }<a name="line.531"></a>
+<span class="sourceLineNo">532</span><a name="line.532"></a>
+<span class="sourceLineNo">533</span>    public void addToPrivateFieldGetAccessMap(polyglot.ast.Field field, soot.SootMethod meth){<a name="line.533"></a>
+<span class="sourceLineNo">534</span>        if (privateFieldGetAccessMap == null){<a name="line.534"></a>
+<span class="sourceLineNo">535</span>            privateFieldGetAccessMap = new HashMap&lt;IdentityKey, SootMethod&gt;();<a name="line.535"></a>
+<span class="sourceLineNo">536</span>        }<a name="line.536"></a>
+<span class="sourceLineNo">537</span>        privateFieldGetAccessMap.put(new polyglot.util.IdentityKey(field.fieldInstance()), meth);<a name="line.537"></a>
+<span class="sourceLineNo">538</span>    }<a name="line.538"></a>
+<span class="sourceLineNo">539</span>    <a name="line.539"></a>
+<span class="sourceLineNo">540</span>    public HashMap&lt;IdentityKey, SootMethod&gt; getPrivateFieldGetAccessMap(){<a name="line.540"></a>
+<span class="sourceLineNo">541</span>        return privateFieldGetAccessMap;<a name="line.541"></a>
+<span class="sourceLineNo">542</span>    }<a name="line.542"></a>
+<span class="sourceLineNo">543</span>    <a name="line.543"></a>
+<span class="sourceLineNo">544</span>    public void addToPrivateFieldSetAccessMap(polyglot.ast.Field field, soot.SootMethod meth){<a name="line.544"></a>
+<span class="sourceLineNo">545</span>        if (privateFieldSetAccessMap == null){<a name="line.545"></a>
+<span class="sourceLineNo">546</span>            privateFieldSetAccessMap = new HashMap&lt;IdentityKey, SootMethod&gt;();<a name="line.546"></a>
+<span class="sourceLineNo">547</span>        }<a name="line.547"></a>
+<span class="sourceLineNo">548</span>        privateFieldSetAccessMap.put(new polyglot.util.IdentityKey(field.fieldInstance()), meth);<a name="line.548"></a>
+<span class="sourceLineNo">549</span>    }<a name="line.549"></a>
+<span class="sourceLineNo">550</span>    <a name="line.550"></a>
+<span class="sourceLineNo">551</span>    public HashMap&lt;IdentityKey, SootMethod&gt; getPrivateFieldSetAccessMap(){<a name="line.551"></a>
+<span class="sourceLineNo">552</span>        return privateFieldSetAccessMap;<a name="line.552"></a>
+<span class="sourceLineNo">553</span>    }<a name="line.553"></a>
+<span class="sourceLineNo">554</span>    <a name="line.554"></a>
+<span class="sourceLineNo">555</span>    public void addToPrivateMethodGetAccessMap(polyglot.ast.Call call, soot.SootMethod meth){<a name="line.555"></a>
+<span class="sourceLineNo">556</span>        if (privateMethodGetAccessMap == null){<a name="line.556"></a>
+<span class="sourceLineNo">557</span>            privateMethodGetAccessMap = new HashMap&lt;IdentityKey, SootMethod&gt;();<a name="line.557"></a>
+<span class="sourceLineNo">558</span>        }<a name="line.558"></a>
+<span class="sourceLineNo">559</span>        privateMethodGetAccessMap.put(new polyglot.util.IdentityKey(call.methodInstance()), meth);<a name="line.559"></a>
+<span class="sourceLineNo">560</span>    }<a name="line.560"></a>
+<span class="sourceLineNo">561</span>    <a name="line.561"></a>
+<span class="sourceLineNo">562</span>    public HashMap&lt;IdentityKey, SootMethod&gt; getPrivateMethodGetAccessMap(){<a name="line.562"></a>
+<span class="sourceLineNo">563</span>        return privateMethodGetAccessMap;<a name="line.563"></a>
+<span class="sourceLineNo">564</span>    }<a name="line.564"></a>
+<span class="sourceLineNo">565</span><a name="line.565"></a>
+<span class="sourceLineNo">566</span>    public ArrayList&lt;String&gt; getInterfacesList() {<a name="line.566"></a>
+<span class="sourceLineNo">567</span>        return interfacesList;<a name="line.567"></a>
+<span class="sourceLineNo">568</span>    } <a name="line.568"></a>
+<span class="sourceLineNo">569</span>}<a name="line.569"></a>
+<span class="sourceLineNo">570</span><a name="line.570"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

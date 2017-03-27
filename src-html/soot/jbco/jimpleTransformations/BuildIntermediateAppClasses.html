@@ -1,0 +1,347 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1997-1999 Raja Vallee-Rai<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.jbco.jimpleTransformations;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.*;<a name="line.22"></a>
+<span class="sourceLineNo">023</span><a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.*;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import soot.jimple.*;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import soot.jbco.IJbcoTransform;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import soot.jbco.Main;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.jbco.util.*;<a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span>/**<a name="line.30"></a>
+<span class="sourceLineNo">031</span> * @author Michael Batchelder<a name="line.31"></a>
+<span class="sourceLineNo">032</span> * <a name="line.32"></a>
+<span class="sourceLineNo">033</span> * Created on 1-Feb-2006<a name="line.33"></a>
+<span class="sourceLineNo">034</span> * <a name="line.34"></a>
+<span class="sourceLineNo">035</span> * This class builds buffer classes between Application classes<a name="line.35"></a>
+<span class="sourceLineNo">036</span> * and their corresponding library superclasses. This allows for<a name="line.36"></a>
+<span class="sourceLineNo">037</span> * the hiding of all library method overrides to be hidden in<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * a different class, thereby cloaking somewhat the mechanisms.<a name="line.38"></a>
+<span class="sourceLineNo">039</span> */<a name="line.39"></a>
+<span class="sourceLineNo">040</span>public class BuildIntermediateAppClasses extends SceneTransformer  implements IJbcoTransform {<a name="line.40"></a>
+<span class="sourceLineNo">041</span><a name="line.41"></a>
+<span class="sourceLineNo">042</span>  static int newclasses = 0;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>  static int newmethods = 0;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>  <a name="line.44"></a>
+<span class="sourceLineNo">045</span>  public void outputSummary() {<a name="line.45"></a>
+<span class="sourceLineNo">046</span>    out.println("New buffer classes created: "+newclasses);<a name="line.46"></a>
+<span class="sourceLineNo">047</span>    out.println("New buffer class methods created: "+newmethods);<a name="line.47"></a>
+<span class="sourceLineNo">048</span>  }<a name="line.48"></a>
+<span class="sourceLineNo">049</span>  <a name="line.49"></a>
+<span class="sourceLineNo">050</span>  public static String dependancies[] = new String[] { "wjtp.jbco_bapibm"};<a name="line.50"></a>
+<span class="sourceLineNo">051</span><a name="line.51"></a>
+<span class="sourceLineNo">052</span>  public String[] getDependancies() {<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    return dependancies;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>  }<a name="line.54"></a>
+<span class="sourceLineNo">055</span>  <a name="line.55"></a>
+<span class="sourceLineNo">056</span>  public static String name = "wjtp.jbco_bapibm";<a name="line.56"></a>
+<span class="sourceLineNo">057</span>  <a name="line.57"></a>
+<span class="sourceLineNo">058</span>  public String getName() {<a name="line.58"></a>
+<span class="sourceLineNo">059</span>    return name;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>  }<a name="line.60"></a>
+<span class="sourceLineNo">061</span>  <a name="line.61"></a>
+<span class="sourceLineNo">062</span>  protected void internalTransform(String phaseName, Map&lt;String,String&gt; options) {<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    if (output) <a name="line.63"></a>
+<span class="sourceLineNo">064</span>      out.println("Building Intermediate Classes...");<a name="line.64"></a>
+<span class="sourceLineNo">065</span><a name="line.65"></a>
+<span class="sourceLineNo">066</span>    soot.jbco.util.BodyBuilder.retrieveAllBodies();<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    <a name="line.67"></a>
+<span class="sourceLineNo">068</span>    Scene scene = G.v().soot_Scene();<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    // iterate through application classes, build intermediate classes<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    Iterator&lt;SootClass&gt; it = scene.getApplicationClasses().snapshotIterator();<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    while (it.hasNext()) {<a name="line.71"></a>
+<span class="sourceLineNo">072</span>      Vector&lt;SootMethod&gt; initMethodsToRewrite = new Vector&lt;SootMethod&gt;();<a name="line.72"></a>
+<span class="sourceLineNo">073</span>      Hashtable&lt;String, SootMethod&gt; methodsToAdd = new Hashtable&lt;String, SootMethod&gt;();<a name="line.73"></a>
+<span class="sourceLineNo">074</span>      SootClass c = it.next();<a name="line.74"></a>
+<span class="sourceLineNo">075</span>      SootClass cOrigSuperclass = c.getSuperclass();<a name="line.75"></a>
+<span class="sourceLineNo">076</span>      <a name="line.76"></a>
+<span class="sourceLineNo">077</span>      if (output)<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        out.println("Processing "+c.getName()+" with super "+cOrigSuperclass.getName());<a name="line.78"></a>
+<span class="sourceLineNo">079</span>      <a name="line.79"></a>
+<span class="sourceLineNo">080</span>      Iterator&lt;SootMethod&gt; mIt = c.methodIterator();<a name="line.80"></a>
+<span class="sourceLineNo">081</span>      while (mIt.hasNext()) {<a name="line.81"></a>
+<span class="sourceLineNo">082</span>        SootMethod m = mIt.next();<a name="line.82"></a>
+<span class="sourceLineNo">083</span>        if (!m.isConcrete()) continue;<a name="line.83"></a>
+<span class="sourceLineNo">084</span>        <a name="line.84"></a>
+<span class="sourceLineNo">085</span>        try {<a name="line.85"></a>
+<span class="sourceLineNo">086</span>          m.getActiveBody();<a name="line.86"></a>
+<span class="sourceLineNo">087</span>        } catch (Exception exc) {<a name="line.87"></a>
+<span class="sourceLineNo">088</span>          if (m.retrieveActiveBody()==null)<a name="line.88"></a>
+<span class="sourceLineNo">089</span>            throw new RuntimeException(m.getSignature() + " has no body. This was not expected dude.");<a name="line.89"></a>
+<span class="sourceLineNo">090</span>        }<a name="line.90"></a>
+<span class="sourceLineNo">091</span>        <a name="line.91"></a>
+<span class="sourceLineNo">092</span>        String subSig = m.getSubSignature();<a name="line.92"></a>
+<span class="sourceLineNo">093</span>        if (subSig.equals("void main(java.lang.String[])") &amp;&amp; m.isPublic()<a name="line.93"></a>
+<span class="sourceLineNo">094</span>            &amp;&amp; m.isStatic()) {<a name="line.94"></a>
+<span class="sourceLineNo">095</span>          continue; // skip the main method - it needs to be named 'main'<a name="line.95"></a>
+<span class="sourceLineNo">096</span>        } else if (subSig.indexOf("init&gt;(")&gt;0)<a name="line.96"></a>
+<span class="sourceLineNo">097</span>        {<a name="line.97"></a>
+<span class="sourceLineNo">098</span>          if(subSig.startsWith("void &lt;init&gt;("))<a name="line.98"></a>
+<span class="sourceLineNo">099</span>          {<a name="line.99"></a>
+<span class="sourceLineNo">100</span>            initMethodsToRewrite.add(m);<a name="line.100"></a>
+<span class="sourceLineNo">101</span>          }<a name="line.101"></a>
+<span class="sourceLineNo">102</span>          continue; // skip constructors, just add for rewriting at the end<a name="line.102"></a>
+<span class="sourceLineNo">103</span>        }<a name="line.103"></a>
+<span class="sourceLineNo">104</span>        else <a name="line.104"></a>
+<span class="sourceLineNo">105</span>        {<a name="line.105"></a>
+<span class="sourceLineNo">106</span>          scene.releaseActiveHierarchy();<a name="line.106"></a>
+<span class="sourceLineNo">107</span>          <a name="line.107"></a>
+<span class="sourceLineNo">108</span>          Hierarchy hierarchy = scene.getActiveHierarchy();<a name="line.108"></a>
+<span class="sourceLineNo">109</span>          Iterator&lt;SootClass&gt; cIt = hierarchy<a name="line.109"></a>
+<span class="sourceLineNo">110</span>              .getSuperclassesOfIncluding(cOrigSuperclass).iterator();<a name="line.110"></a>
+<span class="sourceLineNo">111</span>          while (cIt.hasNext()) {<a name="line.111"></a>
+<span class="sourceLineNo">112</span>            SootClass _c = cIt.next();<a name="line.112"></a>
+<span class="sourceLineNo">113</span>            if (_c.isLibraryClass() &amp;&amp; _c.declaresMethod(subSig)<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                &amp;&amp; hierarchy.isVisible(c, _c.getMethod(subSig))) <a name="line.114"></a>
+<span class="sourceLineNo">115</span>            {<a name="line.115"></a>
+<span class="sourceLineNo">116</span>              methodsToAdd.put(subSig, m);<a name="line.116"></a>
+<span class="sourceLineNo">117</span>              break;<a name="line.117"></a>
+<span class="sourceLineNo">118</span>            }<a name="line.118"></a>
+<span class="sourceLineNo">119</span>          }<a name="line.119"></a>
+<span class="sourceLineNo">120</span>        }<a name="line.120"></a>
+<span class="sourceLineNo">121</span>      }<a name="line.121"></a>
+<span class="sourceLineNo">122</span><a name="line.122"></a>
+<span class="sourceLineNo">123</span>      if (methodsToAdd.size() &gt; 0) {<a name="line.123"></a>
+<span class="sourceLineNo">124</span>        String newName = ClassRenamer.getNewName("");<a name="line.124"></a>
+<span class="sourceLineNo">125</span>        ClassRenamer.oldToNewClassNames.put(newName,newName);<a name="line.125"></a>
+<span class="sourceLineNo">126</span>        String fullName = ClassRenamer.getNamePrefix(c.getName()) + newName;<a name="line.126"></a>
+<span class="sourceLineNo">127</span>        <a name="line.127"></a>
+<span class="sourceLineNo">128</span>        if (output) <a name="line.128"></a>
+<span class="sourceLineNo">129</span>          out.println("\tBuilding " + fullName);<a name="line.129"></a>
+<span class="sourceLineNo">130</span>        <a name="line.130"></a>
+<span class="sourceLineNo">131</span>        // make class but can't be final<a name="line.131"></a>
+<span class="sourceLineNo">132</span>        SootClass iC = new SootClass(fullName, c.getModifiers()<a name="line.132"></a>
+<span class="sourceLineNo">133</span>            &amp; (Modifier.FINAL ^ 0xFFFF));<a name="line.133"></a>
+<span class="sourceLineNo">134</span>        Main.IntermediateAppClasses.add(iC);<a name="line.134"></a>
+<span class="sourceLineNo">135</span>        iC.setSuperclass(cOrigSuperclass);<a name="line.135"></a>
+<span class="sourceLineNo">136</span>        <a name="line.136"></a>
+<span class="sourceLineNo">137</span>        Scene.v().addClass(iC);<a name="line.137"></a>
+<span class="sourceLineNo">138</span>        iC.setApplicationClass();<a name="line.138"></a>
+<span class="sourceLineNo">139</span>        iC.setInScene(true);<a name="line.139"></a>
+<span class="sourceLineNo">140</span><a name="line.140"></a>
+<span class="sourceLineNo">141</span>        ThisRef thisRef = new ThisRef(iC.getType());<a name="line.141"></a>
+<span class="sourceLineNo">142</span>        <a name="line.142"></a>
+<span class="sourceLineNo">143</span>        Enumeration&lt;String&gt; keys = methodsToAdd.keys();<a name="line.143"></a>
+<span class="sourceLineNo">144</span>        while (keys.hasMoreElements()) {<a name="line.144"></a>
+<span class="sourceLineNo">145</span>          String sSig = keys.nextElement();<a name="line.145"></a>
+<span class="sourceLineNo">146</span>          SootMethod oldM = methodsToAdd.get(sSig);<a name="line.146"></a>
+<span class="sourceLineNo">147</span>          List&lt;Type&gt; paramTypes = oldM.getParameterTypes();<a name="line.147"></a>
+<span class="sourceLineNo">148</span>          Type rType = oldM.getReturnType();<a name="line.148"></a>
+<span class="sourceLineNo">149</span>          SootMethod newM;<a name="line.149"></a>
+<span class="sourceLineNo">150</span>          { // build new junk method to call original method<a name="line.150"></a>
+<span class="sourceLineNo">151</span>            String newMName = MethodRenamer.getNewName();<a name="line.151"></a>
+<span class="sourceLineNo">152</span>            newM = new SootMethod(newMName, paramTypes, <a name="line.152"></a>
+<span class="sourceLineNo">153</span>                rType, oldM.getModifiers(), oldM.getExceptions());<a name="line.153"></a>
+<span class="sourceLineNo">154</span>            iC.addMethod(newM);<a name="line.154"></a>
+<span class="sourceLineNo">155</span><a name="line.155"></a>
+<span class="sourceLineNo">156</span>            JimpleBody body = Jimple.v().newBody(newM);<a name="line.156"></a>
+<span class="sourceLineNo">157</span>            newM.setActiveBody(body);<a name="line.157"></a>
+<span class="sourceLineNo">158</span>            Collection&lt;Local&gt; locals = body.getLocals();<a name="line.158"></a>
+<span class="sourceLineNo">159</span>            PatchingChain&lt;Unit&gt; units = body.getUnits();<a name="line.159"></a>
+<span class="sourceLineNo">160</span><a name="line.160"></a>
+<span class="sourceLineNo">161</span>            BodyBuilder.buildParameterLocals(units,locals, paramTypes);<a name="line.161"></a>
+<span class="sourceLineNo">162</span>            BodyBuilder.buildThisLocal(units,thisRef,locals);<a name="line.162"></a>
+<span class="sourceLineNo">163</span>            <a name="line.163"></a>
+<span class="sourceLineNo">164</span>            if (rType instanceof VoidType) <a name="line.164"></a>
+<span class="sourceLineNo">165</span>            {<a name="line.165"></a>
+<span class="sourceLineNo">166</span>              units.add(Jimple.v().newReturnVoidStmt());<a name="line.166"></a>
+<span class="sourceLineNo">167</span>            } <a name="line.167"></a>
+<span class="sourceLineNo">168</span>            else if (rType instanceof PrimType) <a name="line.168"></a>
+<span class="sourceLineNo">169</span>            {<a name="line.169"></a>
+<span class="sourceLineNo">170</span>              units.add(Jimple.v().newReturnStmt(<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                  Jimple.v().newCastExpr(IntConstant.v(0), rType)));<a name="line.171"></a>
+<span class="sourceLineNo">172</span>            }<a name="line.172"></a>
+<span class="sourceLineNo">173</span>            else <a name="line.173"></a>
+<span class="sourceLineNo">174</span>            {<a name="line.174"></a>
+<span class="sourceLineNo">175</span>              units.add(Jimple.v().newReturnStmt(NullConstant.v()));<a name="line.175"></a>
+<span class="sourceLineNo">176</span>            }<a name="line.176"></a>
+<span class="sourceLineNo">177</span>            newmethods++;<a name="line.177"></a>
+<span class="sourceLineNo">178</span>          } // end build new junk method to call original method<a name="line.178"></a>
+<span class="sourceLineNo">179</span><a name="line.179"></a>
+<span class="sourceLineNo">180</span>          { // build copy of old method<a name="line.180"></a>
+<span class="sourceLineNo">181</span>            newM = new SootMethod(oldM.getName(), paramTypes, <a name="line.181"></a>
+<span class="sourceLineNo">182</span>                rType, oldM.getModifiers(), oldM.getExceptions());<a name="line.182"></a>
+<span class="sourceLineNo">183</span>            iC.addMethod(newM);<a name="line.183"></a>
+<span class="sourceLineNo">184</span><a name="line.184"></a>
+<span class="sourceLineNo">185</span>            JimpleBody body = Jimple.v().newBody(newM);<a name="line.185"></a>
+<span class="sourceLineNo">186</span>            newM.setActiveBody(body);<a name="line.186"></a>
+<span class="sourceLineNo">187</span>            Collection&lt;Local&gt; locals = body.getLocals();<a name="line.187"></a>
+<span class="sourceLineNo">188</span>            PatchingChain&lt;Unit&gt; units = body.getUnits();<a name="line.188"></a>
+<span class="sourceLineNo">189</span><a name="line.189"></a>
+<span class="sourceLineNo">190</span>            List&lt;Local&gt; args = BodyBuilder.buildParameterLocals(units,locals,paramTypes);<a name="line.190"></a>
+<span class="sourceLineNo">191</span>            Local ths = BodyBuilder.buildThisLocal(units, thisRef, locals);<a name="line.191"></a>
+<span class="sourceLineNo">192</span>            <a name="line.192"></a>
+<span class="sourceLineNo">193</span>            if (rType instanceof VoidType) <a name="line.193"></a>
+<span class="sourceLineNo">194</span>            {<a name="line.194"></a>
+<span class="sourceLineNo">195</span>              units.add(Jimple.v().newInvokeStmt(<a name="line.195"></a>
+<span class="sourceLineNo">196</span>                  Jimple.v().newVirtualInvokeExpr(ths, newM.makeRef(), args)));<a name="line.196"></a>
+<span class="sourceLineNo">197</span>              units.add(Jimple.v().newReturnVoidStmt());<a name="line.197"></a>
+<span class="sourceLineNo">198</span>            }<a name="line.198"></a>
+<span class="sourceLineNo">199</span>            else <a name="line.199"></a>
+<span class="sourceLineNo">200</span>            {<a name="line.200"></a>
+<span class="sourceLineNo">201</span>              Local loc = Jimple.v().newLocal("retValue", rType);<a name="line.201"></a>
+<span class="sourceLineNo">202</span>              body.getLocals().add(loc);<a name="line.202"></a>
+<span class="sourceLineNo">203</span><a name="line.203"></a>
+<span class="sourceLineNo">204</span>              units.add(Jimple.v().newAssignStmt(loc,<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                  Jimple.v().newVirtualInvokeExpr(ths, newM.makeRef(), args)));<a name="line.205"></a>
+<span class="sourceLineNo">206</span><a name="line.206"></a>
+<span class="sourceLineNo">207</span>              units.add(Jimple.v().newReturnStmt(loc));<a name="line.207"></a>
+<span class="sourceLineNo">208</span>            }<a name="line.208"></a>
+<span class="sourceLineNo">209</span>            newmethods++;<a name="line.209"></a>
+<span class="sourceLineNo">210</span>          } // end build copy of old method<a name="line.210"></a>
+<span class="sourceLineNo">211</span>        }<a name="line.211"></a>
+<span class="sourceLineNo">212</span>        c.setSuperclass(iC);<a name="line.212"></a>
+<span class="sourceLineNo">213</span>        <a name="line.213"></a>
+<span class="sourceLineNo">214</span>        //rewrite class init methods to call the proper superclass inits<a name="line.214"></a>
+<span class="sourceLineNo">215</span>        int i = initMethodsToRewrite.size();<a name="line.215"></a>
+<span class="sourceLineNo">216</span>        while(i-- &gt; 0)<a name="line.216"></a>
+<span class="sourceLineNo">217</span>        {<a name="line.217"></a>
+<span class="sourceLineNo">218</span>          SootMethod im = initMethodsToRewrite.remove(i);<a name="line.218"></a>
+<span class="sourceLineNo">219</span>          Body b = im.getActiveBody();<a name="line.219"></a>
+<span class="sourceLineNo">220</span>          Local thisLocal = b.getThisLocal();<a name="line.220"></a>
+<span class="sourceLineNo">221</span>          Iterator&lt;Unit&gt; uIt = b.getUnits().snapshotIterator();<a name="line.221"></a>
+<span class="sourceLineNo">222</span>          while(uIt.hasNext())<a name="line.222"></a>
+<span class="sourceLineNo">223</span>          {<a name="line.223"></a>
+<span class="sourceLineNo">224</span>            Iterator&lt;ValueBox&gt; uUses = uIt.next().getUseBoxes().iterator();<a name="line.224"></a>
+<span class="sourceLineNo">225</span>            while (uUses.hasNext())<a name="line.225"></a>
+<span class="sourceLineNo">226</span>            {<a name="line.226"></a>
+<span class="sourceLineNo">227</span>              Value v = uUses.next().getValue();<a name="line.227"></a>
+<span class="sourceLineNo">228</span>              if (v instanceof SpecialInvokeExpr)<a name="line.228"></a>
+<span class="sourceLineNo">229</span>              {<a name="line.229"></a>
+<span class="sourceLineNo">230</span>                SpecialInvokeExpr sie = (SpecialInvokeExpr)v;<a name="line.230"></a>
+<span class="sourceLineNo">231</span>                SootMethodRef smr = sie.getMethodRef();<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                if (sie.getBase().equivTo(thisLocal) <a name="line.232"></a>
+<span class="sourceLineNo">233</span>                    &amp;&amp; smr.declaringClass().getName().equals(cOrigSuperclass.getName())<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                    &amp;&amp; smr.getSubSignature().getString().startsWith("void &lt;init&gt;"))<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                {<a name="line.235"></a>
+<span class="sourceLineNo">236</span>                  SootMethod newSuperInit = null;<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                  if (!iC.declaresMethod("&lt;init&gt;",smr.parameterTypes()))<a name="line.237"></a>
+<span class="sourceLineNo">238</span>                  {<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                    List&lt;Type&gt; paramTypes = smr.parameterTypes();<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                    newSuperInit = new SootMethod("&lt;init&gt;",paramTypes,smr.returnType());<a name="line.240"></a>
+<span class="sourceLineNo">241</span>                    iC.addMethod(newSuperInit);<a name="line.241"></a>
+<span class="sourceLineNo">242</span><a name="line.242"></a>
+<span class="sourceLineNo">243</span>                    JimpleBody body = Jimple.v().newBody(newSuperInit);<a name="line.243"></a>
+<span class="sourceLineNo">244</span>                    newSuperInit.setActiveBody(body);<a name="line.244"></a>
+<span class="sourceLineNo">245</span>                    PatchingChain&lt;Unit&gt; initUnits = body.getUnits();<a name="line.245"></a>
+<span class="sourceLineNo">246</span>                    Collection&lt;Local&gt; locals = body.getLocals();<a name="line.246"></a>
+<span class="sourceLineNo">247</span>                    <a name="line.247"></a>
+<span class="sourceLineNo">248</span>                    List&lt;Local&gt; args = BodyBuilder.buildParameterLocals(initUnits,locals,paramTypes);<a name="line.248"></a>
+<span class="sourceLineNo">249</span>                    Local ths = BodyBuilder.buildThisLocal(initUnits,thisRef,locals);<a name="line.249"></a>
+<span class="sourceLineNo">250</span><a name="line.250"></a>
+<span class="sourceLineNo">251</span>                    initUnits.add(Jimple.v().newInvokeStmt(<a name="line.251"></a>
+<span class="sourceLineNo">252</span>                          Jimple.v().newSpecialInvokeExpr(ths, smr, args)));<a name="line.252"></a>
+<span class="sourceLineNo">253</span>                    initUnits.add(Jimple.v().newReturnVoidStmt());<a name="line.253"></a>
+<span class="sourceLineNo">254</span>                  } <a name="line.254"></a>
+<span class="sourceLineNo">255</span>                  else <a name="line.255"></a>
+<span class="sourceLineNo">256</span>                  {<a name="line.256"></a>
+<span class="sourceLineNo">257</span>                    newSuperInit = iC.getMethod("&lt;init&gt;",smr.parameterTypes());<a name="line.257"></a>
+<span class="sourceLineNo">258</span>                  }<a name="line.258"></a>
+<span class="sourceLineNo">259</span>                  <a name="line.259"></a>
+<span class="sourceLineNo">260</span>                  sie.setMethodRef(newSuperInit.makeRef());<a name="line.260"></a>
+<span class="sourceLineNo">261</span>                }<a name="line.261"></a>
+<span class="sourceLineNo">262</span>              }<a name="line.262"></a>
+<span class="sourceLineNo">263</span>            }<a name="line.263"></a>
+<span class="sourceLineNo">264</span>          }<a name="line.264"></a>
+<span class="sourceLineNo">265</span>        } // end of rewrite class init methods to call the proper superclass inits<a name="line.265"></a>
+<span class="sourceLineNo">266</span>      }<a name="line.266"></a>
+<span class="sourceLineNo">267</span>    }<a name="line.267"></a>
+<span class="sourceLineNo">268</span>    <a name="line.268"></a>
+<span class="sourceLineNo">269</span>    newclasses = Main.IntermediateAppClasses.size();<a name="line.269"></a>
+<span class="sourceLineNo">270</span>    <a name="line.270"></a>
+<span class="sourceLineNo">271</span>    scene.releaseActiveHierarchy();<a name="line.271"></a>
+<span class="sourceLineNo">272</span>    scene.getActiveHierarchy();<a name="line.272"></a>
+<span class="sourceLineNo">273</span>    scene.setFastHierarchy(new FastHierarchy());<a name="line.273"></a>
+<span class="sourceLineNo">274</span>  }<a name="line.274"></a>
+<span class="sourceLineNo">275</span>}<a name="line.275"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

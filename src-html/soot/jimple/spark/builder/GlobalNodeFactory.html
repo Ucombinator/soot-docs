@@ -1,0 +1,210 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2003 Ondrej Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.jimple.spark.builder;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import soot.jimple.spark.pag.*;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.*;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.toolkits.scalar.Pair;<a name="line.23"></a>
+<span class="sourceLineNo">024</span><a name="line.24"></a>
+<span class="sourceLineNo">025</span>/** Factory for nodes not specific to a given method.<a name="line.25"></a>
+<span class="sourceLineNo">026</span> * @author Ondrej Lhotak<a name="line.26"></a>
+<span class="sourceLineNo">027</span> */<a name="line.27"></a>
+<span class="sourceLineNo">028</span>public class GlobalNodeFactory {<a name="line.28"></a>
+<span class="sourceLineNo">029</span>    public GlobalNodeFactory( PAG pag ) {<a name="line.29"></a>
+<span class="sourceLineNo">030</span>        this.pag = pag;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>    }<a name="line.31"></a>
+<span class="sourceLineNo">032</span>    <a name="line.32"></a>
+<span class="sourceLineNo">033</span>    final public Node caseDefaultClassLoader() {<a name="line.33"></a>
+<span class="sourceLineNo">034</span>        AllocNode a = pag.makeAllocNode( <a name="line.34"></a>
+<span class="sourceLineNo">035</span>                PointsToAnalysis.DEFAULT_CLASS_LOADER,<a name="line.35"></a>
+<span class="sourceLineNo">036</span>                AnySubType.v( RefType.v( "java.lang.ClassLoader" ) ), null );<a name="line.36"></a>
+<span class="sourceLineNo">037</span>        VarNode v = pag.makeGlobalVarNode(<a name="line.37"></a>
+<span class="sourceLineNo">038</span>                PointsToAnalysis.DEFAULT_CLASS_LOADER_LOCAL,<a name="line.38"></a>
+<span class="sourceLineNo">039</span>                RefType.v( "java.lang.ClassLoader" ) );<a name="line.39"></a>
+<span class="sourceLineNo">040</span>        pag.addEdge( a, v );<a name="line.40"></a>
+<span class="sourceLineNo">041</span>        return v;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>    }<a name="line.42"></a>
+<span class="sourceLineNo">043</span>    final public Node caseMainClassNameString() {<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        AllocNode a = pag.makeAllocNode( <a name="line.44"></a>
+<span class="sourceLineNo">045</span>                PointsToAnalysis.MAIN_CLASS_NAME_STRING,<a name="line.45"></a>
+<span class="sourceLineNo">046</span>                RefType.v( "java.lang.String" ), null );<a name="line.46"></a>
+<span class="sourceLineNo">047</span>        VarNode v = pag.makeGlobalVarNode(<a name="line.47"></a>
+<span class="sourceLineNo">048</span>                PointsToAnalysis.MAIN_CLASS_NAME_STRING_LOCAL,<a name="line.48"></a>
+<span class="sourceLineNo">049</span>                RefType.v( "java.lang.String" ) );<a name="line.49"></a>
+<span class="sourceLineNo">050</span>        pag.addEdge( a, v );<a name="line.50"></a>
+<span class="sourceLineNo">051</span>        return v;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>    }<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    final public Node caseMainThreadGroup() {<a name="line.53"></a>
+<span class="sourceLineNo">054</span>        AllocNode threadGroupNode = pag.makeAllocNode( <a name="line.54"></a>
+<span class="sourceLineNo">055</span>                PointsToAnalysis.MAIN_THREAD_GROUP_NODE,<a name="line.55"></a>
+<span class="sourceLineNo">056</span>                RefType.v("java.lang.ThreadGroup"), null );<a name="line.56"></a>
+<span class="sourceLineNo">057</span>        VarNode threadGroupNodeLocal = pag.makeGlobalVarNode(<a name="line.57"></a>
+<span class="sourceLineNo">058</span>                PointsToAnalysis.MAIN_THREAD_GROUP_NODE_LOCAL,<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                RefType.v("java.lang.ThreadGroup") );<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        pag.addEdge( threadGroupNode, threadGroupNodeLocal );<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        return threadGroupNodeLocal;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    }<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    final public Node casePrivilegedActionException() {<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        AllocNode a = pag.makeAllocNode( <a name="line.64"></a>
+<span class="sourceLineNo">065</span>            PointsToAnalysis.PRIVILEGED_ACTION_EXCEPTION,<a name="line.65"></a>
+<span class="sourceLineNo">066</span>            AnySubType.v( RefType.v( "java.security.PrivilegedActionException" ) ), null );<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        VarNode v = pag.makeGlobalVarNode(<a name="line.67"></a>
+<span class="sourceLineNo">068</span>            PointsToAnalysis.PRIVILEGED_ACTION_EXCEPTION_LOCAL,<a name="line.68"></a>
+<span class="sourceLineNo">069</span>            RefType.v( "java.security.PrivilegedActionException" ) );<a name="line.69"></a>
+<span class="sourceLineNo">070</span>        pag.addEdge( a, v );<a name="line.70"></a>
+<span class="sourceLineNo">071</span>        return v;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        }<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    final public Node caseCanonicalPath() {<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        AllocNode a = pag.makeAllocNode( <a name="line.74"></a>
+<span class="sourceLineNo">075</span>            PointsToAnalysis.CANONICAL_PATH,<a name="line.75"></a>
+<span class="sourceLineNo">076</span>            RefType.v( "java.lang.String" ) , null);<a name="line.76"></a>
+<span class="sourceLineNo">077</span>        VarNode v = pag.makeGlobalVarNode(<a name="line.77"></a>
+<span class="sourceLineNo">078</span>            PointsToAnalysis.CANONICAL_PATH_LOCAL,<a name="line.78"></a>
+<span class="sourceLineNo">079</span>            RefType.v( "java.lang.String" ) );<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        pag.addEdge( a, v );<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        return v;<a name="line.81"></a>
+<span class="sourceLineNo">082</span>        }<a name="line.82"></a>
+<span class="sourceLineNo">083</span>    final public Node caseMainThread() {<a name="line.83"></a>
+<span class="sourceLineNo">084</span>        AllocNode threadNode = pag.makeAllocNode( <a name="line.84"></a>
+<span class="sourceLineNo">085</span>                PointsToAnalysis.MAIN_THREAD_NODE,<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                RefType.v("java.lang.Thread"), null );<a name="line.86"></a>
+<span class="sourceLineNo">087</span>        VarNode threadNodeLocal = pag.makeGlobalVarNode(<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                PointsToAnalysis.MAIN_THREAD_NODE_LOCAL,<a name="line.88"></a>
+<span class="sourceLineNo">089</span>                RefType.v("java.lang.Thread") );<a name="line.89"></a>
+<span class="sourceLineNo">090</span>        pag.addEdge( threadNode, threadNodeLocal );<a name="line.90"></a>
+<span class="sourceLineNo">091</span>        return threadNodeLocal;<a name="line.91"></a>
+<span class="sourceLineNo">092</span>    }<a name="line.92"></a>
+<span class="sourceLineNo">093</span>    final public Node caseFinalizeQueue() {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>        return pag.makeGlobalVarNode(PointsToAnalysis.FINALIZE_QUEUE, RefType.v("java.lang.Object"));<a name="line.94"></a>
+<span class="sourceLineNo">095</span>    }<a name="line.95"></a>
+<span class="sourceLineNo">096</span>    final public Node caseArgv() {<a name="line.96"></a>
+<span class="sourceLineNo">097</span>        AllocNode argv = pag.makeAllocNode( <a name="line.97"></a>
+<span class="sourceLineNo">098</span>                PointsToAnalysis.STRING_ARRAY_NODE,<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                ArrayType.v(RefType.v( "java.lang.String" ), 1), null );<a name="line.99"></a>
+<span class="sourceLineNo">100</span>        VarNode sanl = pag.makeGlobalVarNode(<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                PointsToAnalysis.STRING_ARRAY_NODE_LOCAL,<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                ArrayType.v(RefType.v( "java.lang.String" ), 1) );<a name="line.102"></a>
+<span class="sourceLineNo">103</span>        AllocNode stringNode = pag.makeAllocNode( <a name="line.103"></a>
+<span class="sourceLineNo">104</span>                PointsToAnalysis.STRING_NODE,<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                RefType.v( "java.lang.String" ), null );<a name="line.105"></a>
+<span class="sourceLineNo">106</span>        VarNode stringNodeLocal = pag.makeGlobalVarNode(<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                PointsToAnalysis.STRING_NODE_LOCAL,<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                RefType.v( "java.lang.String" ) );<a name="line.108"></a>
+<span class="sourceLineNo">109</span>        pag.addEdge( argv, sanl );<a name="line.109"></a>
+<span class="sourceLineNo">110</span>        pag.addEdge( stringNode, stringNodeLocal );<a name="line.110"></a>
+<span class="sourceLineNo">111</span>        pag.addEdge( stringNodeLocal, <a name="line.111"></a>
+<span class="sourceLineNo">112</span>                pag.makeFieldRefNode( sanl, ArrayElement.v() ) );<a name="line.112"></a>
+<span class="sourceLineNo">113</span>        return sanl;<a name="line.113"></a>
+<span class="sourceLineNo">114</span>    }<a name="line.114"></a>
+<span class="sourceLineNo">115</span><a name="line.115"></a>
+<span class="sourceLineNo">116</span>    final public Node caseNewInstance( VarNode cls ) {<a name="line.116"></a>
+<span class="sourceLineNo">117</span>        if( cls instanceof ContextVarNode ) cls = pag.findLocalVarNode( cls.getVariable() );<a name="line.117"></a>
+<span class="sourceLineNo">118</span>        VarNode local = pag.makeGlobalVarNode( cls, RefType.v( "java.lang.Object" ) );<a name="line.118"></a>
+<span class="sourceLineNo">119</span>        for (SootClass cl : Scene.v().dynamicClasses()) {<a name="line.119"></a>
+<span class="sourceLineNo">120</span>            AllocNode site = pag.makeAllocNode( new Pair&lt;VarNode, SootClass&gt;(cls, cl), cl.getType(), null );<a name="line.120"></a>
+<span class="sourceLineNo">121</span>            pag.addEdge( site, local );<a name="line.121"></a>
+<span class="sourceLineNo">122</span>        }<a name="line.122"></a>
+<span class="sourceLineNo">123</span>        return local;<a name="line.123"></a>
+<span class="sourceLineNo">124</span>    }<a name="line.124"></a>
+<span class="sourceLineNo">125</span><a name="line.125"></a>
+<span class="sourceLineNo">126</span>    public Node caseThrow() {<a name="line.126"></a>
+<span class="sourceLineNo">127</span>        VarNode ret = pag.makeGlobalVarNode( PointsToAnalysis.EXCEPTION_NODE,<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                    RefType.v("java.lang.Throwable") );<a name="line.128"></a>
+<span class="sourceLineNo">129</span>        ret.setInterProcTarget();<a name="line.129"></a>
+<span class="sourceLineNo">130</span>        ret.setInterProcSource();<a name="line.130"></a>
+<span class="sourceLineNo">131</span>        return ret;<a name="line.131"></a>
+<span class="sourceLineNo">132</span>    }<a name="line.132"></a>
+<span class="sourceLineNo">133</span>    /* End of public methods. */<a name="line.133"></a>
+<span class="sourceLineNo">134</span>    /* End of package methods. */<a name="line.134"></a>
+<span class="sourceLineNo">135</span><a name="line.135"></a>
+<span class="sourceLineNo">136</span>    protected PAG pag;<a name="line.136"></a>
+<span class="sourceLineNo">137</span>}<a name="line.137"></a>
+<span class="sourceLineNo">138</span><a name="line.138"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

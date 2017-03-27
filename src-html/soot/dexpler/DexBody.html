@@ -1,0 +1,999 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a Java Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2012 Michael Markert, Frank Hartmann<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * (c) 2012 University of Luxembourg - Interdisciplinary Centre for<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * Security Reliability and Trust (SnT) - All rights reserved<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * Alexandre Bartel<a name="line.6"></a>
+<span class="sourceLineNo">007</span> *<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is free software; you can redistribute it and/or<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * modify it under the terms of the GNU Lesser General Public<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * License as published by the Free Software Foundation; either<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * This library is distributed in the hope that it will be useful,<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Lesser General Public License for more details.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> *<a name="line.18"></a>
+<span class="sourceLineNo">019</span> * You should have received a copy of the GNU Lesser General Public<a name="line.19"></a>
+<span class="sourceLineNo">020</span> * License along with this library; if not, write to the<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.21"></a>
+<span class="sourceLineNo">022</span> * Boston, MA 02111-1307, USA.<a name="line.22"></a>
+<span class="sourceLineNo">023</span> */<a name="line.23"></a>
+<span class="sourceLineNo">024</span><a name="line.24"></a>
+<span class="sourceLineNo">025</span>package soot.dexpler;<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>import static soot.dexpler.instructions.InstructionFactory.fromInstruction;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.io.File;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.io.IOException;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import java.util.ArrayList;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import java.util.Collections;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import java.util.HashMap;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import java.util.HashSet;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import java.util.LinkedList;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import java.util.List;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import java.util.Map;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import java.util.Set;<a name="line.38"></a>
+<span class="sourceLineNo">039</span><a name="line.39"></a>
+<span class="sourceLineNo">040</span>import org.jf.dexlib2.analysis.ClassPath;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import org.jf.dexlib2.analysis.ClassPathResolver;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import org.jf.dexlib2.analysis.ClassProvider;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import org.jf.dexlib2.dexbacked.DexBackedDexFile;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import org.jf.dexlib2.iface.DexFile;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import org.jf.dexlib2.iface.ExceptionHandler;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import org.jf.dexlib2.iface.Method;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import org.jf.dexlib2.iface.MethodImplementation;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import org.jf.dexlib2.iface.MethodParameter;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import org.jf.dexlib2.iface.TryBlock;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>import org.jf.dexlib2.iface.debug.DebugItem;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>import org.jf.dexlib2.iface.instruction.Instruction;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>import org.jf.dexlib2.immutable.debug.ImmutableLineNumber;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>import org.jf.dexlib2.util.MethodUtil;<a name="line.53"></a>
+<span class="sourceLineNo">054</span><a name="line.54"></a>
+<span class="sourceLineNo">055</span>import soot.Body;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>import soot.DoubleType;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>import soot.Local;<a name="line.57"></a>
+<span class="sourceLineNo">058</span>import soot.LongType;<a name="line.58"></a>
+<span class="sourceLineNo">059</span>import soot.Modifier;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>import soot.NullType;<a name="line.60"></a>
+<span class="sourceLineNo">061</span>import soot.PrimType;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>import soot.RefType;<a name="line.62"></a>
+<span class="sourceLineNo">063</span>import soot.Scene;<a name="line.63"></a>
+<span class="sourceLineNo">064</span>import soot.SootClass;<a name="line.64"></a>
+<span class="sourceLineNo">065</span>import soot.SootMethod;<a name="line.65"></a>
+<span class="sourceLineNo">066</span>import soot.Timer;<a name="line.66"></a>
+<span class="sourceLineNo">067</span>import soot.Trap;<a name="line.67"></a>
+<span class="sourceLineNo">068</span>import soot.Type;<a name="line.68"></a>
+<span class="sourceLineNo">069</span>import soot.Unit;<a name="line.69"></a>
+<span class="sourceLineNo">070</span>import soot.UnknownType;<a name="line.70"></a>
+<span class="sourceLineNo">071</span>import soot.Value;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>import soot.ValueBox;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>import soot.dexpler.instructions.DanglingInstruction;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>import soot.dexpler.instructions.DeferableInstruction;<a name="line.74"></a>
+<span class="sourceLineNo">075</span>import soot.dexpler.instructions.DexlibAbstractInstruction;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>import soot.dexpler.instructions.MoveExceptionInstruction;<a name="line.76"></a>
+<span class="sourceLineNo">077</span>import soot.dexpler.instructions.OdexInstruction;<a name="line.77"></a>
+<span class="sourceLineNo">078</span>import soot.dexpler.instructions.PseudoInstruction;<a name="line.78"></a>
+<span class="sourceLineNo">079</span>import soot.dexpler.instructions.RetypeableInstruction;<a name="line.79"></a>
+<span class="sourceLineNo">080</span>import soot.dexpler.typing.DalvikTyper;<a name="line.80"></a>
+<span class="sourceLineNo">081</span>import soot.javaToJimple.LocalGenerator;<a name="line.81"></a>
+<span class="sourceLineNo">082</span>import soot.jimple.AssignStmt;<a name="line.82"></a>
+<span class="sourceLineNo">083</span>import soot.jimple.CastExpr;<a name="line.83"></a>
+<span class="sourceLineNo">084</span>import soot.jimple.CaughtExceptionRef;<a name="line.84"></a>
+<span class="sourceLineNo">085</span>import soot.jimple.ConditionExpr;<a name="line.85"></a>
+<span class="sourceLineNo">086</span>import soot.jimple.Constant;<a name="line.86"></a>
+<span class="sourceLineNo">087</span>import soot.jimple.DefinitionStmt;<a name="line.87"></a>
+<span class="sourceLineNo">088</span>import soot.jimple.EqExpr;<a name="line.88"></a>
+<span class="sourceLineNo">089</span>import soot.jimple.IfStmt;<a name="line.89"></a>
+<span class="sourceLineNo">090</span>import soot.jimple.IntConstant;<a name="line.90"></a>
+<span class="sourceLineNo">091</span>import soot.jimple.Jimple;<a name="line.91"></a>
+<span class="sourceLineNo">092</span>import soot.jimple.JimpleBody;<a name="line.92"></a>
+<span class="sourceLineNo">093</span>import soot.jimple.NeExpr;<a name="line.93"></a>
+<span class="sourceLineNo">094</span>import soot.jimple.NullConstant;<a name="line.94"></a>
+<span class="sourceLineNo">095</span>import soot.jimple.NumericConstant;<a name="line.95"></a>
+<span class="sourceLineNo">096</span>import soot.jimple.internal.JIdentityStmt;<a name="line.96"></a>
+<span class="sourceLineNo">097</span>import soot.jimple.toolkits.base.Aggregator;<a name="line.97"></a>
+<span class="sourceLineNo">098</span>import soot.jimple.toolkits.scalar.ConditionalBranchFolder;<a name="line.98"></a>
+<span class="sourceLineNo">099</span>import soot.jimple.toolkits.scalar.ConstantCastEliminator;<a name="line.99"></a>
+<span class="sourceLineNo">100</span>import soot.jimple.toolkits.scalar.CopyPropagator;<a name="line.100"></a>
+<span class="sourceLineNo">101</span>import soot.jimple.toolkits.scalar.DeadAssignmentEliminator;<a name="line.101"></a>
+<span class="sourceLineNo">102</span>import soot.jimple.toolkits.scalar.LocalNameStandardizer;<a name="line.102"></a>
+<span class="sourceLineNo">103</span>import soot.jimple.toolkits.scalar.NopEliminator;<a name="line.103"></a>
+<span class="sourceLineNo">104</span>import soot.jimple.toolkits.scalar.UnreachableCodeEliminator;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>import soot.jimple.toolkits.typing.TypeAssigner;<a name="line.105"></a>
+<span class="sourceLineNo">106</span>import soot.options.Options;<a name="line.106"></a>
+<span class="sourceLineNo">107</span>import soot.toolkits.exceptions.TrapTightener;<a name="line.107"></a>
+<span class="sourceLineNo">108</span>import soot.toolkits.scalar.LocalPacker;<a name="line.108"></a>
+<span class="sourceLineNo">109</span>import soot.toolkits.scalar.LocalSplitter;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>import soot.toolkits.scalar.UnusedLocalEliminator;<a name="line.110"></a>
+<span class="sourceLineNo">111</span><a name="line.111"></a>
+<span class="sourceLineNo">112</span>/**<a name="line.112"></a>
+<span class="sourceLineNo">113</span> * A DexBody contains the code of a DexMethod and is used as a wrapper around<a name="line.113"></a>
+<span class="sourceLineNo">114</span> * JimpleBody in the jimplification process.<a name="line.114"></a>
+<span class="sourceLineNo">115</span> *<a name="line.115"></a>
+<span class="sourceLineNo">116</span> * @author Michael Markert<a name="line.116"></a>
+<span class="sourceLineNo">117</span> * @author Frank Hartmann<a name="line.117"></a>
+<span class="sourceLineNo">118</span> */<a name="line.118"></a>
+<span class="sourceLineNo">119</span>public class DexBody  {<a name="line.119"></a>
+<span class="sourceLineNo">120</span>    private List&lt;DexlibAbstractInstruction&gt; instructions;<a name="line.120"></a>
+<span class="sourceLineNo">121</span>    // keeps track about the jimple locals that are associated with the dex registers<a name="line.121"></a>
+<span class="sourceLineNo">122</span>    private Local[] registerLocals;<a name="line.122"></a>
+<span class="sourceLineNo">123</span>    private Local storeResultLocal;<a name="line.123"></a>
+<span class="sourceLineNo">124</span>    private Map&lt;Integer, DexlibAbstractInstruction&gt; instructionAtAddress;<a name="line.124"></a>
+<span class="sourceLineNo">125</span>    private LocalGenerator localGenerator;<a name="line.125"></a>
+<span class="sourceLineNo">126</span><a name="line.126"></a>
+<span class="sourceLineNo">127</span>    private List&lt;DeferableInstruction&gt; deferredInstructions;<a name="line.127"></a>
+<span class="sourceLineNo">128</span>    private Set&lt;RetypeableInstruction&gt; instructionsToRetype;<a name="line.128"></a>
+<span class="sourceLineNo">129</span>    private DanglingInstruction dangling;<a name="line.129"></a>
+<span class="sourceLineNo">130</span><a name="line.130"></a>
+<span class="sourceLineNo">131</span>    private int numRegisters;<a name="line.131"></a>
+<span class="sourceLineNo">132</span>    private int numParameterRegisters;<a name="line.132"></a>
+<span class="sourceLineNo">133</span>    private final List&lt;Type&gt; parameterTypes;<a name="line.133"></a>
+<span class="sourceLineNo">134</span>    private boolean isStatic;<a name="line.134"></a>
+<span class="sourceLineNo">135</span>    private String methodSignature = "";<a name="line.135"></a>
+<span class="sourceLineNo">136</span>    <a name="line.136"></a>
+<span class="sourceLineNo">137</span>    private JimpleBody jBody;<a name="line.137"></a>
+<span class="sourceLineNo">138</span>    private List&lt;? extends TryBlock&lt;? extends ExceptionHandler&gt;&gt; tries;<a name="line.138"></a>
+<span class="sourceLineNo">139</span><a name="line.139"></a>
+<span class="sourceLineNo">140</span>    private RefType declaringClassType;<a name="line.140"></a>
+<span class="sourceLineNo">141</span>    <a name="line.141"></a>
+<span class="sourceLineNo">142</span>    private final DexFile dexFile;<a name="line.142"></a>
+<span class="sourceLineNo">143</span>    private final Method method;<a name="line.143"></a>
+<span class="sourceLineNo">144</span><a name="line.144"></a>
+<span class="sourceLineNo">145</span>    // detect array/instructions overlapping obfuscation<a name="line.145"></a>
+<span class="sourceLineNo">146</span>    private ArrayList&lt;PseudoInstruction&gt; pseudoInstructionData = new ArrayList&lt;PseudoInstruction&gt;();<a name="line.146"></a>
+<span class="sourceLineNo">147</span><a name="line.147"></a>
+<span class="sourceLineNo">148</span>    PseudoInstruction isAddressInData (int a) {<a name="line.148"></a>
+<span class="sourceLineNo">149</span>      for (PseudoInstruction pi: pseudoInstructionData) {<a name="line.149"></a>
+<span class="sourceLineNo">150</span>        int fb = pi.getDataFirstByte();<a name="line.150"></a>
+<span class="sourceLineNo">151</span>        int lb = pi.getDataLastByte();<a name="line.151"></a>
+<span class="sourceLineNo">152</span>        if (fb &lt;= a &amp;&amp; a &lt;= lb)<a name="line.152"></a>
+<span class="sourceLineNo">153</span>          return pi;<a name="line.153"></a>
+<span class="sourceLineNo">154</span>      }<a name="line.154"></a>
+<span class="sourceLineNo">155</span>      return null;<a name="line.155"></a>
+<span class="sourceLineNo">156</span>    }<a name="line.156"></a>
+<span class="sourceLineNo">157</span><a name="line.157"></a>
+<span class="sourceLineNo">158</span>    /**<a name="line.158"></a>
+<span class="sourceLineNo">159</span>     * @param code the codeitem that is contained in this body<a name="line.159"></a>
+<span class="sourceLineNo">160</span>     * @param method the method that is associated with this body<a name="line.160"></a>
+<span class="sourceLineNo">161</span>     */<a name="line.161"></a>
+<span class="sourceLineNo">162</span>    public DexBody(DexFile dexFile, Method method, RefType declaringClassType) {<a name="line.162"></a>
+<span class="sourceLineNo">163</span>        MethodImplementation code = method.getImplementation();<a name="line.163"></a>
+<span class="sourceLineNo">164</span>        if (code == null)<a name="line.164"></a>
+<span class="sourceLineNo">165</span>            throw new RuntimeException("error: no code for method "+ method.getName());<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        this.declaringClassType = declaringClassType;<a name="line.166"></a>
+<span class="sourceLineNo">167</span>        tries = code.getTryBlocks();<a name="line.167"></a>
+<span class="sourceLineNo">168</span>        methodSignature = method.getDefiningClass() +": "+ method.getReturnType() +" "+ method.getName() +"(";<a name="line.168"></a>
+<span class="sourceLineNo">169</span>        for (MethodParameter mp: method.getParameters())<a name="line.169"></a>
+<span class="sourceLineNo">170</span>            methodSignature += mp.getType() +",";<a name="line.170"></a>
+<span class="sourceLineNo">171</span><a name="line.171"></a>
+<span class="sourceLineNo">172</span>        List&lt;? extends CharSequence&gt; paramTypes = method.getParameterTypes();<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        if (paramTypes != null) {<a name="line.173"></a>
+<span class="sourceLineNo">174</span>            parameterTypes = new ArrayList&lt;Type&gt;();<a name="line.174"></a>
+<span class="sourceLineNo">175</span>            for (CharSequence type : paramTypes)<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                parameterTypes.add(DexType.toSoot(type.toString()));<a name="line.176"></a>
+<span class="sourceLineNo">177</span>        } else {<a name="line.177"></a>
+<span class="sourceLineNo">178</span>                parameterTypes = Collections.emptyList();<a name="line.178"></a>
+<span class="sourceLineNo">179</span>        }<a name="line.179"></a>
+<span class="sourceLineNo">180</span>        <a name="line.180"></a>
+<span class="sourceLineNo">181</span>        isStatic = Modifier.isStatic(method.getAccessFlags());<a name="line.181"></a>
+<span class="sourceLineNo">182</span>        numRegisters = code.getRegisterCount();<a name="line.182"></a>
+<span class="sourceLineNo">183</span>        numParameterRegisters = MethodUtil.getParameterRegisterCount(method);<a name="line.183"></a>
+<span class="sourceLineNo">184</span>        if (!isStatic)<a name="line.184"></a>
+<span class="sourceLineNo">185</span>            numParameterRegisters--;<a name="line.185"></a>
+<span class="sourceLineNo">186</span><a name="line.186"></a>
+<span class="sourceLineNo">187</span>        instructions = new ArrayList&lt;DexlibAbstractInstruction&gt;();<a name="line.187"></a>
+<span class="sourceLineNo">188</span>        instructionAtAddress = new HashMap&lt;Integer, DexlibAbstractInstruction&gt;();<a name="line.188"></a>
+<span class="sourceLineNo">189</span><a name="line.189"></a>
+<span class="sourceLineNo">190</span>        registerLocals = new Local[numRegisters];<a name="line.190"></a>
+<span class="sourceLineNo">191</span><a name="line.191"></a>
+<span class="sourceLineNo">192</span>        int address = 0;<a name="line.192"></a>
+<span class="sourceLineNo">193</span>        <a name="line.193"></a>
+<span class="sourceLineNo">194</span>        for (Instruction instruction : code.getInstructions()) {<a name="line.194"></a>
+<span class="sourceLineNo">195</span>            DexlibAbstractInstruction dexInstruction = fromInstruction(instruction, address);<a name="line.195"></a>
+<span class="sourceLineNo">196</span>            instructions.add(dexInstruction);<a name="line.196"></a>
+<span class="sourceLineNo">197</span>            instructionAtAddress.put(address, dexInstruction);<a name="line.197"></a>
+<span class="sourceLineNo">198</span>            Debug.printDbg(" put instruction '", dexInstruction ,"' at 0x", Integer.toHexString(address));<a name="line.198"></a>
+<span class="sourceLineNo">199</span>            address += instruction.getCodeUnits();<a name="line.199"></a>
+<span class="sourceLineNo">200</span>        }<a name="line.200"></a>
+<span class="sourceLineNo">201</span>        <a name="line.201"></a>
+<span class="sourceLineNo">202</span>        // Check taken from Android's dalvik/libdex/DexSwapVerify.cpp<a name="line.202"></a>
+<span class="sourceLineNo">203</span>        if (numParameterRegisters &gt; numRegisters)<a name="line.203"></a>
+<span class="sourceLineNo">204</span>                throw new RuntimeException("Malformed dex file: insSize (" + numParameterRegisters<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                                + ") &gt; registersSize (" + numRegisters + ")");<a name="line.205"></a>
+<span class="sourceLineNo">206</span>        <a name="line.206"></a>
+<span class="sourceLineNo">207</span>        for (DebugItem di: code.getDebugItems()) {<a name="line.207"></a>
+<span class="sourceLineNo">208</span>            if (di instanceof ImmutableLineNumber) {<a name="line.208"></a>
+<span class="sourceLineNo">209</span>                ImmutableLineNumber ln = (ImmutableLineNumber)di;<a name="line.209"></a>
+<span class="sourceLineNo">210</span>                DexlibAbstractInstruction ins = instructionAtAddress(ln.getCodeAddress());<a name="line.210"></a>
+<span class="sourceLineNo">211</span>                if (ins == null) {<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                        Debug.printDbg("Line number tag pointing to invalid offset: " + ln.getCodeAddress());<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                        continue;<a name="line.213"></a>
+<span class="sourceLineNo">214</span>                }<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                ins.setLineNumber(ln.getLineNumber());<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                Debug.printDbg("Add line number tag " + ln.getLineNumber() + " for instruction: "<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                        + instructionAtAddress(ln.getCodeAddress()));<a name="line.217"></a>
+<span class="sourceLineNo">218</span>            }<a name="line.218"></a>
+<span class="sourceLineNo">219</span>        }<a name="line.219"></a>
+<span class="sourceLineNo">220</span><a name="line.220"></a>
+<span class="sourceLineNo">221</span>        this.dexFile = dexFile;<a name="line.221"></a>
+<span class="sourceLineNo">222</span>        this.method = method;<a name="line.222"></a>
+<span class="sourceLineNo">223</span>    }<a name="line.223"></a>
+<span class="sourceLineNo">224</span>    <a name="line.224"></a>
+<span class="sourceLineNo">225</span>    /**<a name="line.225"></a>
+<span class="sourceLineNo">226</span>     * Return the types that are used in this body.<a name="line.226"></a>
+<span class="sourceLineNo">227</span>     */<a name="line.227"></a>
+<span class="sourceLineNo">228</span>    public Set&lt;Type&gt; usedTypes() {<a name="line.228"></a>
+<span class="sourceLineNo">229</span>        Set&lt;Type&gt; types = new HashSet&lt;Type&gt;();<a name="line.229"></a>
+<span class="sourceLineNo">230</span>        for (DexlibAbstractInstruction i : instructions)<a name="line.230"></a>
+<span class="sourceLineNo">231</span>            types.addAll(i.introducedTypes());<a name="line.231"></a>
+<span class="sourceLineNo">232</span><a name="line.232"></a>
+<span class="sourceLineNo">233</span>        if(tries!=null) {<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                for (TryBlock&lt;? extends ExceptionHandler&gt; tryItem : tries) {<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                    List&lt;? extends ExceptionHandler&gt; hList = tryItem.getExceptionHandlers();<a name="line.235"></a>
+<span class="sourceLineNo">236</span>                        for (ExceptionHandler handler: hList) {<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                            String exType = handler.getExceptionType();<a name="line.237"></a>
+<span class="sourceLineNo">238</span>                            if (exType == null) // for handler which capture all Exceptions<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                                continue;<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                            types.add(DexType.toSoot(exType));<a name="line.240"></a>
+<span class="sourceLineNo">241</span>                        }<a name="line.241"></a>
+<span class="sourceLineNo">242</span>                }<a name="line.242"></a>
+<span class="sourceLineNo">243</span>        }<a name="line.243"></a>
+<span class="sourceLineNo">244</span><a name="line.244"></a>
+<span class="sourceLineNo">245</span>        return types;<a name="line.245"></a>
+<span class="sourceLineNo">246</span>    }<a name="line.246"></a>
+<span class="sourceLineNo">247</span><a name="line.247"></a>
+<span class="sourceLineNo">248</span>    /**<a name="line.248"></a>
+<span class="sourceLineNo">249</span>     * Add unit to this body.<a name="line.249"></a>
+<span class="sourceLineNo">250</span>     *<a name="line.250"></a>
+<span class="sourceLineNo">251</span>     * @param u Unit to add.<a name="line.251"></a>
+<span class="sourceLineNo">252</span>     */<a name="line.252"></a>
+<span class="sourceLineNo">253</span>    public void add(Unit u) {<a name="line.253"></a>
+<span class="sourceLineNo">254</span>        getBody().getUnits().add(u);<a name="line.254"></a>
+<span class="sourceLineNo">255</span>    }<a name="line.255"></a>
+<span class="sourceLineNo">256</span><a name="line.256"></a>
+<span class="sourceLineNo">257</span>    /**<a name="line.257"></a>
+<span class="sourceLineNo">258</span>     * Add a deferred instruction to this body.<a name="line.258"></a>
+<span class="sourceLineNo">259</span>     *<a name="line.259"></a>
+<span class="sourceLineNo">260</span>     * @param i the deferred instruction.<a name="line.260"></a>
+<span class="sourceLineNo">261</span>     */<a name="line.261"></a>
+<span class="sourceLineNo">262</span>    public void addDeferredJimplification(DeferableInstruction i) {<a name="line.262"></a>
+<span class="sourceLineNo">263</span>        deferredInstructions.add(i);<a name="line.263"></a>
+<span class="sourceLineNo">264</span>    }<a name="line.264"></a>
+<span class="sourceLineNo">265</span><a name="line.265"></a>
+<span class="sourceLineNo">266</span>    /**<a name="line.266"></a>
+<span class="sourceLineNo">267</span>     * Add a retypeable instruction to this body.<a name="line.267"></a>
+<span class="sourceLineNo">268</span>     *<a name="line.268"></a>
+<span class="sourceLineNo">269</span>     * @param i the retypeable instruction.<a name="line.269"></a>
+<span class="sourceLineNo">270</span>     */<a name="line.270"></a>
+<span class="sourceLineNo">271</span>    public void addRetype(RetypeableInstruction i) {<a name="line.271"></a>
+<span class="sourceLineNo">272</span>        instructionsToRetype.add(i);<a name="line.272"></a>
+<span class="sourceLineNo">273</span>    }<a name="line.273"></a>
+<span class="sourceLineNo">274</span><a name="line.274"></a>
+<span class="sourceLineNo">275</span>    /**<a name="line.275"></a>
+<span class="sourceLineNo">276</span>     * Generate a new local variable.<a name="line.276"></a>
+<span class="sourceLineNo">277</span>     *<a name="line.277"></a>
+<span class="sourceLineNo">278</span>     * @param t the type of the new variable.<a name="line.278"></a>
+<span class="sourceLineNo">279</span>     * @return the generated local.<a name="line.279"></a>
+<span class="sourceLineNo">280</span>     */<a name="line.280"></a>
+<span class="sourceLineNo">281</span>    public Local generateLocal(Type t) {<a name="line.281"></a>
+<span class="sourceLineNo">282</span>        return localGenerator.generateLocal(t);<a name="line.282"></a>
+<span class="sourceLineNo">283</span>    }<a name="line.283"></a>
+<span class="sourceLineNo">284</span><a name="line.284"></a>
+<span class="sourceLineNo">285</span>    /**<a name="line.285"></a>
+<span class="sourceLineNo">286</span>     * Return the associated JimpleBody.<a name="line.286"></a>
+<span class="sourceLineNo">287</span>     *<a name="line.287"></a>
+<span class="sourceLineNo">288</span>     * @throws RuntimeException if no jimplification happened yet.<a name="line.288"></a>
+<span class="sourceLineNo">289</span>     */<a name="line.289"></a>
+<span class="sourceLineNo">290</span>    public Body getBody() {<a name="line.290"></a>
+<span class="sourceLineNo">291</span>        if (jBody == null)<a name="line.291"></a>
+<span class="sourceLineNo">292</span>            throw new RuntimeException("No jimplification happened yet, no body available.");<a name="line.292"></a>
+<span class="sourceLineNo">293</span>        return jBody;<a name="line.293"></a>
+<span class="sourceLineNo">294</span>    }<a name="line.294"></a>
+<span class="sourceLineNo">295</span><a name="line.295"></a>
+<span class="sourceLineNo">296</span>    /**<a name="line.296"></a>
+<span class="sourceLineNo">297</span>     * Return the Locals that are associated with the current register state.<a name="line.297"></a>
+<span class="sourceLineNo">298</span>     *<a name="line.298"></a>
+<span class="sourceLineNo">299</span>     */<a name="line.299"></a>
+<span class="sourceLineNo">300</span>    public Local[] getRegisterLocals() {<a name="line.300"></a>
+<span class="sourceLineNo">301</span>        return registerLocals;<a name="line.301"></a>
+<span class="sourceLineNo">302</span>    }<a name="line.302"></a>
+<span class="sourceLineNo">303</span><a name="line.303"></a>
+<span class="sourceLineNo">304</span>    /**<a name="line.304"></a>
+<span class="sourceLineNo">305</span>     * Return the Local that are associated with the number in the current<a name="line.305"></a>
+<span class="sourceLineNo">306</span>     * register state.<a name="line.306"></a>
+<span class="sourceLineNo">307</span>     *<a name="line.307"></a>
+<span class="sourceLineNo">308</span>     * Handles if the register number actually points to a method parameter.<a name="line.308"></a>
+<span class="sourceLineNo">309</span>     *<a name="line.309"></a>
+<span class="sourceLineNo">310</span>     * @param num the register number<a name="line.310"></a>
+<span class="sourceLineNo">311</span>     * @throws InvalidDalvikBytecodeException<a name="line.311"></a>
+<span class="sourceLineNo">312</span>     */<a name="line.312"></a>
+<span class="sourceLineNo">313</span>    public Local getRegisterLocal(int num) throws InvalidDalvikBytecodeException {<a name="line.313"></a>
+<span class="sourceLineNo">314</span>        int totalRegisters = registerLocals.length;<a name="line.314"></a>
+<span class="sourceLineNo">315</span>        if (num &gt; totalRegisters)<a name="line.315"></a>
+<span class="sourceLineNo">316</span>            throw new InvalidDalvikBytecodeException("Trying to access register "+ num +" but only "+ totalRegisters +" is/are available.");<a name="line.316"></a>
+<span class="sourceLineNo">317</span>        return registerLocals[num];<a name="line.317"></a>
+<span class="sourceLineNo">318</span>    }<a name="line.318"></a>
+<span class="sourceLineNo">319</span><a name="line.319"></a>
+<span class="sourceLineNo">320</span>    public Local getStoreResultLocal () {<a name="line.320"></a>
+<span class="sourceLineNo">321</span>      return storeResultLocal;<a name="line.321"></a>
+<span class="sourceLineNo">322</span>    }<a name="line.322"></a>
+<span class="sourceLineNo">323</span><a name="line.323"></a>
+<span class="sourceLineNo">324</span>    /**<a name="line.324"></a>
+<span class="sourceLineNo">325</span>     * Return the instruction that is present at the byte code address.<a name="line.325"></a>
+<span class="sourceLineNo">326</span>     *<a name="line.326"></a>
+<span class="sourceLineNo">327</span>     * @param address the byte code address.<a name="line.327"></a>
+<span class="sourceLineNo">328</span>     * @throws RuntimeException if address is not part of this body.<a name="line.328"></a>
+<span class="sourceLineNo">329</span>     */<a name="line.329"></a>
+<span class="sourceLineNo">330</span>    public DexlibAbstractInstruction instructionAtAddress(int address) {<a name="line.330"></a>
+<span class="sourceLineNo">331</span>        DexlibAbstractInstruction i = null;<a name="line.331"></a>
+<span class="sourceLineNo">332</span>        while (i == null &amp;&amp; address &gt;= 0) {<a name="line.332"></a>
+<span class="sourceLineNo">333</span>            // catch addresses can be in the middlde of last instruction. Ex. in com.letang.ldzja.en.apk:<a name="line.333"></a>
+<span class="sourceLineNo">334</span>            //<a name="line.334"></a>
+<span class="sourceLineNo">335</span>            //          042c46: 7020 2a15 0100                         |008f: invoke-direct {v1, v0}, Ljavax/mi...<a name="line.335"></a>
+<span class="sourceLineNo">336</span>            //          042c4c: 2701                                   |0092: throw v1<a name="line.336"></a>
+<span class="sourceLineNo">337</span>            //          catches       : 4<a name="line.337"></a>
+<span class="sourceLineNo">338</span>            //              &lt;any&gt; -&gt; 0x0065<a name="line.338"></a>
+<span class="sourceLineNo">339</span>            //            0x0069 - 0x0093<a name="line.339"></a>
+<span class="sourceLineNo">340</span>                //<a name="line.340"></a>
+<span class="sourceLineNo">341</span>                // SA, 14.05.2014: We originally scanned only two code units back. This is not sufficient<a name="line.341"></a>
+<span class="sourceLineNo">342</span>                // if we e.g., have a wide constant and the line number in the debug sections points to<a name="line.342"></a>
+<span class="sourceLineNo">343</span>                // some address the middle.<a name="line.343"></a>
+<span class="sourceLineNo">344</span>                i = instructionAtAddress.get(address);<a name="line.344"></a>
+<span class="sourceLineNo">345</span>                address--;<a name="line.345"></a>
+<span class="sourceLineNo">346</span>        }<a name="line.346"></a>
+<span class="sourceLineNo">347</span>        return i;<a name="line.347"></a>
+<span class="sourceLineNo">348</span>    }<a name="line.348"></a>
+<span class="sourceLineNo">349</span>    <a name="line.349"></a>
+<span class="sourceLineNo">350</span>    /**<a name="line.350"></a>
+<span class="sourceLineNo">351</span>     * Return the jimple equivalent of this body.<a name="line.351"></a>
+<span class="sourceLineNo">352</span>     *<a name="line.352"></a>
+<span class="sourceLineNo">353</span>     * @param m the SootMethod that contains this body<a name="line.353"></a>
+<span class="sourceLineNo">354</span>     */<a name="line.354"></a>
+<span class="sourceLineNo">355</span>    public Body jimplify(Body b, SootMethod m) {<a name="line.355"></a>
+<span class="sourceLineNo">356</span><a name="line.356"></a>
+<span class="sourceLineNo">357</span>                Timer t_whole_jimplification = new Timer();<a name="line.357"></a>
+<span class="sourceLineNo">358</span>                Timer t_num = new Timer();<a name="line.358"></a>
+<span class="sourceLineNo">359</span>                Timer t_null = new Timer();<a name="line.359"></a>
+<span class="sourceLineNo">360</span><a name="line.360"></a>
+<span class="sourceLineNo">361</span>                t_whole_jimplification.start();<a name="line.361"></a>
+<span class="sourceLineNo">362</span><a name="line.362"></a>
+<span class="sourceLineNo">363</span>        jBody = (JimpleBody)b;<a name="line.363"></a>
+<span class="sourceLineNo">364</span>        localGenerator = new LocalGenerator(jBody);<a name="line.364"></a>
+<span class="sourceLineNo">365</span>        deferredInstructions = new ArrayList&lt;DeferableInstruction&gt;();<a name="line.365"></a>
+<span class="sourceLineNo">366</span>        instructionsToRetype = new HashSet&lt;RetypeableInstruction&gt;();<a name="line.366"></a>
+<span class="sourceLineNo">367</span><a name="line.367"></a>
+<span class="sourceLineNo">368</span>        if (IDalvikTyper.ENABLE_DVKTYPER) {<a name="line.368"></a>
+<span class="sourceLineNo">369</span>            Debug.printDbg(IDalvikTyper.DEBUG, "clear dalvik typer");<a name="line.369"></a>
+<span class="sourceLineNo">370</span>            DalvikTyper.v().clear();<a name="line.370"></a>
+<span class="sourceLineNo">371</span>        }<a name="line.371"></a>
+<span class="sourceLineNo">372</span><a name="line.372"></a>
+<span class="sourceLineNo">373</span>        Debug.printDbg("\n[jimplify] start for: ", methodSignature);<a name="line.373"></a>
+<span class="sourceLineNo">374</span><a name="line.374"></a>
+<span class="sourceLineNo">375</span>        // process method parameters and generate Jimple locals from Dalvik registers<a name="line.375"></a>
+<span class="sourceLineNo">376</span>        List&lt;Local&gt; paramLocals = new LinkedList&lt;Local&gt;();<a name="line.376"></a>
+<span class="sourceLineNo">377</span>        if (!isStatic) {<a name="line.377"></a>
+<span class="sourceLineNo">378</span>            int thisRegister = numRegisters - numParameterRegisters - 1;<a name="line.378"></a>
+<span class="sourceLineNo">379</span><a name="line.379"></a>
+<span class="sourceLineNo">380</span>            Local thisLocal = Jimple.v().newLocal("$u"+ thisRegister, UnknownType.v()); //generateLocal(UnknownType.v());<a name="line.380"></a>
+<span class="sourceLineNo">381</span>            jBody.getLocals().add(thisLocal);<a name="line.381"></a>
+<span class="sourceLineNo">382</span><a name="line.382"></a>
+<span class="sourceLineNo">383</span>            registerLocals[thisRegister] = thisLocal;<a name="line.383"></a>
+<span class="sourceLineNo">384</span>            JIdentityStmt idStmt = (JIdentityStmt) Jimple.v().newIdentityStmt(thisLocal, Jimple.v().newThisRef(declaringClassType));<a name="line.384"></a>
+<span class="sourceLineNo">385</span>            add(idStmt);<a name="line.385"></a>
+<span class="sourceLineNo">386</span>            paramLocals.add(thisLocal);<a name="line.386"></a>
+<span class="sourceLineNo">387</span>            if (IDalvikTyper.ENABLE_DVKTYPER) {<a name="line.387"></a>
+<span class="sourceLineNo">388</span>                Debug.printDbg(IDalvikTyper.DEBUG, "constraint: ", idStmt);<a name="line.388"></a>
+<span class="sourceLineNo">389</span>                DalvikTyper.v().setType(idStmt.leftBox, jBody.getMethod().getDeclaringClass().getType(), false);<a name="line.389"></a>
+<span class="sourceLineNo">390</span>            }<a name="line.390"></a>
+<span class="sourceLineNo">391</span><a name="line.391"></a>
+<span class="sourceLineNo">392</span>        }<a name="line.392"></a>
+<span class="sourceLineNo">393</span>        {<a name="line.393"></a>
+<span class="sourceLineNo">394</span>                int i = 0; // index of parameter type<a name="line.394"></a>
+<span class="sourceLineNo">395</span>                int parameterRegister = numRegisters - numParameterRegisters; // index of parameter register<a name="line.395"></a>
+<span class="sourceLineNo">396</span>                for (Type t: parameterTypes) {<a name="line.396"></a>
+<span class="sourceLineNo">397</span><a name="line.397"></a>
+<span class="sourceLineNo">398</span>                    Local gen = Jimple.v().newLocal("$u"+ parameterRegister, UnknownType.v()); //may only use UnknownType here because the local may be reused with a different type later (before splitting)<a name="line.398"></a>
+<span class="sourceLineNo">399</span>                    jBody.getLocals().add(gen);<a name="line.399"></a>
+<span class="sourceLineNo">400</span><a name="line.400"></a>
+<span class="sourceLineNo">401</span>                    Debug.printDbg ("add local for parameter register number: ", parameterRegister);<a name="line.401"></a>
+<span class="sourceLineNo">402</span>                    registerLocals[parameterRegister] = gen;<a name="line.402"></a>
+<span class="sourceLineNo">403</span>                    JIdentityStmt idStmt = (JIdentityStmt) Jimple.v().newIdentityStmt(gen, Jimple.v().newParameterRef(t, i++));<a name="line.403"></a>
+<span class="sourceLineNo">404</span>                    add(idStmt);<a name="line.404"></a>
+<span class="sourceLineNo">405</span>                    paramLocals.add(gen);<a name="line.405"></a>
+<span class="sourceLineNo">406</span>                    if (IDalvikTyper.ENABLE_DVKTYPER) {<a name="line.406"></a>
+<span class="sourceLineNo">407</span>                        Debug.printDbg(IDalvikTyper.DEBUG, "constraint: "+ idStmt);<a name="line.407"></a>
+<span class="sourceLineNo">408</span>                        DalvikTyper.v().setType(idStmt.leftBox, t, false);<a name="line.408"></a>
+<span class="sourceLineNo">409</span>                    }<a name="line.409"></a>
+<span class="sourceLineNo">410</span><a name="line.410"></a>
+<span class="sourceLineNo">411</span>                    // some parameters may be encoded on two registers.<a name="line.411"></a>
+<span class="sourceLineNo">412</span>                    // in Jimple only the first Dalvik register name is used<a name="line.412"></a>
+<span class="sourceLineNo">413</span>                    // as the corresponding Jimple Local name. However, we also add<a name="line.413"></a>
+<span class="sourceLineNo">414</span>                    // the second register to the registerLocals array since it could be<a name="line.414"></a>
+<span class="sourceLineNo">415</span>                    // used later in the Dalvik bytecode<a name="line.415"></a>
+<span class="sourceLineNo">416</span>                    if (t instanceof LongType || t instanceof DoubleType) {<a name="line.416"></a>
+<span class="sourceLineNo">417</span>                      parameterRegister++;<a name="line.417"></a>
+<span class="sourceLineNo">418</span>                      Local g = Jimple.v().newLocal("$u"+ parameterRegister, UnknownType.v()); //may only use UnknownType here because the local may be reused with a different type later (before splitting)<a name="line.418"></a>
+<span class="sourceLineNo">419</span>                      jBody.getLocals().add (g);<a name="line.419"></a>
+<span class="sourceLineNo">420</span>                      registerLocals[parameterRegister] = g;<a name="line.420"></a>
+<span class="sourceLineNo">421</span>                    }<a name="line.421"></a>
+<span class="sourceLineNo">422</span><a name="line.422"></a>
+<span class="sourceLineNo">423</span>                    parameterRegister++;<a name="line.423"></a>
+<span class="sourceLineNo">424</span>                }<a name="line.424"></a>
+<span class="sourceLineNo">425</span>        }<a name="line.425"></a>
+<span class="sourceLineNo">426</span><a name="line.426"></a>
+<span class="sourceLineNo">427</span>        for (int i = 0; i &lt; (numRegisters - numParameterRegisters - (isStatic?0:1)); i++) {<a name="line.427"></a>
+<span class="sourceLineNo">428</span>            Debug.printDbg ("add local for register number: ", i);<a name="line.428"></a>
+<span class="sourceLineNo">429</span>            registerLocals[i] = Jimple.v().newLocal("$u"+ i, UnknownType.v());<a name="line.429"></a>
+<span class="sourceLineNo">430</span>            jBody.getLocals().add(registerLocals[i]);<a name="line.430"></a>
+<span class="sourceLineNo">431</span>        }<a name="line.431"></a>
+<span class="sourceLineNo">432</span><a name="line.432"></a>
+<span class="sourceLineNo">433</span>        // add local to store intermediate results<a name="line.433"></a>
+<span class="sourceLineNo">434</span>        storeResultLocal = Jimple.v().newLocal("$u-1", UnknownType.v());<a name="line.434"></a>
+<span class="sourceLineNo">435</span>        jBody.getLocals().add (storeResultLocal);<a name="line.435"></a>
+<span class="sourceLineNo">436</span>        <a name="line.436"></a>
+<span class="sourceLineNo">437</span>        // process bytecode instructions<a name="line.437"></a>
+<span class="sourceLineNo">438</span>        final boolean isOdex = dexFile instanceof DexBackedDexFile ?<a name="line.438"></a>
+<span class="sourceLineNo">439</span>                        ((DexBackedDexFile) dexFile).isOdexFile() : false;<a name="line.439"></a>
+<span class="sourceLineNo">440</span>        <a name="line.440"></a>
+<span class="sourceLineNo">441</span>        ClassPath cp = null;<a name="line.441"></a>
+<span class="sourceLineNo">442</span>        if (isOdex) {<a name="line.442"></a>
+<span class="sourceLineNo">443</span>                String[] sootClasspath = Options.v().soot_classpath().split(File.pathSeparator);<a name="line.443"></a>
+<span class="sourceLineNo">444</span>                List&lt;String&gt; classpathList = new ArrayList&lt;String&gt;();<a name="line.444"></a>
+<span class="sourceLineNo">445</span>                for (String str : sootClasspath)<a name="line.445"></a>
+<span class="sourceLineNo">446</span>                        classpathList.add(str);<a name="line.446"></a>
+<span class="sourceLineNo">447</span>                try{<a name="line.447"></a>
+<span class="sourceLineNo">448</span>                        ClassPathResolver resolver = new ClassPathResolver(classpathList, classpathList, classpathList, dexFile);<a name="line.448"></a>
+<span class="sourceLineNo">449</span>                        cp = new ClassPath(resolver.getResolvedClassProviders().toArray(new ClassProvider[0]));<a name="line.449"></a>
+<span class="sourceLineNo">450</span>                }catch(IOException e){<a name="line.450"></a>
+<span class="sourceLineNo">451</span>                        throw new RuntimeException(e);<a name="line.451"></a>
+<span class="sourceLineNo">452</span>                }<a name="line.452"></a>
+<span class="sourceLineNo">453</span>        }<a name="line.453"></a>
+<span class="sourceLineNo">454</span><a name="line.454"></a>
+<span class="sourceLineNo">455</span>        int prevLineNumber = -1;<a name="line.455"></a>
+<span class="sourceLineNo">456</span>        for(DexlibAbstractInstruction instruction : instructions) {<a name="line.456"></a>
+<span class="sourceLineNo">457</span>                if (isOdex &amp;&amp; instruction instanceof OdexInstruction)<a name="line.457"></a>
+<span class="sourceLineNo">458</span>                        ((OdexInstruction) instruction).deOdex(dexFile, method, cp);<a name="line.458"></a>
+<span class="sourceLineNo">459</span>            if (dangling != null) {<a name="line.459"></a>
+<span class="sourceLineNo">460</span>                dangling.finalize(this, instruction);<a name="line.460"></a>
+<span class="sourceLineNo">461</span>                dangling = null;<a name="line.461"></a>
+<span class="sourceLineNo">462</span>            }<a name="line.462"></a>
+<span class="sourceLineNo">463</span>            //Debug.printDbg(" current op to jimplify: 0x", Integer.toHexString(instruction.getInstruction().opcode.value) ," instruction: ", instruction );<a name="line.463"></a>
+<span class="sourceLineNo">464</span>            instruction.jimplify(this);<a name="line.464"></a>
+<span class="sourceLineNo">465</span>            if (instruction.getLineNumber() &gt; 0)<a name="line.465"></a>
+<span class="sourceLineNo">466</span>                                prevLineNumber = instruction.getLineNumber();<a name="line.466"></a>
+<span class="sourceLineNo">467</span>                        else {<a name="line.467"></a>
+<span class="sourceLineNo">468</span>                                instruction.setLineNumber(prevLineNumber);<a name="line.468"></a>
+<span class="sourceLineNo">469</span>                        }<a name="line.469"></a>
+<span class="sourceLineNo">470</span>        }<a name="line.470"></a>
+<span class="sourceLineNo">471</span>        for(DeferableInstruction instruction : deferredInstructions) {<a name="line.471"></a>
+<span class="sourceLineNo">472</span>            instruction.deferredJimplify(this);<a name="line.472"></a>
+<span class="sourceLineNo">473</span>        }<a name="line.473"></a>
+<span class="sourceLineNo">474</span>        <a name="line.474"></a>
+<span class="sourceLineNo">475</span>        if (tries != null)<a name="line.475"></a>
+<span class="sourceLineNo">476</span>            addTraps();<a name="line.476"></a>
+<span class="sourceLineNo">477</span>        <a name="line.477"></a>
+<span class="sourceLineNo">478</span>        // At this point Jimple code is generated<a name="line.478"></a>
+<span class="sourceLineNo">479</span>        // Cleaning...<a name="line.479"></a>
+<span class="sourceLineNo">480</span><a name="line.480"></a>
+<span class="sourceLineNo">481</span>        instructions = null;<a name="line.481"></a>
+<span class="sourceLineNo">482</span>        //registerLocals = null;<a name="line.482"></a>
+<span class="sourceLineNo">483</span>        //storeResultLocal = null;<a name="line.483"></a>
+<span class="sourceLineNo">484</span>        instructionAtAddress.clear();<a name="line.484"></a>
+<span class="sourceLineNo">485</span>        //localGenerator = null;<a name="line.485"></a>
+<span class="sourceLineNo">486</span>        deferredInstructions = null;<a name="line.486"></a>
+<span class="sourceLineNo">487</span>        //instructionsToRetype = null;<a name="line.487"></a>
+<span class="sourceLineNo">488</span>        dangling = null;<a name="line.488"></a>
+<span class="sourceLineNo">489</span>        tries = null;<a name="line.489"></a>
+<span class="sourceLineNo">490</span><a name="line.490"></a>
+<span class="sourceLineNo">491</span>        /* We eliminate dead code. Dead code has been shown to occur under the following<a name="line.491"></a>
+<span class="sourceLineNo">492</span>         * circumstances.<a name="line.492"></a>
+<span class="sourceLineNo">493</span>         *<a name="line.493"></a>
+<span class="sourceLineNo">494</span>         *  0006ec: 0d00                                   |00a2: move-exception v0<a name="line.494"></a>
+<span class="sourceLineNo">495</span>            ...<a name="line.495"></a>
+<span class="sourceLineNo">496</span>                        0006f2: 0d00                                   |00a5: move-exception v0<a name="line.496"></a>
+<span class="sourceLineNo">497</span>                        ...<a name="line.497"></a>
+<span class="sourceLineNo">498</span>                0x0041 - 0x008a<a name="line.498"></a>
+<span class="sourceLineNo">499</span>                  Ljava/lang/Throwable; -&gt; 0x00a5<a name="line.499"></a>
+<span class="sourceLineNo">500</span>                  &lt;any&gt; -&gt; 0x00a2<a name="line.500"></a>
+<span class="sourceLineNo">501</span><a name="line.501"></a>
+<span class="sourceLineNo">502</span>               Here there are two traps both over the same region. But the same always fires, hence<a name="line.502"></a>
+<span class="sourceLineNo">503</span>               rendering the code at a2 unreachable.<a name="line.503"></a>
+<span class="sourceLineNo">504</span>               Dead code yields problems during local splitting because locals within dead code<a name="line.504"></a>
+<span class="sourceLineNo">505</span>               will not be split. Hence we remove all dead code here.<a name="line.505"></a>
+<span class="sourceLineNo">506</span>         */<a name="line.506"></a>
+<span class="sourceLineNo">507</span><a name="line.507"></a>
+<span class="sourceLineNo">508</span>                Debug.printDbg("body before any transformation : ", m, "\n", jBody);<a name="line.508"></a>
+<span class="sourceLineNo">509</span>        <a name="line.509"></a>
+<span class="sourceLineNo">510</span>        Debug.printDbg("\nbefore splitting");<a name="line.510"></a>
+<span class="sourceLineNo">511</span>        Debug.printDbg("",(Body)jBody);<a name="line.511"></a>
+<span class="sourceLineNo">512</span>        <a name="line.512"></a>
+<span class="sourceLineNo">513</span>        // Fix traps that do not catch exceptions<a name="line.513"></a>
+<span class="sourceLineNo">514</span>        DexTrapStackFixer.v().transform(jBody);<a name="line.514"></a>
+<span class="sourceLineNo">515</span>        <a name="line.515"></a>
+<span class="sourceLineNo">516</span>        // Sort out jump chains<a name="line.516"></a>
+<span class="sourceLineNo">517</span>        DexJumpChainShortener.v().transform(jBody);<a name="line.517"></a>
+<span class="sourceLineNo">518</span>        <a name="line.518"></a>
+<span class="sourceLineNo">519</span>        // Make sure that we don't have any overlapping uses due to returns<a name="line.519"></a>
+<span class="sourceLineNo">520</span>        DexReturnInliner.v().transform(jBody);    <a name="line.520"></a>
+<span class="sourceLineNo">521</span>        <a name="line.521"></a>
+<span class="sourceLineNo">522</span>        // Shortcut: Reduce array initializations<a name="line.522"></a>
+<span class="sourceLineNo">523</span>        DexArrayInitReducer.v().transform(jBody);<a name="line.523"></a>
+<span class="sourceLineNo">524</span>        <a name="line.524"></a>
+<span class="sourceLineNo">525</span>        // split first to find undefined uses<a name="line.525"></a>
+<span class="sourceLineNo">526</span>        getLocalSplitter().transform(jBody);<a name="line.526"></a>
+<span class="sourceLineNo">527</span>        <a name="line.527"></a>
+<span class="sourceLineNo">528</span>                // Remove dead code and the corresponding locals before assigning types<a name="line.528"></a>
+<span class="sourceLineNo">529</span>                getUnreachableCodeEliminator().transform(jBody);<a name="line.529"></a>
+<span class="sourceLineNo">530</span>                DeadAssignmentEliminator.v().transform(jBody);<a name="line.530"></a>
+<span class="sourceLineNo">531</span>                UnusedLocalEliminator.v().transform(jBody);<a name="line.531"></a>
+<span class="sourceLineNo">532</span>        <a name="line.532"></a>
+<span class="sourceLineNo">533</span>        Debug.printDbg("\nafter splitting");<a name="line.533"></a>
+<span class="sourceLineNo">534</span>        Debug.printDbg("",(Body)jBody);<a name="line.534"></a>
+<span class="sourceLineNo">535</span>        <a name="line.535"></a>
+<span class="sourceLineNo">536</span>                for (RetypeableInstruction i : instructionsToRetype)<a name="line.536"></a>
+<span class="sourceLineNo">537</span>            i.retype(jBody);<a name="line.537"></a>
+<span class="sourceLineNo">538</span><a name="line.538"></a>
+<span class="sourceLineNo">539</span>//        {<a name="line.539"></a>
+<span class="sourceLineNo">540</span>//          // remove instructions from instructions list<a name="line.540"></a>
+<span class="sourceLineNo">541</span>//          List&lt;DexlibAbstractInstruction&gt; iToRemove = new ArrayList&lt;DexlibAbstractInstruction&gt;();<a name="line.541"></a>
+<span class="sourceLineNo">542</span>//          for (DexlibAbstractInstruction i: instructions)<a name="line.542"></a>
+<span class="sourceLineNo">543</span>//            if (!jBody.getUnits().contains(i.getUnit()))<a name="line.543"></a>
+<span class="sourceLineNo">544</span>//              iToRemove.add(i);<a name="line.544"></a>
+<span class="sourceLineNo">545</span>//          for (DexlibAbstractInstruction i: iToRemove) {<a name="line.545"></a>
+<span class="sourceLineNo">546</span>//            Debug.printDbg("removing dexinstruction containing unit '", i.getUnit() ,"'");<a name="line.546"></a>
+<span class="sourceLineNo">547</span>//            instructions.remove(i);<a name="line.547"></a>
+<span class="sourceLineNo">548</span>//          }<a name="line.548"></a>
+<span class="sourceLineNo">549</span>//        }<a name="line.549"></a>
+<span class="sourceLineNo">550</span>                <a name="line.550"></a>
+<span class="sourceLineNo">551</span>        if (IDalvikTyper.ENABLE_DVKTYPER) {<a name="line.551"></a>
+<span class="sourceLineNo">552</span><a name="line.552"></a>
+<span class="sourceLineNo">553</span>                        DexReturnValuePropagator.v().transform(jBody);<a name="line.553"></a>
+<span class="sourceLineNo">554</span>                        getCopyPopagator().transform(jBody);<a name="line.554"></a>
+<span class="sourceLineNo">555</span>                        DexNullThrowTransformer.v().transform(jBody);<a name="line.555"></a>
+<span class="sourceLineNo">556</span>                        DalvikTyper.v().typeUntypedConstrantInDiv(jBody);<a name="line.556"></a>
+<span class="sourceLineNo">557</span>                        DeadAssignmentEliminator.v().transform(jBody);<a name="line.557"></a>
+<span class="sourceLineNo">558</span>                        UnusedLocalEliminator.v().transform(jBody);<a name="line.558"></a>
+<span class="sourceLineNo">559</span><a name="line.559"></a>
+<span class="sourceLineNo">560</span>          Debug.printDbg("[DalvikTyper] resolving typing constraints...");<a name="line.560"></a>
+<span class="sourceLineNo">561</span>          DalvikTyper.v().assignType(jBody);<a name="line.561"></a>
+<span class="sourceLineNo">562</span>          Debug.printDbg("[DalvikTyper] resolving typing constraints... done.");<a name="line.562"></a>
+<span class="sourceLineNo">563</span>          //jBody.validate();<a name="line.563"></a>
+<span class="sourceLineNo">564</span>          jBody.validateUses();<a name="line.564"></a>
+<span class="sourceLineNo">565</span>          jBody.validateValueBoxes();<a name="line.565"></a>
+<span class="sourceLineNo">566</span>          //jBody.checkInit();<a name="line.566"></a>
+<span class="sourceLineNo">567</span>                        //Validate.validateArrays(jBody);<a name="line.567"></a>
+<span class="sourceLineNo">568</span>          //jBody.checkTypes();<a name="line.568"></a>
+<span class="sourceLineNo">569</span>          //jBody.checkLocals();<a name="line.569"></a>
+<span class="sourceLineNo">570</span>          Debug.printDbg("\nafter Dalvik Typer");<a name="line.570"></a>
+<span class="sourceLineNo">571</span><a name="line.571"></a>
+<span class="sourceLineNo">572</span>        } else {<a name="line.572"></a>
+<span class="sourceLineNo">573</span>                        t_num.start();<a name="line.573"></a>
+<span class="sourceLineNo">574</span>                DexNumTransformer.v().transform (jBody);<a name="line.574"></a>
+<span class="sourceLineNo">575</span>                        t_num.end();<a name="line.575"></a>
+<span class="sourceLineNo">576</span>                <a name="line.576"></a>
+<span class="sourceLineNo">577</span>                DexReturnValuePropagator.v().transform(jBody);<a name="line.577"></a>
+<span class="sourceLineNo">578</span>            getCopyPopagator().transform(jBody);<a name="line.578"></a>
+<span class="sourceLineNo">579</span>                <a name="line.579"></a>
+<span class="sourceLineNo">580</span>                DexNullThrowTransformer.v().transform(jBody);<a name="line.580"></a>
+<span class="sourceLineNo">581</span><a name="line.581"></a>
+<span class="sourceLineNo">582</span>                        t_null.start();<a name="line.582"></a>
+<span class="sourceLineNo">583</span>                DexNullTransformer.v().transform(jBody);<a name="line.583"></a>
+<span class="sourceLineNo">584</span>                        t_null.end();<a name="line.584"></a>
+<span class="sourceLineNo">585</span><a name="line.585"></a>
+<span class="sourceLineNo">586</span>                DexIfTransformer.v().transform(jBody);<a name="line.586"></a>
+<span class="sourceLineNo">587</span>                <a name="line.587"></a>
+<span class="sourceLineNo">588</span>                DeadAssignmentEliminator.v().transform(jBody);<a name="line.588"></a>
+<span class="sourceLineNo">589</span>                UnusedLocalEliminator.v().transform(jBody);<a name="line.589"></a>
+<span class="sourceLineNo">590</span>                <a name="line.590"></a>
+<span class="sourceLineNo">591</span>                //DexRefsChecker.v().transform(jBody);<a name="line.591"></a>
+<span class="sourceLineNo">592</span>            DexNullArrayRefTransformer.v().transform(jBody);<a name="line.592"></a>
+<span class="sourceLineNo">593</span>                <a name="line.593"></a>
+<span class="sourceLineNo">594</span>                Debug.printDbg("\nafter Num and Null transformers");<a name="line.594"></a>
+<span class="sourceLineNo">595</span>        }<a name="line.595"></a>
+<span class="sourceLineNo">596</span>        Debug.printDbg("",(Body)jBody);<a name="line.596"></a>
+<span class="sourceLineNo">597</span>        <a name="line.597"></a>
+<span class="sourceLineNo">598</span>        if (IDalvikTyper.ENABLE_DVKTYPER) {<a name="line.598"></a>
+<span class="sourceLineNo">599</span>            for (Local l: jBody.getLocals()) {<a name="line.599"></a>
+<span class="sourceLineNo">600</span>                l.setType(UnknownType.v());<a name="line.600"></a>
+<span class="sourceLineNo">601</span>            }<a name="line.601"></a>
+<span class="sourceLineNo">602</span>        }<a name="line.602"></a>
+<span class="sourceLineNo">603</span>        <a name="line.603"></a>
+<span class="sourceLineNo">604</span>        TypeAssigner.v().transform(jBody);<a name="line.604"></a>
+<span class="sourceLineNo">605</span>        <a name="line.605"></a>
+<span class="sourceLineNo">606</span>                if (IDalvikTyper.ENABLE_DVKTYPER) {<a name="line.606"></a>
+<span class="sourceLineNo">607</span>            for (Unit u: jBody.getUnits()) {<a name="line.607"></a>
+<span class="sourceLineNo">608</span>                if (u instanceof IfStmt) {<a name="line.608"></a>
+<span class="sourceLineNo">609</span>                    ConditionExpr expr = (ConditionExpr) ((IfStmt) u).getCondition();<a name="line.609"></a>
+<span class="sourceLineNo">610</span>                    if (((expr instanceof EqExpr) || (expr instanceof NeExpr))) {<a name="line.610"></a>
+<span class="sourceLineNo">611</span>                        Value op1 = expr.getOp1();<a name="line.611"></a>
+<span class="sourceLineNo">612</span>                        Value op2 = expr.getOp2();<a name="line.612"></a>
+<span class="sourceLineNo">613</span>                        if (op1 instanceof Constant &amp;&amp; op2 instanceof Local) {<a name="line.613"></a>
+<span class="sourceLineNo">614</span>                            Local l = (Local)op2;<a name="line.614"></a>
+<span class="sourceLineNo">615</span>                            Type ltype = l.getType();<a name="line.615"></a>
+<span class="sourceLineNo">616</span>                            if (ltype instanceof PrimType)<a name="line.616"></a>
+<span class="sourceLineNo">617</span>                                continue;<a name="line.617"></a>
+<span class="sourceLineNo">618</span>                            if (!(op1 instanceof IntConstant)) // by default null is IntConstant(0) in Dalvik<a name="line.618"></a>
+<span class="sourceLineNo">619</span>                                continue;<a name="line.619"></a>
+<span class="sourceLineNo">620</span>                            IntConstant icst = (IntConstant)op1;<a name="line.620"></a>
+<span class="sourceLineNo">621</span>                            int val = icst.value;<a name="line.621"></a>
+<span class="sourceLineNo">622</span>                            if (val != 0)<a name="line.622"></a>
+<span class="sourceLineNo">623</span>                                continue;<a name="line.623"></a>
+<span class="sourceLineNo">624</span>                            expr.setOp1(NullConstant.v());<a name="line.624"></a>
+<span class="sourceLineNo">625</span>                        } else if (op1 instanceof Local &amp;&amp; op2 instanceof Constant) {<a name="line.625"></a>
+<span class="sourceLineNo">626</span>                            Local l = (Local)op1;<a name="line.626"></a>
+<span class="sourceLineNo">627</span>                            Type ltype = l.getType();<a name="line.627"></a>
+<span class="sourceLineNo">628</span>                            if (ltype instanceof PrimType)<a name="line.628"></a>
+<span class="sourceLineNo">629</span>                                continue;<a name="line.629"></a>
+<span class="sourceLineNo">630</span>                            if (!(op2 instanceof IntConstant)) // by default null is IntConstant(0) in Dalvik<a name="line.630"></a>
+<span class="sourceLineNo">631</span>                                continue;<a name="line.631"></a>
+<span class="sourceLineNo">632</span>                            IntConstant icst = (IntConstant)op2;<a name="line.632"></a>
+<span class="sourceLineNo">633</span>                            int val = icst.value;<a name="line.633"></a>
+<span class="sourceLineNo">634</span>                            if (val != 0)<a name="line.634"></a>
+<span class="sourceLineNo">635</span>                                continue;<a name="line.635"></a>
+<span class="sourceLineNo">636</span>                            expr.setOp2(NullConstant.v());<a name="line.636"></a>
+<span class="sourceLineNo">637</span>                        } else if (op1 instanceof Local &amp;&amp; op2 instanceof Local) {<a name="line.637"></a>
+<span class="sourceLineNo">638</span>                                                        // nothing to do<a name="line.638"></a>
+<span class="sourceLineNo">639</span>                                                } else if (op1 instanceof Constant &amp;&amp; op2 instanceof Constant) {<a name="line.639"></a>
+<span class="sourceLineNo">640</span><a name="line.640"></a>
+<span class="sourceLineNo">641</span>                                                        if (op1 instanceof NullConstant &amp;&amp; op2 instanceof NumericConstant) {<a name="line.641"></a>
+<span class="sourceLineNo">642</span>                                                                IntConstant nc = (IntConstant) op2;<a name="line.642"></a>
+<span class="sourceLineNo">643</span>                                                                if (nc.value != 0)<a name="line.643"></a>
+<span class="sourceLineNo">644</span>                                                                        throw new RuntimeException("expected value 0 for int constant. Got " + expr);<a name="line.644"></a>
+<span class="sourceLineNo">645</span>                                                                expr.setOp2(NullConstant.v());<a name="line.645"></a>
+<span class="sourceLineNo">646</span>                                                        } else if (op2 instanceof NullConstant &amp;&amp; op1 instanceof NumericConstant) {<a name="line.646"></a>
+<span class="sourceLineNo">647</span>                                                                IntConstant nc = (IntConstant) op1;<a name="line.647"></a>
+<span class="sourceLineNo">648</span>                                                                if (nc.value != 0)<a name="line.648"></a>
+<span class="sourceLineNo">649</span>                                                                        throw new RuntimeException("expected value 0 for int constant. Got " + expr);<a name="line.649"></a>
+<span class="sourceLineNo">650</span>                                                                expr.setOp1(NullConstant.v());<a name="line.650"></a>
+<span class="sourceLineNo">651</span>                                                        }<a name="line.651"></a>
+<span class="sourceLineNo">652</span>                        } else {<a name="line.652"></a>
+<span class="sourceLineNo">653</span>                            throw new RuntimeException("error: do not handle if: "+ u);<a name="line.653"></a>
+<span class="sourceLineNo">654</span>                        }<a name="line.654"></a>
+<span class="sourceLineNo">655</span><a name="line.655"></a>
+<span class="sourceLineNo">656</span>                    }<a name="line.656"></a>
+<span class="sourceLineNo">657</span>                }<a name="line.657"></a>
+<span class="sourceLineNo">658</span>            }<a name="line.658"></a>
+<span class="sourceLineNo">659</span>            <a name="line.659"></a>
+<span class="sourceLineNo">660</span>            // For null_type locals: replace their use by NullConstant()<a name="line.660"></a>
+<span class="sourceLineNo">661</span>            List&lt;ValueBox&gt; uses = jBody.getUseBoxes();<a name="line.661"></a>
+<span class="sourceLineNo">662</span>            //List&lt;ValueBox&gt; defs = jBody.getDefBoxes();<a name="line.662"></a>
+<span class="sourceLineNo">663</span>            List&lt;ValueBox&gt; toNullConstantify = new ArrayList&lt;ValueBox&gt;();<a name="line.663"></a>
+<span class="sourceLineNo">664</span>            List&lt;Local&gt; toRemove = new ArrayList&lt;Local&gt;();<a name="line.664"></a>
+<span class="sourceLineNo">665</span>            for (Local l: jBody.getLocals()) {<a name="line.665"></a>
+<span class="sourceLineNo">666</span>                <a name="line.666"></a>
+<span class="sourceLineNo">667</span>                if (l.getType() instanceof NullType) {<a name="line.667"></a>
+<span class="sourceLineNo">668</span>                    toRemove.add(l);<a name="line.668"></a>
+<span class="sourceLineNo">669</span>                    for (ValueBox vb: uses) {<a name="line.669"></a>
+<span class="sourceLineNo">670</span>                        Value v = vb.getValue();<a name="line.670"></a>
+<span class="sourceLineNo">671</span>                        if (v == l)<a name="line.671"></a>
+<span class="sourceLineNo">672</span>                            toNullConstantify.add(vb);<a name="line.672"></a>
+<span class="sourceLineNo">673</span>                    }<a name="line.673"></a>
+<span class="sourceLineNo">674</span>                }<a name="line.674"></a>
+<span class="sourceLineNo">675</span>            }<a name="line.675"></a>
+<span class="sourceLineNo">676</span>            for (ValueBox vb: toNullConstantify) {<a name="line.676"></a>
+<span class="sourceLineNo">677</span>                System.out.println("replace valuebox '"+ vb +" with null constant");<a name="line.677"></a>
+<span class="sourceLineNo">678</span>                vb.setValue(NullConstant.v());<a name="line.678"></a>
+<span class="sourceLineNo">679</span>            }<a name="line.679"></a>
+<span class="sourceLineNo">680</span>            for (Local l: toRemove) {<a name="line.680"></a>
+<span class="sourceLineNo">681</span>                System.out.println("removing null_type local "+ l);<a name="line.681"></a>
+<span class="sourceLineNo">682</span>                l.setType(RefType.v("java.lang.Object"));<a name="line.682"></a>
+<span class="sourceLineNo">683</span>            }<a name="line.683"></a>
+<span class="sourceLineNo">684</span>            <a name="line.684"></a>
+<span class="sourceLineNo">685</span><a name="line.685"></a>
+<span class="sourceLineNo">686</span>        }<a name="line.686"></a>
+<span class="sourceLineNo">687</span><a name="line.687"></a>
+<span class="sourceLineNo">688</span>        // We pack locals that are not used in overlapping regions. This may<a name="line.688"></a>
+<span class="sourceLineNo">689</span>        // again lead to unused locals which we have to remove.<a name="line.689"></a>
+<span class="sourceLineNo">690</span>        LocalPacker.v().transform(jBody);<a name="line.690"></a>
+<span class="sourceLineNo">691</span>        UnusedLocalEliminator.v().transform(jBody);<a name="line.691"></a>
+<span class="sourceLineNo">692</span>        LocalNameStandardizer.v().transform(jBody);<a name="line.692"></a>
+<span class="sourceLineNo">693</span><a name="line.693"></a>
+<span class="sourceLineNo">694</span>        Debug.printDbg("\nafter type assigner localpacker and name standardizer");<a name="line.694"></a>
+<span class="sourceLineNo">695</span>        Debug.printDbg("",(Body)jBody);<a name="line.695"></a>
+<span class="sourceLineNo">696</span>        <a name="line.696"></a>
+<span class="sourceLineNo">697</span>        // Inline PackManager.v().getPack("jb").apply(jBody);<a name="line.697"></a>
+<span class="sourceLineNo">698</span>        // Keep only transformations that have not been done<a name="line.698"></a>
+<span class="sourceLineNo">699</span>        // at this point.<a name="line.699"></a>
+<span class="sourceLineNo">700</span>        TrapTightener.v().transform(jBody);<a name="line.700"></a>
+<span class="sourceLineNo">701</span>                TrapMinimizer.v().transform(jBody);<a name="line.701"></a>
+<span class="sourceLineNo">702</span>        //LocalSplitter.v().transform(jBody);<a name="line.702"></a>
+<span class="sourceLineNo">703</span>        Aggregator.v().transform(jBody);<a name="line.703"></a>
+<span class="sourceLineNo">704</span>        //UnusedLocalEliminator.v().transform(jBody);<a name="line.704"></a>
+<span class="sourceLineNo">705</span>        //TypeAssigner.v().transform(jBody);<a name="line.705"></a>
+<span class="sourceLineNo">706</span>        //LocalPacker.v().transform(jBody);<a name="line.706"></a>
+<span class="sourceLineNo">707</span>        //LocalNameStandardizer.v().transform(jBody);<a name="line.707"></a>
+<span class="sourceLineNo">708</span>        <a name="line.708"></a>
+<span class="sourceLineNo">709</span>        // Remove if (null == null) goto x else &lt;madness&gt;. We can only do this<a name="line.709"></a>
+<span class="sourceLineNo">710</span>        // after we have run the constant propagation as we might not be able<a name="line.710"></a>
+<span class="sourceLineNo">711</span>        // to statically decide the conditions earlier.<a name="line.711"></a>
+<span class="sourceLineNo">712</span>        ConditionalBranchFolder.v().transform(jBody);<a name="line.712"></a>
+<span class="sourceLineNo">713</span>        <a name="line.713"></a>
+<span class="sourceLineNo">714</span>        // Remove unnecessary typecasts<a name="line.714"></a>
+<span class="sourceLineNo">715</span>        ConstantCastEliminator.v().transform(jBody);<a name="line.715"></a>
+<span class="sourceLineNo">716</span>        <a name="line.716"></a>
+<span class="sourceLineNo">717</span>        // We need to run this transformer since the conditional branch folder<a name="line.717"></a>
+<span class="sourceLineNo">718</span>        // might have rendered some code unreachable (well, it was unreachable<a name="line.718"></a>
+<span class="sourceLineNo">719</span>        // before as well, but we didn't know).<a name="line.719"></a>
+<span class="sourceLineNo">720</span>        UnreachableCodeEliminator.v().transform(jBody);<a name="line.720"></a>
+<span class="sourceLineNo">721</span>        <a name="line.721"></a>
+<span class="sourceLineNo">722</span>        // Not sure whether we need this even though we do it earlier on as<a name="line.722"></a>
+<span class="sourceLineNo">723</span>        // the earlier pass does not have type information<a name="line.723"></a>
+<span class="sourceLineNo">724</span>        //CopyPropagator.v().transform(jBody);<a name="line.724"></a>
+<span class="sourceLineNo">725</span><a name="line.725"></a>
+<span class="sourceLineNo">726</span>        // we might have gotten new dead assignments and unused locals through<a name="line.726"></a>
+<span class="sourceLineNo">727</span>        // copy propagation and unreachable code elimination, so we have to do<a name="line.727"></a>
+<span class="sourceLineNo">728</span>        // this again<a name="line.728"></a>
+<span class="sourceLineNo">729</span>        DeadAssignmentEliminator.v().transform(jBody);<a name="line.729"></a>
+<span class="sourceLineNo">730</span>        UnusedLocalEliminator.v().transform(jBody);<a name="line.730"></a>
+<span class="sourceLineNo">731</span>        NopEliminator.v().transform(jBody);<a name="line.731"></a>
+<span class="sourceLineNo">732</span>        <a name="line.732"></a>
+<span class="sourceLineNo">733</span>        // Remove unnecessary chains of return statements<a name="line.733"></a>
+<span class="sourceLineNo">734</span>        DexReturnPacker.v().transform(jBody);<a name="line.734"></a>
+<span class="sourceLineNo">735</span>        <a name="line.735"></a>
+<span class="sourceLineNo">736</span>        for (Unit u: jBody.getUnits()) {<a name="line.736"></a>
+<span class="sourceLineNo">737</span>            if (u instanceof AssignStmt) {<a name="line.737"></a>
+<span class="sourceLineNo">738</span>                AssignStmt ass = (AssignStmt)u;<a name="line.738"></a>
+<span class="sourceLineNo">739</span>                if (ass.getRightOp() instanceof CastExpr) {<a name="line.739"></a>
+<span class="sourceLineNo">740</span>                    CastExpr c = (CastExpr)ass.getRightOp();<a name="line.740"></a>
+<span class="sourceLineNo">741</span>                    if (c.getType() instanceof NullType) {<a name="line.741"></a>
+<span class="sourceLineNo">742</span>                        Debug.printDbg("replacing cast to null_type by nullConstant assignment in ", u);<a name="line.742"></a>
+<span class="sourceLineNo">743</span>                        ass.setRightOp(NullConstant.v());<a name="line.743"></a>
+<span class="sourceLineNo">744</span>                    }<a name="line.744"></a>
+<span class="sourceLineNo">745</span>                }<a name="line.745"></a>
+<span class="sourceLineNo">746</span>            }<a name="line.746"></a>
+<span class="sourceLineNo">747</span>            if (u instanceof DefinitionStmt) {<a name="line.747"></a>
+<span class="sourceLineNo">748</span>                DefinitionStmt def = (DefinitionStmt) u;<a name="line.748"></a>
+<span class="sourceLineNo">749</span>                // If the body references a phantom class in a CaughtExceptionRef,<a name="line.749"></a>
+<span class="sourceLineNo">750</span>                // we must manually fix the hierarchy<a name="line.750"></a>
+<span class="sourceLineNo">751</span>                if (def.getLeftOp() instanceof Local<a name="line.751"></a>
+<span class="sourceLineNo">752</span>                                &amp;&amp; def.getRightOp() instanceof CaughtExceptionRef) {<a name="line.752"></a>
+<span class="sourceLineNo">753</span>                        Type t = def.getLeftOp().getType();<a name="line.753"></a>
+<span class="sourceLineNo">754</span>                        if (t instanceof RefType) {<a name="line.754"></a>
+<span class="sourceLineNo">755</span>                                RefType rt = (RefType) t;<a name="line.755"></a>
+<span class="sourceLineNo">756</span>                                if (rt.getSootClass().isPhantom()<a name="line.756"></a>
+<span class="sourceLineNo">757</span>                                                &amp;&amp; !rt.getSootClass().hasSuperclass()<a name="line.757"></a>
+<span class="sourceLineNo">758</span>                                                &amp;&amp; !rt.getSootClass().getName().equals("java.lang.Throwable"))<a name="line.758"></a>
+<span class="sourceLineNo">759</span>                                        rt.getSootClass().setSuperclass(Scene.v().getSootClass("java.lang.Throwable"));<a name="line.759"></a>
+<span class="sourceLineNo">760</span>                        }<a name="line.760"></a>
+<span class="sourceLineNo">761</span>                }<a name="line.761"></a>
+<span class="sourceLineNo">762</span>            }<a name="line.762"></a>
+<span class="sourceLineNo">763</span>        }<a name="line.763"></a>
+<span class="sourceLineNo">764</span>        <a name="line.764"></a>
+<span class="sourceLineNo">765</span>        Debug.printDbg("\nafter jb pack");<a name="line.765"></a>
+<span class="sourceLineNo">766</span>        Debug.printDbg("",(Body)jBody);<a name="line.766"></a>
+<span class="sourceLineNo">767</span><a name="line.767"></a>
+<span class="sourceLineNo">768</span>        // Replace local type null_type by java.lang.Object.<a name="line.768"></a>
+<span class="sourceLineNo">769</span>        //<a name="line.769"></a>
+<span class="sourceLineNo">770</span>        // The typing engine cannot find correct type for such code:<a name="line.770"></a>
+<span class="sourceLineNo">771</span>        //<a name="line.771"></a>
+<span class="sourceLineNo">772</span>        // null_type $n0;<a name="line.772"></a>
+<span class="sourceLineNo">773</span>        // $n0 = null;<a name="line.773"></a>
+<span class="sourceLineNo">774</span>        // $r4 = virtualinvoke $n0.&lt;java.lang.ref.WeakReference: java.lang.Object get()&gt;();<a name="line.774"></a>
+<span class="sourceLineNo">775</span>        //<a name="line.775"></a>
+<span class="sourceLineNo">776</span>        for(Local l: jBody.getLocals()) {<a name="line.776"></a>
+<span class="sourceLineNo">777</span>            Type t = l.getType();<a name="line.777"></a>
+<span class="sourceLineNo">778</span>            if (t instanceof NullType) {<a name="line.778"></a>
+<span class="sourceLineNo">779</span>                Debug.printDbg("replacing null_type by java.lang.Object for local ", l);<a name="line.779"></a>
+<span class="sourceLineNo">780</span>                l.setType(RefType.v("java.lang.Object"));<a name="line.780"></a>
+<span class="sourceLineNo">781</span>            }<a name="line.781"></a>
+<span class="sourceLineNo">782</span>        }<a name="line.782"></a>
+<span class="sourceLineNo">783</span>        <a name="line.783"></a>
+<span class="sourceLineNo">784</span>                t_whole_jimplification.end();<a name="line.784"></a>
+<span class="sourceLineNo">785</span>                Debug.printDbg("timer whole jimlification: ", t_whole_jimplification.getTime());<a name="line.785"></a>
+<span class="sourceLineNo">786</span>                Debug.printDbg("timer num: ", t_num.getTime());<a name="line.786"></a>
+<span class="sourceLineNo">787</span>                Debug.printDbg("timer null: ", t_null.getTime());<a name="line.787"></a>
+<span class="sourceLineNo">788</span><a name="line.788"></a>
+<span class="sourceLineNo">789</span>        return jBody;<a name="line.789"></a>
+<span class="sourceLineNo">790</span>    }<a name="line.790"></a>
+<span class="sourceLineNo">791</span><a name="line.791"></a>
+<span class="sourceLineNo">792</span>    private LocalSplitter localSplitter = null;<a name="line.792"></a>
+<span class="sourceLineNo">793</span>    protected LocalSplitter getLocalSplitter() {<a name="line.793"></a>
+<span class="sourceLineNo">794</span>        if (this.localSplitter == null)<a name="line.794"></a>
+<span class="sourceLineNo">795</span>                this.localSplitter = new LocalSplitter(DalvikThrowAnalysis.v());<a name="line.795"></a>
+<span class="sourceLineNo">796</span>        return this.localSplitter;<a name="line.796"></a>
+<span class="sourceLineNo">797</span>    }<a name="line.797"></a>
+<span class="sourceLineNo">798</span><a name="line.798"></a>
+<span class="sourceLineNo">799</span>    private TrapTightener trapTightener = null;<a name="line.799"></a>
+<span class="sourceLineNo">800</span>    protected TrapTightener getTrapTightener() {<a name="line.800"></a>
+<span class="sourceLineNo">801</span>        if (this.trapTightener == null)<a name="line.801"></a>
+<span class="sourceLineNo">802</span>                this.trapTightener = new TrapTightener(DalvikThrowAnalysis.v());<a name="line.802"></a>
+<span class="sourceLineNo">803</span>        return this.trapTightener;<a name="line.803"></a>
+<span class="sourceLineNo">804</span>    }<a name="line.804"></a>
+<span class="sourceLineNo">805</span><a name="line.805"></a>
+<span class="sourceLineNo">806</span>    private UnreachableCodeEliminator unreachableCodeEliminator = null;<a name="line.806"></a>
+<span class="sourceLineNo">807</span>    protected UnreachableCodeEliminator getUnreachableCodeEliminator() {<a name="line.807"></a>
+<span class="sourceLineNo">808</span>        if (this.unreachableCodeEliminator == null)<a name="line.808"></a>
+<span class="sourceLineNo">809</span>                this.unreachableCodeEliminator =<a name="line.809"></a>
+<span class="sourceLineNo">810</span>                        new UnreachableCodeEliminator(DalvikThrowAnalysis.v());<a name="line.810"></a>
+<span class="sourceLineNo">811</span>        return this.unreachableCodeEliminator;<a name="line.811"></a>
+<span class="sourceLineNo">812</span>    }<a name="line.812"></a>
+<span class="sourceLineNo">813</span><a name="line.813"></a>
+<span class="sourceLineNo">814</span>    private CopyPropagator copyPropagator = null;<a name="line.814"></a>
+<span class="sourceLineNo">815</span>    protected CopyPropagator getCopyPopagator() {<a name="line.815"></a>
+<span class="sourceLineNo">816</span>        if (this.copyPropagator == null)<a name="line.816"></a>
+<span class="sourceLineNo">817</span>                this.copyPropagator = new CopyPropagator(DalvikThrowAnalysis.v(), false);<a name="line.817"></a>
+<span class="sourceLineNo">818</span>        return this.copyPropagator;<a name="line.818"></a>
+<span class="sourceLineNo">819</span>    }<a name="line.819"></a>
+<span class="sourceLineNo">820</span><a name="line.820"></a>
+<span class="sourceLineNo">821</span>    /**<a name="line.821"></a>
+<span class="sourceLineNo">822</span>     * Set a dangling instruction for this body.<a name="line.822"></a>
+<span class="sourceLineNo">823</span>     *<a name="line.823"></a>
+<span class="sourceLineNo">824</span>     */<a name="line.824"></a>
+<span class="sourceLineNo">825</span>    public void setDanglingInstruction(DanglingInstruction i) {<a name="line.825"></a>
+<span class="sourceLineNo">826</span>        dangling = i;<a name="line.826"></a>
+<span class="sourceLineNo">827</span>    }<a name="line.827"></a>
+<span class="sourceLineNo">828</span><a name="line.828"></a>
+<span class="sourceLineNo">829</span>    /**<a name="line.829"></a>
+<span class="sourceLineNo">830</span>     * Return the instructions that appear (lexically) after the given instruction.<a name="line.830"></a>
+<span class="sourceLineNo">831</span>     *<a name="line.831"></a>
+<span class="sourceLineNo">832</span>     * @param instruction the instruction which successors will be returned.<a name="line.832"></a>
+<span class="sourceLineNo">833</span>     */<a name="line.833"></a>
+<span class="sourceLineNo">834</span>    public List&lt;DexlibAbstractInstruction&gt; instructionsAfter(DexlibAbstractInstruction instruction) {<a name="line.834"></a>
+<span class="sourceLineNo">835</span>        int i = instructions.indexOf(instruction);<a name="line.835"></a>
+<span class="sourceLineNo">836</span>        if (i == -1)<a name="line.836"></a>
+<span class="sourceLineNo">837</span>            throw new IllegalArgumentException("Instruction" + instruction + "not part of this body.");<a name="line.837"></a>
+<span class="sourceLineNo">838</span><a name="line.838"></a>
+<span class="sourceLineNo">839</span>        return instructions.subList(i + 1, instructions.size());<a name="line.839"></a>
+<span class="sourceLineNo">840</span>    }<a name="line.840"></a>
+<span class="sourceLineNo">841</span><a name="line.841"></a>
+<span class="sourceLineNo">842</span>    /**<a name="line.842"></a>
+<span class="sourceLineNo">843</span>     * Return the instructions that appear (lexically) before the given instruction.<a name="line.843"></a>
+<span class="sourceLineNo">844</span>     *<a name="line.844"></a>
+<span class="sourceLineNo">845</span>     * The instruction immediately before the given is the first instruction and so on.<a name="line.845"></a>
+<span class="sourceLineNo">846</span>     *<a name="line.846"></a>
+<span class="sourceLineNo">847</span>     * @param instruction the instruction which successors will be returned.<a name="line.847"></a>
+<span class="sourceLineNo">848</span>     */<a name="line.848"></a>
+<span class="sourceLineNo">849</span>    public List&lt;DexlibAbstractInstruction&gt; instructionsBefore(DexlibAbstractInstruction instruction) {<a name="line.849"></a>
+<span class="sourceLineNo">850</span>        int i = instructions.indexOf(instruction);<a name="line.850"></a>
+<span class="sourceLineNo">851</span>        if (i == -1)<a name="line.851"></a>
+<span class="sourceLineNo">852</span>            throw new IllegalArgumentException("Instruction " + instruction + " not part of this body.");<a name="line.852"></a>
+<span class="sourceLineNo">853</span><a name="line.853"></a>
+<span class="sourceLineNo">854</span>        List&lt;DexlibAbstractInstruction&gt; l = new ArrayList&lt;DexlibAbstractInstruction&gt;();<a name="line.854"></a>
+<span class="sourceLineNo">855</span>        l.addAll(instructions.subList(0 , i));<a name="line.855"></a>
+<span class="sourceLineNo">856</span>        Collections.reverse(l);<a name="line.856"></a>
+<span class="sourceLineNo">857</span>        return l;<a name="line.857"></a>
+<span class="sourceLineNo">858</span>    }<a name="line.858"></a>
+<span class="sourceLineNo">859</span><a name="line.859"></a>
+<span class="sourceLineNo">860</span>    /**<a name="line.860"></a>
+<span class="sourceLineNo">861</span>     * Add the traps of this body.<a name="line.861"></a>
+<span class="sourceLineNo">862</span>     *<a name="line.862"></a>
+<span class="sourceLineNo">863</span>     * Should only be called at the end jimplify.<a name="line.863"></a>
+<span class="sourceLineNo">864</span>     */<a name="line.864"></a>
+<span class="sourceLineNo">865</span>    private void addTraps() {<a name="line.865"></a>
+<span class="sourceLineNo">866</span>      for (TryBlock&lt;? extends ExceptionHandler&gt; tryItem : tries) {<a name="line.866"></a>
+<span class="sourceLineNo">867</span>            int startAddress = tryItem.getStartCodeAddress();<a name="line.867"></a>
+<span class="sourceLineNo">868</span>            Debug.printDbg(" start : 0x", Integer.toHexString(startAddress));<a name="line.868"></a>
+<span class="sourceLineNo">869</span>            int length = tryItem.getCodeUnitCount();//.getTryLength();<a name="line.869"></a>
+<span class="sourceLineNo">870</span>            Debug.printDbg(" length: 0x", Integer.toHexString(length));<a name="line.870"></a>
+<span class="sourceLineNo">871</span>            Debug.printDbg(" end   : 0x", Integer.toHexString(startAddress + length));<a name="line.871"></a>
+<span class="sourceLineNo">872</span>            int endAddress = startAddress + length;// - 1;<a name="line.872"></a>
+<span class="sourceLineNo">873</span>            Unit beginStmt = instructionAtAddress(startAddress).getUnit();<a name="line.873"></a>
+<span class="sourceLineNo">874</span>            // (startAddress + length) typically points to the first byte of the first instruction after the try block<a name="line.874"></a>
+<span class="sourceLineNo">875</span>            // except if there is no instruction after the try block in which case it points to the last byte of the last<a name="line.875"></a>
+<span class="sourceLineNo">876</span>            // instruction of the try block. Removing 1 from (startAddress + length) always points to "somewhere" in<a name="line.876"></a>
+<span class="sourceLineNo">877</span>            // the last instruction of the try block since the smallest instruction is on two bytes (nop = 0x0000).<a name="line.877"></a>
+<span class="sourceLineNo">878</span>            Unit endStmt =  instructionAtAddress (endAddress).getUnit();<a name="line.878"></a>
+<span class="sourceLineNo">879</span>                        // if the try block ends on the last instruction of the body, add a<a name="line.879"></a>
+<span class="sourceLineNo">880</span>                        // nop instruction so Soot can include<a name="line.880"></a>
+<span class="sourceLineNo">881</span>                        // the last instruction in the try block.<a name="line.881"></a>
+<span class="sourceLineNo">882</span>                        if (jBody.getUnits().getLast() == endStmt<a name="line.882"></a>
+<span class="sourceLineNo">883</span>                                        &amp;&amp; instructionAtAddress(endAddress - 1).getUnit() == endStmt) {<a name="line.883"></a>
+<span class="sourceLineNo">884</span>                                Unit nop = Jimple.v().newNopStmt();<a name="line.884"></a>
+<span class="sourceLineNo">885</span>                                jBody.getUnits().insertAfter(nop, endStmt);<a name="line.885"></a>
+<span class="sourceLineNo">886</span>                                endStmt = nop;<a name="line.886"></a>
+<span class="sourceLineNo">887</span>                        }<a name="line.887"></a>
+<span class="sourceLineNo">888</span>                        Debug.printDbg("begin instruction (0x",<a name="line.888"></a>
+<span class="sourceLineNo">889</span>                                        Integer.toHexString(startAddress), "): ",<a name="line.889"></a>
+<span class="sourceLineNo">890</span>                                        instructionAtAddress(startAddress).getUnit(), " --- ",<a name="line.890"></a>
+<span class="sourceLineNo">891</span>                                        beginStmt);<a name="line.891"></a>
+<span class="sourceLineNo">892</span>                        Debug.printDbg("end instruction   (0x",<a name="line.892"></a>
+<span class="sourceLineNo">893</span>                                        Integer.toHexString(endAddress), "): ",<a name="line.893"></a>
+<span class="sourceLineNo">894</span>                                        instructionAtAddress(endAddress).getUnit(), " --- ",<a name="line.894"></a>
+<span class="sourceLineNo">895</span>                                        endStmt);<a name="line.895"></a>
+<span class="sourceLineNo">896</span><a name="line.896"></a>
+<span class="sourceLineNo">897</span><a name="line.897"></a>
+<span class="sourceLineNo">898</span>            List&lt;? extends ExceptionHandler&gt; hList = tryItem.getExceptionHandlers();<a name="line.898"></a>
+<span class="sourceLineNo">899</span>            for (ExceptionHandler handler: hList) {<a name="line.899"></a>
+<span class="sourceLineNo">900</span>              int handlerAddress = handler.getHandlerCodeAddress();<a name="line.900"></a>
+<span class="sourceLineNo">901</span>              Debug.printDbg("handler   (0x",<a name="line.901"></a>
+<span class="sourceLineNo">902</span>                          Integer.toHexString(handlerAddress),<a name="line.902"></a>
+<span class="sourceLineNo">903</span>                          "): ",<a name="line.903"></a>
+<span class="sourceLineNo">904</span>                          instructionAtAddress (handlerAddress).getUnit(),<a name="line.904"></a>
+<span class="sourceLineNo">905</span>                          " --- ",<a name="line.905"></a>
+<span class="sourceLineNo">906</span>                          handlerAddress &gt; 0 ? instructionAtAddress (handlerAddress-1).getUnit() : "&lt;unknown&gt;");<a name="line.906"></a>
+<span class="sourceLineNo">907</span>              String exceptionType = handler.getExceptionType();<a name="line.907"></a>
+<span class="sourceLineNo">908</span>              if (exceptionType == null)<a name="line.908"></a>
+<span class="sourceLineNo">909</span>                  exceptionType = "Ljava/lang/Throwable;";<a name="line.909"></a>
+<span class="sourceLineNo">910</span>              Type t = DexType.toSoot(exceptionType);<a name="line.910"></a>
+<span class="sourceLineNo">911</span>                // exceptions can only be of RefType<a name="line.911"></a>
+<span class="sourceLineNo">912</span>                if (t instanceof RefType) {<a name="line.912"></a>
+<span class="sourceLineNo">913</span>                    SootClass exception = ((RefType) t).getSootClass();<a name="line.913"></a>
+<span class="sourceLineNo">914</span>                    DexlibAbstractInstruction instruction = instructionAtAddress(handler.getHandlerCodeAddress());<a name="line.914"></a>
+<span class="sourceLineNo">915</span>                    if (! (instruction instanceof MoveExceptionInstruction))<a name="line.915"></a>
+<span class="sourceLineNo">916</span>                        Debug.printDbg("First instruction of trap handler unit not MoveException but " , instruction.getClass());<a name="line.916"></a>
+<span class="sourceLineNo">917</span>                    else<a name="line.917"></a>
+<span class="sourceLineNo">918</span>                      ((MoveExceptionInstruction) instruction).setRealType(this, exception.getType());<a name="line.918"></a>
+<span class="sourceLineNo">919</span><a name="line.919"></a>
+<span class="sourceLineNo">920</span>                    Trap trap = Jimple.v().newTrap(exception, beginStmt, endStmt, instruction.getUnit());<a name="line.920"></a>
+<span class="sourceLineNo">921</span>                    jBody.getTraps().add(trap);<a name="line.921"></a>
+<span class="sourceLineNo">922</span>                }<a name="line.922"></a>
+<span class="sourceLineNo">923</span>            }<a name="line.923"></a>
+<span class="sourceLineNo">924</span>        }<a name="line.924"></a>
+<span class="sourceLineNo">925</span>    }<a name="line.925"></a>
+<span class="sourceLineNo">926</span>    <a name="line.926"></a>
+<span class="sourceLineNo">927</span>}<a name="line.927"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* NullnessAssumptionAnalysis<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2006 Richard L. Halpert<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.jimple.toolkits.annotation.nullcheck;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.HashMap;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.HashSet;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.Iterator;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.util.Map;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.util.Set;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import java.util.Map.Entry;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import soot.Immediate;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.Local;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import soot.RefLikeType;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.Unit;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.Value;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.jimple.ArrayRef;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.jimple.DefinitionStmt;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.jimple.FieldRef;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.jimple.InstanceFieldRef;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.jimple.InstanceInvokeExpr;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.jimple.InvokeExpr;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.jimple.MonitorStmt;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.jimple.Stmt;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.jimple.internal.JCastExpr;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.toolkits.graph.UnitGraph;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.toolkits.scalar.BackwardFlowAnalysis;<a name="line.44"></a>
+<span class="sourceLineNo">045</span><a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span>/**<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * An intraprocedural nullness assumption analysis that computes for each location and each value<a name="line.48"></a>
+<span class="sourceLineNo">049</span> * in a method if the value (before or after that location) is treated as definitely null,<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * definitely non-null or neither.  This information could be useful in deciding whether<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * or not to insert code that accesses a potentially null object.  If the original<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * program assumes a value is non-null, then adding a use of that value <a name="line.52"></a>
+<span class="sourceLineNo">053</span> * will not introduce any NEW nullness errors into the program.<a name="line.53"></a>
+<span class="sourceLineNo">054</span> * This code may be buggy, or just plain wrong.  It has not been checked.<a name="line.54"></a>
+<span class="sourceLineNo">055</span> *<a name="line.55"></a>
+<span class="sourceLineNo">056</span> * @author Richard L. Halpert<a name="line.56"></a>
+<span class="sourceLineNo">057</span> * Adapted from Eric Bodden's NullnessAnalysis<a name="line.57"></a>
+<span class="sourceLineNo">058</span> */<a name="line.58"></a>
+<span class="sourceLineNo">059</span>public class NullnessAssumptionAnalysis  extends BackwardFlowAnalysis<a name="line.59"></a>
+<span class="sourceLineNo">060</span>{<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        protected final static Object BOTTOM = new Object() {<a name="line.61"></a>
+<span class="sourceLineNo">062</span>                public String toString() {return "bottom";}<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        };<a name="line.63"></a>
+<span class="sourceLineNo">064</span><a name="line.64"></a>
+<span class="sourceLineNo">065</span>        protected final static Object NULL = new Object() {<a name="line.65"></a>
+<span class="sourceLineNo">066</span>                public String toString() {return "null";}<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        };<a name="line.67"></a>
+<span class="sourceLineNo">068</span><a name="line.68"></a>
+<span class="sourceLineNo">069</span>        protected final static Object NON_NULL = new Object() {<a name="line.69"></a>
+<span class="sourceLineNo">070</span>                public String toString() {return "non-null";}<a name="line.70"></a>
+<span class="sourceLineNo">071</span>        };<a name="line.71"></a>
+<span class="sourceLineNo">072</span><a name="line.72"></a>
+<span class="sourceLineNo">073</span>        // TOP IS MEANINGLESS FOR THIS ANALYSIS: YOU CAN'T ASSUME A VALUE IS NULL AND NON_NULL.  BOTTOM IS USED FOR THAT CASE<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        protected final static Object TOP = new Object() {<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                public String toString() {return "top";}<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        };<a name="line.76"></a>
+<span class="sourceLineNo">077</span>        <a name="line.77"></a>
+<span class="sourceLineNo">078</span>        /**<a name="line.78"></a>
+<span class="sourceLineNo">079</span>         * Creates a new analysis for the given graph/<a name="line.79"></a>
+<span class="sourceLineNo">080</span>         * @param graph any unit graph<a name="line.80"></a>
+<span class="sourceLineNo">081</span>         */<a name="line.81"></a>
+<span class="sourceLineNo">082</span>        public NullnessAssumptionAnalysis(UnitGraph graph) {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>                super(graph);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                <a name="line.84"></a>
+<span class="sourceLineNo">085</span>                doAnalysis();<a name="line.85"></a>
+<span class="sourceLineNo">086</span>        }<a name="line.86"></a>
+<span class="sourceLineNo">087</span><a name="line.87"></a>
+<span class="sourceLineNo">088</span>        /**<a name="line.88"></a>
+<span class="sourceLineNo">089</span>         * {@inheritDoc}<a name="line.89"></a>
+<span class="sourceLineNo">090</span>         */<a name="line.90"></a>
+<span class="sourceLineNo">091</span>        protected void flowThrough(Object inValue, Object unit, Object outValue)<a name="line.91"></a>
+<span class="sourceLineNo">092</span>//      protected void flowThrough(Object flowin, Unit u, List fallOut, List branchOuts)<a name="line.92"></a>
+<span class="sourceLineNo">093</span>        {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                AnalysisInfo in = (AnalysisInfo) inValue;<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                AnalysisInfo out = new AnalysisInfo(in);<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                <a name="line.96"></a>
+<span class="sourceLineNo">097</span>                Stmt s = (Stmt) unit;<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                <a name="line.98"></a>
+<span class="sourceLineNo">099</span>                //in case of an if statement, we neet to compute the branch-flow;<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                //e.g. for a statement "if(x!=null) goto s" we have x==null for the fallOut and<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                //x!=null for the branchOut<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                //or for an instanceof expression<a name="line.102"></a>
+<span class="sourceLineNo">103</span>//              if(s instanceof JIfStmt) {<a name="line.103"></a>
+<span class="sourceLineNo">104</span>//                      JIfStmt ifStmt = (JIfStmt) s;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>//                      handleIfStmt(ifStmt, in, out, outBranch);<a name="line.105"></a>
+<span class="sourceLineNo">106</span>//              }<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                //in case of a monitor statement, we know that the programmer assumes we have a non-null value<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                if(s instanceof MonitorStmt) {<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                        MonitorStmt monitorStmt = (MonitorStmt) s;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                        out.put(monitorStmt.getOp(), NON_NULL);<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                }<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                <a name="line.112"></a>
+<span class="sourceLineNo">113</span>                //if we have an array ref, set the info for this ref to TOP,<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                //cause we need to be conservative here<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                if(s.containsArrayRef()) {<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                        ArrayRef arrayRef = s.getArrayRef();<a name="line.116"></a>
+<span class="sourceLineNo">117</span>                        handleArrayRef(arrayRef,out);<a name="line.117"></a>
+<span class="sourceLineNo">118</span>                }<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                //same for field refs, but also set the receiver object to non-null, if there is one<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                if(s.containsFieldRef()) {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                        FieldRef fieldRef = s.getFieldRef();<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                        handleFieldRef(fieldRef, out);<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                }<a name="line.123"></a>
+<span class="sourceLineNo">124</span>                //same for invoke expr., also set the receiver object to non-null, if there is one<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                if(s.containsInvokeExpr()) {<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                        InvokeExpr invokeExpr = s.getInvokeExpr();<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                        handleInvokeExpr(invokeExpr, out);<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                }<a name="line.128"></a>
+<span class="sourceLineNo">129</span>                <a name="line.129"></a>
+<span class="sourceLineNo">130</span>                //allow sublasses to define certain values as always-non-null<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                for (Iterator outIter = out.entrySet().iterator(); outIter.hasNext();) {<a name="line.131"></a>
+<span class="sourceLineNo">132</span>                        Entry entry = (Entry) outIter.next();<a name="line.132"></a>
+<span class="sourceLineNo">133</span>                        Value v = (Value) entry.getKey();<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                        if(isAlwaysNonNull(v)) {<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                                entry.setValue(NON_NULL);<a name="line.135"></a>
+<span class="sourceLineNo">136</span>                        }<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                }<a name="line.137"></a>
+<span class="sourceLineNo">138</span>                <a name="line.138"></a>
+<span class="sourceLineNo">139</span>                //if we have a definition (assignment) statement to a ref-like type, handle it,<a name="line.139"></a>
+<span class="sourceLineNo">140</span>                if(s instanceof DefinitionStmt) {<a name="line.140"></a>
+<span class="sourceLineNo">141</span>                        //need to copy the current out set because we need to assign under this assumption;<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                        //so this copy becomes the in-set to handleRefTypeAssignment<a name="line.142"></a>
+<span class="sourceLineNo">143</span>                        AnalysisInfo temp = new AnalysisInfo(out);<a name="line.143"></a>
+<span class="sourceLineNo">144</span>                        DefinitionStmt defStmt = (DefinitionStmt) s;<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                        if(defStmt.getLeftOp().getType() instanceof RefLikeType) {<a name="line.145"></a>
+<span class="sourceLineNo">146</span>                                handleRefTypeAssignment(defStmt, temp, out);<a name="line.146"></a>
+<span class="sourceLineNo">147</span>                        }<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                }<a name="line.148"></a>
+<span class="sourceLineNo">149</span>                <a name="line.149"></a>
+<span class="sourceLineNo">150</span>                //save memory by only retaining information about locals<a name="line.150"></a>
+<span class="sourceLineNo">151</span>                for (Iterator outIter = out.keySet().iterator(); outIter.hasNext();) {<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                        Value v = (Value) outIter.next();<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                        if(!(v instanceof Local)) {<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                                outIter.remove();<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                        }<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                }<a name="line.156"></a>
+<span class="sourceLineNo">157</span>//              for (Iterator outBranchIter = outBranch.keySet().iterator(); outBranchIter.hasNext();) {<a name="line.157"></a>
+<span class="sourceLineNo">158</span>//                      Value v = (Value) outBranchIter.next();<a name="line.158"></a>
+<span class="sourceLineNo">159</span>//                      if(!(v instanceof Local)) {<a name="line.159"></a>
+<span class="sourceLineNo">160</span>//                              outBranchIter.remove();<a name="line.160"></a>
+<span class="sourceLineNo">161</span>//                      }<a name="line.161"></a>
+<span class="sourceLineNo">162</span>//              }<a name="line.162"></a>
+<span class="sourceLineNo">163</span><a name="line.163"></a>
+<span class="sourceLineNo">164</span>                // now copy the computed info to out<a name="line.164"></a>
+<span class="sourceLineNo">165</span>        copy( out, outValue );<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        }<a name="line.166"></a>
+<span class="sourceLineNo">167</span>        <a name="line.167"></a>
+<span class="sourceLineNo">168</span>        /**<a name="line.168"></a>
+<span class="sourceLineNo">169</span>         * This can be overridden by sublasses to mark a certain value<a name="line.169"></a>
+<span class="sourceLineNo">170</span>         * as constantly non-null.<a name="line.170"></a>
+<span class="sourceLineNo">171</span>         * @param v any value<a name="line.171"></a>
+<span class="sourceLineNo">172</span>         * @return true if it is known that this value (e.g. a method<a name="line.172"></a>
+<span class="sourceLineNo">173</span>         * return value) is never null<a name="line.173"></a>
+<span class="sourceLineNo">174</span>         */<a name="line.174"></a>
+<span class="sourceLineNo">175</span>        protected boolean isAlwaysNonNull(Value v) {<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                return false;<a name="line.176"></a>
+<span class="sourceLineNo">177</span>        }<a name="line.177"></a>
+<span class="sourceLineNo">178</span><a name="line.178"></a>
+<span class="sourceLineNo">179</span>        private void handleArrayRef(ArrayRef arrayRef, AnalysisInfo out) {<a name="line.179"></a>
+<span class="sourceLineNo">180</span>                Value array = arrayRef.getBase();<a name="line.180"></a>
+<span class="sourceLineNo">181</span>                //here we know that the array must point to an object, but the array value might be anything<a name="line.181"></a>
+<span class="sourceLineNo">182</span>                out.put(array, NON_NULL);<a name="line.182"></a>
+<span class="sourceLineNo">183</span>//              out.put(arrayRef, TOP);<a name="line.183"></a>
+<span class="sourceLineNo">184</span>        }<a name="line.184"></a>
+<span class="sourceLineNo">185</span><a name="line.185"></a>
+<span class="sourceLineNo">186</span>        private void handleFieldRef(FieldRef fieldRef,<a name="line.186"></a>
+<span class="sourceLineNo">187</span>                        AnalysisInfo out) {<a name="line.187"></a>
+<span class="sourceLineNo">188</span>                if(fieldRef instanceof InstanceFieldRef) {<a name="line.188"></a>
+<span class="sourceLineNo">189</span>                        InstanceFieldRef instanceFieldRef = (InstanceFieldRef) fieldRef;<a name="line.189"></a>
+<span class="sourceLineNo">190</span>                        //here we know that the receiver must point to an object<a name="line.190"></a>
+<span class="sourceLineNo">191</span>                        Value base = instanceFieldRef.getBase();<a name="line.191"></a>
+<span class="sourceLineNo">192</span>                        out.put(base,NON_NULL);<a name="line.192"></a>
+<span class="sourceLineNo">193</span>                }<a name="line.193"></a>
+<span class="sourceLineNo">194</span>                //but the referenced object might point to everything<a name="line.194"></a>
+<span class="sourceLineNo">195</span>//              out.put(fieldRef, TOP);<a name="line.195"></a>
+<span class="sourceLineNo">196</span>        }<a name="line.196"></a>
+<span class="sourceLineNo">197</span><a name="line.197"></a>
+<span class="sourceLineNo">198</span>        private void handleInvokeExpr(InvokeExpr invokeExpr,AnalysisInfo out) {<a name="line.198"></a>
+<span class="sourceLineNo">199</span>                if(invokeExpr instanceof InstanceInvokeExpr) {<a name="line.199"></a>
+<span class="sourceLineNo">200</span>                        InstanceInvokeExpr instanceInvokeExpr = (InstanceInvokeExpr) invokeExpr;<a name="line.200"></a>
+<span class="sourceLineNo">201</span>                        //here we know that the receiver must point to an object<a name="line.201"></a>
+<span class="sourceLineNo">202</span>                        Value base = instanceInvokeExpr.getBase();<a name="line.202"></a>
+<span class="sourceLineNo">203</span>                        out.put(base,NON_NULL);<a name="line.203"></a>
+<span class="sourceLineNo">204</span>                }<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                //but the returned object might point to everything<a name="line.205"></a>
+<span class="sourceLineNo">206</span>//              out.put(invokeExpr, TOP);<a name="line.206"></a>
+<span class="sourceLineNo">207</span>        }<a name="line.207"></a>
+<span class="sourceLineNo">208</span><a name="line.208"></a>
+<span class="sourceLineNo">209</span>        private void handleRefTypeAssignment(DefinitionStmt assignStmt,<a name="line.209"></a>
+<span class="sourceLineNo">210</span>                        AnalysisInfo rhsInfo, AnalysisInfo out) {<a name="line.210"></a>
+<span class="sourceLineNo">211</span>                Value left = assignStmt.getLeftOp();<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                Value right = assignStmt.getRightOp();<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                <a name="line.213"></a>
+<span class="sourceLineNo">214</span>                //unbox casted value<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                if(right instanceof JCastExpr) {<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                        JCastExpr castExpr = (JCastExpr) right;<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                        right = castExpr.getOp();<a name="line.217"></a>
+<span class="sourceLineNo">218</span>                }<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                <a name="line.219"></a>
+<span class="sourceLineNo">220</span>                // An assignment invalidates any assumptions of null/non-null for lhs<a name="line.220"></a>
+<span class="sourceLineNo">221</span>                // We COULD be more accurate by assigning those assumptions to the rhs prior to this statement<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                rhsInfo.put(right,BOTTOM);<a name="line.222"></a>
+<span class="sourceLineNo">223</span>                <a name="line.223"></a>
+<span class="sourceLineNo">224</span>                //assign from rhs to lhs<a name="line.224"></a>
+<span class="sourceLineNo">225</span>                out.put(left,rhsInfo.get(right));<a name="line.225"></a>
+<span class="sourceLineNo">226</span>        }<a name="line.226"></a>
+<span class="sourceLineNo">227</span><a name="line.227"></a>
+<span class="sourceLineNo">228</span>        /**<a name="line.228"></a>
+<span class="sourceLineNo">229</span>         * {@inheritDoc}<a name="line.229"></a>
+<span class="sourceLineNo">230</span>         */<a name="line.230"></a>
+<span class="sourceLineNo">231</span>        protected void copy(Object source, Object dest) {<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                Map s = (Map) source;<a name="line.232"></a>
+<span class="sourceLineNo">233</span>                Map d = (Map) dest;<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                d.clear();<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                d.putAll(s);<a name="line.235"></a>
+<span class="sourceLineNo">236</span>        }<a name="line.236"></a>
+<span class="sourceLineNo">237</span><a name="line.237"></a>
+<span class="sourceLineNo">238</span>        /**<a name="line.238"></a>
+<span class="sourceLineNo">239</span>         * {@inheritDoc}<a name="line.239"></a>
+<span class="sourceLineNo">240</span>         */<a name="line.240"></a>
+<span class="sourceLineNo">241</span>        protected Object entryInitialFlow() {<a name="line.241"></a>
+<span class="sourceLineNo">242</span>                return new AnalysisInfo();<a name="line.242"></a>
+<span class="sourceLineNo">243</span>        }<a name="line.243"></a>
+<span class="sourceLineNo">244</span><a name="line.244"></a>
+<span class="sourceLineNo">245</span>        /**<a name="line.245"></a>
+<span class="sourceLineNo">246</span>         * {@inheritDoc}<a name="line.246"></a>
+<span class="sourceLineNo">247</span>         */<a name="line.247"></a>
+<span class="sourceLineNo">248</span>        protected void merge(Object in1, Object in2, Object out) {<a name="line.248"></a>
+<span class="sourceLineNo">249</span>                AnalysisInfo left = (AnalysisInfo) in1;<a name="line.249"></a>
+<span class="sourceLineNo">250</span>                AnalysisInfo right = (AnalysisInfo) in2;<a name="line.250"></a>
+<span class="sourceLineNo">251</span>                AnalysisInfo res = (AnalysisInfo) out;<a name="line.251"></a>
+<span class="sourceLineNo">252</span>                <a name="line.252"></a>
+<span class="sourceLineNo">253</span>                Set values = new HashSet();<a name="line.253"></a>
+<span class="sourceLineNo">254</span>                values.addAll(left.keySet());<a name="line.254"></a>
+<span class="sourceLineNo">255</span>                values.addAll(right.keySet());<a name="line.255"></a>
+<span class="sourceLineNo">256</span>                <a name="line.256"></a>
+<span class="sourceLineNo">257</span>                res.clear();<a name="line.257"></a>
+<span class="sourceLineNo">258</span>                <a name="line.258"></a>
+<span class="sourceLineNo">259</span>                for (Iterator keyIter = values.iterator(); keyIter.hasNext();) {<a name="line.259"></a>
+<span class="sourceLineNo">260</span>                        Value v = (Value) keyIter.next();<a name="line.260"></a>
+<span class="sourceLineNo">261</span>                        Set&lt;Object&gt; leftAndRight = new HashSet&lt;Object&gt;();<a name="line.261"></a>
+<span class="sourceLineNo">262</span>                        leftAndRight.add(left.get(v));<a name="line.262"></a>
+<span class="sourceLineNo">263</span>                        leftAndRight.add(right.get(v));                 <a name="line.263"></a>
+<span class="sourceLineNo">264</span><a name="line.264"></a>
+<span class="sourceLineNo">265</span>                        Object result;<a name="line.265"></a>
+<span class="sourceLineNo">266</span>                        // This needs to be corrected for assumption *** TODO<a name="line.266"></a>
+<span class="sourceLineNo">267</span>                        //TOP stays TOP<a name="line.267"></a>
+<span class="sourceLineNo">268</span>                        if(leftAndRight.contains(BOTTOM)) // if on either side we know nothing... then together we know nothing for sure<a name="line.268"></a>
+<span class="sourceLineNo">269</span>                        {<a name="line.269"></a>
+<span class="sourceLineNo">270</span>                                result = BOTTOM;<a name="line.270"></a>
+<span class="sourceLineNo">271</span>                        }<a name="line.271"></a>
+<span class="sourceLineNo">272</span>                        else if(leftAndRight.contains(NON_NULL))<a name="line.272"></a>
+<span class="sourceLineNo">273</span>                        {<a name="line.273"></a>
+<span class="sourceLineNo">274</span>                                if(leftAndRight.contains(NULL)) <a name="line.274"></a>
+<span class="sourceLineNo">275</span>                                {<a name="line.275"></a>
+<span class="sourceLineNo">276</span>                                        //NULL and NON_NULL merges to BOTTOM<a name="line.276"></a>
+<span class="sourceLineNo">277</span>                                        result = BOTTOM;<a name="line.277"></a>
+<span class="sourceLineNo">278</span>                                }<a name="line.278"></a>
+<span class="sourceLineNo">279</span>                                else <a name="line.279"></a>
+<span class="sourceLineNo">280</span>                                {<a name="line.280"></a>
+<span class="sourceLineNo">281</span>                                        //NON_NULL and NON_NULL stays NON_NULL <a name="line.281"></a>
+<span class="sourceLineNo">282</span>                                        result = NON_NULL;<a name="line.282"></a>
+<span class="sourceLineNo">283</span>                                }<a name="line.283"></a>
+<span class="sourceLineNo">284</span>                        }<a name="line.284"></a>
+<span class="sourceLineNo">285</span>                        else if(leftAndRight.contains(NULL))<a name="line.285"></a>
+<span class="sourceLineNo">286</span>                        {<a name="line.286"></a>
+<span class="sourceLineNo">287</span>                                //NULL and NULL stays NULL <a name="line.287"></a>
+<span class="sourceLineNo">288</span>                                result = NULL;<a name="line.288"></a>
+<span class="sourceLineNo">289</span>                        }<a name="line.289"></a>
+<span class="sourceLineNo">290</span>                        else<a name="line.290"></a>
+<span class="sourceLineNo">291</span>                        {<a name="line.291"></a>
+<span class="sourceLineNo">292</span>                                //only BOTTOM remains <a name="line.292"></a>
+<span class="sourceLineNo">293</span>                                result = BOTTOM;<a name="line.293"></a>
+<span class="sourceLineNo">294</span>                        }<a name="line.294"></a>
+<span class="sourceLineNo">295</span>                        <a name="line.295"></a>
+<span class="sourceLineNo">296</span>                        res.put(v, result);<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                }<a name="line.297"></a>
+<span class="sourceLineNo">298</span>        }<a name="line.298"></a>
+<span class="sourceLineNo">299</span><a name="line.299"></a>
+<span class="sourceLineNo">300</span>        /**<a name="line.300"></a>
+<span class="sourceLineNo">301</span>         * {@inheritDoc}<a name="line.301"></a>
+<span class="sourceLineNo">302</span>         */<a name="line.302"></a>
+<span class="sourceLineNo">303</span>        protected Object newInitialFlow() {<a name="line.303"></a>
+<span class="sourceLineNo">304</span>                return new AnalysisInfo();<a name="line.304"></a>
+<span class="sourceLineNo">305</span>        }<a name="line.305"></a>
+<span class="sourceLineNo">306</span>        <a name="line.306"></a>
+<span class="sourceLineNo">307</span>        /**<a name="line.307"></a>
+<span class="sourceLineNo">308</span>         * Returns &lt;code&gt;true&lt;/code&gt; if the analysis could determine that i is always treated as null<a name="line.308"></a>
+<span class="sourceLineNo">309</span>         * after and including the statement s.<a name="line.309"></a>
+<span class="sourceLineNo">310</span>         * @param s a statement of the respective body<a name="line.310"></a>
+<span class="sourceLineNo">311</span>         * @param i a local or constant of that body<a name="line.311"></a>
+<span class="sourceLineNo">312</span>         * @return true if i is always null right before this statement<a name="line.312"></a>
+<span class="sourceLineNo">313</span>         */<a name="line.313"></a>
+<span class="sourceLineNo">314</span>        public boolean isAssumedNullBefore(Unit s, Immediate i) {<a name="line.314"></a>
+<span class="sourceLineNo">315</span>                AnalysisInfo ai = (AnalysisInfo) getFlowBefore(s);<a name="line.315"></a>
+<span class="sourceLineNo">316</span>                return ai.get(i)==NULL;<a name="line.316"></a>
+<span class="sourceLineNo">317</span>        }<a name="line.317"></a>
+<span class="sourceLineNo">318</span><a name="line.318"></a>
+<span class="sourceLineNo">319</span>        /**<a name="line.319"></a>
+<span class="sourceLineNo">320</span>         * Returns &lt;code&gt;true&lt;/code&gt; if the analysis could determine that i is always treated as non-null<a name="line.320"></a>
+<span class="sourceLineNo">321</span>         * after and including the statement s.<a name="line.321"></a>
+<span class="sourceLineNo">322</span>         * @param s a statement of the respective body<a name="line.322"></a>
+<span class="sourceLineNo">323</span>         * @param i a local of that body<a name="line.323"></a>
+<span class="sourceLineNo">324</span>         * @return true if i is always non-null right before this statement<a name="line.324"></a>
+<span class="sourceLineNo">325</span>         */<a name="line.325"></a>
+<span class="sourceLineNo">326</span>        public boolean isAssumedNonNullBefore(Unit s, Immediate i) {<a name="line.326"></a>
+<span class="sourceLineNo">327</span>                AnalysisInfo ai = (AnalysisInfo) getFlowBefore(s);<a name="line.327"></a>
+<span class="sourceLineNo">328</span>                return ai.get(i)==NON_NULL;<a name="line.328"></a>
+<span class="sourceLineNo">329</span>        }<a name="line.329"></a>
+<span class="sourceLineNo">330</span><a name="line.330"></a>
+<span class="sourceLineNo">331</span>        /**<a name="line.331"></a>
+<span class="sourceLineNo">332</span>         * The analysis info is a simple mapping of type {@link Value} to<a name="line.332"></a>
+<span class="sourceLineNo">333</span>         * any of the constants BOTTOM, NON_NULL, NULL or TOP.<a name="line.333"></a>
+<span class="sourceLineNo">334</span>         * This class returns BOTTOM by default.<a name="line.334"></a>
+<span class="sourceLineNo">335</span>         * <a name="line.335"></a>
+<span class="sourceLineNo">336</span>         * @author Eric Bodden<a name="line.336"></a>
+<span class="sourceLineNo">337</span>         */<a name="line.337"></a>
+<span class="sourceLineNo">338</span>        protected static class AnalysisInfo extends HashMap {<a name="line.338"></a>
+<span class="sourceLineNo">339</span>                <a name="line.339"></a>
+<span class="sourceLineNo">340</span>                public AnalysisInfo() {<a name="line.340"></a>
+<span class="sourceLineNo">341</span>                        super();<a name="line.341"></a>
+<span class="sourceLineNo">342</span>                }<a name="line.342"></a>
+<span class="sourceLineNo">343</span><a name="line.343"></a>
+<span class="sourceLineNo">344</span>                public AnalysisInfo(Map m) {<a name="line.344"></a>
+<span class="sourceLineNo">345</span>                        super(m);<a name="line.345"></a>
+<span class="sourceLineNo">346</span>                }<a name="line.346"></a>
+<span class="sourceLineNo">347</span><a name="line.347"></a>
+<span class="sourceLineNo">348</span>                public Object get(Object key) {<a name="line.348"></a>
+<span class="sourceLineNo">349</span>                        Object object = super.get(key);<a name="line.349"></a>
+<span class="sourceLineNo">350</span>                        if(object==null) {<a name="line.350"></a>
+<span class="sourceLineNo">351</span>                                return BOTTOM;<a name="line.351"></a>
+<span class="sourceLineNo">352</span>                        }<a name="line.352"></a>
+<span class="sourceLineNo">353</span>                        return object;<a name="line.353"></a>
+<span class="sourceLineNo">354</span>                }<a name="line.354"></a>
+<span class="sourceLineNo">355</span>                <a name="line.355"></a>
+<span class="sourceLineNo">356</span>        }<a name="line.356"></a>
+<span class="sourceLineNo">357</span><a name="line.357"></a>
+<span class="sourceLineNo">358</span><a name="line.358"></a>
+<span class="sourceLineNo">359</span>}<a name="line.359"></a>
+<span class="sourceLineNo">360</span><a name="line.360"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

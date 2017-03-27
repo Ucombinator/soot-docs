@@ -1,0 +1,240 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1999 Patrick Lam<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * Copyright (C) 2004 Ondrej Lhotak<a name="line.3"></a>
+<span class="sourceLineNo">004</span> *<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * This library is free software; you can redistribute it and/or<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * modify it under the terms of the GNU Lesser General Public<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * License as published by the Free Software Foundation; either<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * This library is distributed in the hope that it will be useful,<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * Lesser General Public License for more details.<a name="line.13"></a>
+<span class="sourceLineNo">014</span> *<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * You should have received a copy of the GNU Lesser General Public<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * License along with this library; if not, write to the<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.17"></a>
+<span class="sourceLineNo">018</span> * Boston, MA 02111-1307, USA.<a name="line.18"></a>
+<span class="sourceLineNo">019</span> */<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>/*<a name="line.21"></a>
+<span class="sourceLineNo">022</span> * Modified by the Sable Research Group and others 1997-1999.  <a name="line.22"></a>
+<span class="sourceLineNo">023</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.23"></a>
+<span class="sourceLineNo">024</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.24"></a>
+<span class="sourceLineNo">025</span> */<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span><a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>package soot.grimp.internal;<a name="line.32"></a>
+<span class="sourceLineNo">033</span><a name="line.33"></a>
+<span class="sourceLineNo">034</span>import java.util.ArrayList;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import java.util.List;<a name="line.35"></a>
+<span class="sourceLineNo">036</span><a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.RefType;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.SootMethodRef;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.Type;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.UnitPrinter;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.Value;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.ValueBox;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.grimp.Grimp;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.grimp.GrimpValueSwitch;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.grimp.NewInvokeExpr;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import soot.grimp.Precedence;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import soot.jimple.internal.AbstractInvokeExpr;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import soot.util.Switch;<a name="line.48"></a>
+<span class="sourceLineNo">049</span><a name="line.49"></a>
+<span class="sourceLineNo">050</span>public class GNewInvokeExpr extends AbstractInvokeExpr<a name="line.50"></a>
+<span class="sourceLineNo">051</span>    implements NewInvokeExpr, Precedence<a name="line.51"></a>
+<span class="sourceLineNo">052</span>{<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    RefType type;<a name="line.53"></a>
+<span class="sourceLineNo">054</span><a name="line.54"></a>
+<span class="sourceLineNo">055</span>    public GNewInvokeExpr(RefType type, SootMethodRef methodRef, List args)<a name="line.55"></a>
+<span class="sourceLineNo">056</span>    {<a name="line.56"></a>
+<span class="sourceLineNo">057</span>        super(methodRef, new ExprBox[args.size()]);<a name="line.57"></a>
+<span class="sourceLineNo">058</span>        <a name="line.58"></a>
+<span class="sourceLineNo">059</span>        if( methodRef != null &amp;&amp; methodRef.isStatic() ) throw new RuntimeException("wrong static-ness");<a name="line.59"></a>
+<span class="sourceLineNo">060</span><a name="line.60"></a>
+<span class="sourceLineNo">061</span>        this.methodRef = methodRef;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>        this.type = type;<a name="line.62"></a>
+<span class="sourceLineNo">063</span>        <a name="line.63"></a>
+<span class="sourceLineNo">064</span>        for(int i = 0; i &lt; args.size(); i++)<a name="line.64"></a>
+<span class="sourceLineNo">065</span>            this.argBoxes[i] = Grimp.v().newExprBox((Value) args.get(i));<a name="line.65"></a>
+<span class="sourceLineNo">066</span>    }<a name="line.66"></a>
+<span class="sourceLineNo">067</span><a name="line.67"></a>
+<span class="sourceLineNo">068</span>    /*<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    protected GNewInvokeExpr(RefType type, ExprBox[] argBoxes)<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    {<a name="line.70"></a>
+<span class="sourceLineNo">071</span>        this.type = type;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        this.argBoxes = argBoxes;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    }<a name="line.73"></a>
+<span class="sourceLineNo">074</span>    */<a name="line.74"></a>
+<span class="sourceLineNo">075</span>    <a name="line.75"></a>
+<span class="sourceLineNo">076</span>    public RefType getBaseType()<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    {<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        return type;<a name="line.78"></a>
+<span class="sourceLineNo">079</span>    }<a name="line.79"></a>
+<span class="sourceLineNo">080</span>    <a name="line.80"></a>
+<span class="sourceLineNo">081</span>    public void setBaseType(RefType type)<a name="line.81"></a>
+<span class="sourceLineNo">082</span>    {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>        this.type = type;<a name="line.83"></a>
+<span class="sourceLineNo">084</span>    }<a name="line.84"></a>
+<span class="sourceLineNo">085</span><a name="line.85"></a>
+<span class="sourceLineNo">086</span>    public Type getType()<a name="line.86"></a>
+<span class="sourceLineNo">087</span>    {<a name="line.87"></a>
+<span class="sourceLineNo">088</span>        return type;<a name="line.88"></a>
+<span class="sourceLineNo">089</span>    }    <a name="line.89"></a>
+<span class="sourceLineNo">090</span>    <a name="line.90"></a>
+<span class="sourceLineNo">091</span>    public int getPrecedence() { return 850; }<a name="line.91"></a>
+<span class="sourceLineNo">092</span><a name="line.92"></a>
+<span class="sourceLineNo">093</span>    public String toString()<a name="line.93"></a>
+<span class="sourceLineNo">094</span>    {<a name="line.94"></a>
+<span class="sourceLineNo">095</span>        StringBuffer buffer = new StringBuffer();<a name="line.95"></a>
+<span class="sourceLineNo">096</span><a name="line.96"></a>
+<span class="sourceLineNo">097</span>        buffer.append("new " + type.toString() + "(");<a name="line.97"></a>
+<span class="sourceLineNo">098</span><a name="line.98"></a>
+<span class="sourceLineNo">099</span>        for(int i = 0; i &lt; argBoxes.length; i++)<a name="line.99"></a>
+<span class="sourceLineNo">100</span>        {<a name="line.100"></a>
+<span class="sourceLineNo">101</span>            if(i != 0)<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                buffer.append(", ");<a name="line.102"></a>
+<span class="sourceLineNo">103</span><a name="line.103"></a>
+<span class="sourceLineNo">104</span>            buffer.append(argBoxes[i].getValue().toString());<a name="line.104"></a>
+<span class="sourceLineNo">105</span>        }<a name="line.105"></a>
+<span class="sourceLineNo">106</span><a name="line.106"></a>
+<span class="sourceLineNo">107</span>        buffer.append(")");<a name="line.107"></a>
+<span class="sourceLineNo">108</span><a name="line.108"></a>
+<span class="sourceLineNo">109</span>        return buffer.toString();<a name="line.109"></a>
+<span class="sourceLineNo">110</span>    }<a name="line.110"></a>
+<span class="sourceLineNo">111</span><a name="line.111"></a>
+<span class="sourceLineNo">112</span>    public void toString(UnitPrinter up)<a name="line.112"></a>
+<span class="sourceLineNo">113</span>    {<a name="line.113"></a>
+<span class="sourceLineNo">114</span>        up.literal("new");<a name="line.114"></a>
+<span class="sourceLineNo">115</span>        up.literal(" ");<a name="line.115"></a>
+<span class="sourceLineNo">116</span>        up.type(type);<a name="line.116"></a>
+<span class="sourceLineNo">117</span>        up.literal("(");<a name="line.117"></a>
+<span class="sourceLineNo">118</span><a name="line.118"></a>
+<span class="sourceLineNo">119</span>        for(int i = 0; i &lt; argBoxes.length; i++)<a name="line.119"></a>
+<span class="sourceLineNo">120</span>        {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>            if(i != 0)<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                up.literal(", ");<a name="line.122"></a>
+<span class="sourceLineNo">123</span><a name="line.123"></a>
+<span class="sourceLineNo">124</span>            argBoxes[i].toString(up);<a name="line.124"></a>
+<span class="sourceLineNo">125</span>        }<a name="line.125"></a>
+<span class="sourceLineNo">126</span><a name="line.126"></a>
+<span class="sourceLineNo">127</span>        up.literal(")");<a name="line.127"></a>
+<span class="sourceLineNo">128</span>    }<a name="line.128"></a>
+<span class="sourceLineNo">129</span><a name="line.129"></a>
+<span class="sourceLineNo">130</span>    public void apply(Switch sw)<a name="line.130"></a>
+<span class="sourceLineNo">131</span>    {<a name="line.131"></a>
+<span class="sourceLineNo">132</span>        ((GrimpValueSwitch) sw).caseNewInvokeExpr(this);<a name="line.132"></a>
+<span class="sourceLineNo">133</span>    }<a name="line.133"></a>
+<span class="sourceLineNo">134</span>    <a name="line.134"></a>
+<span class="sourceLineNo">135</span>    public Object clone() <a name="line.135"></a>
+<span class="sourceLineNo">136</span>    {<a name="line.136"></a>
+<span class="sourceLineNo">137</span>        ArrayList clonedArgs = new ArrayList(getArgCount());<a name="line.137"></a>
+<span class="sourceLineNo">138</span><a name="line.138"></a>
+<span class="sourceLineNo">139</span>        for(int i = 0; i &lt; getArgCount(); i++) {<a name="line.139"></a>
+<span class="sourceLineNo">140</span>            clonedArgs.add(i, Grimp.cloneIfNecessary(getArg(i)));<a name="line.140"></a>
+<span class="sourceLineNo">141</span>            <a name="line.141"></a>
+<span class="sourceLineNo">142</span>        }<a name="line.142"></a>
+<span class="sourceLineNo">143</span>        <a name="line.143"></a>
+<span class="sourceLineNo">144</span>        return new  GNewInvokeExpr(getBaseType(), methodRef, clonedArgs);<a name="line.144"></a>
+<span class="sourceLineNo">145</span>    }<a name="line.145"></a>
+<span class="sourceLineNo">146</span>    public boolean equivTo(Object o)<a name="line.146"></a>
+<span class="sourceLineNo">147</span>    {<a name="line.147"></a>
+<span class="sourceLineNo">148</span>        if (o instanceof GNewInvokeExpr)<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        {<a name="line.149"></a>
+<span class="sourceLineNo">150</span>            GNewInvokeExpr ie = (GNewInvokeExpr)o;<a name="line.150"></a>
+<span class="sourceLineNo">151</span>            if (!(getMethod().equals(ie.getMethod()) &amp;&amp; <a name="line.151"></a>
+<span class="sourceLineNo">152</span>                  argBoxes.length == ie.argBoxes.length))<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                return false;<a name="line.153"></a>
+<span class="sourceLineNo">154</span>            for (ValueBox element : argBoxes)<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                                if (!(element.getValue().equivTo(element.getValue())))<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                    return false;<a name="line.156"></a>
+<span class="sourceLineNo">157</span>            if( !type.equals(ie.type) ) return false;<a name="line.157"></a>
+<span class="sourceLineNo">158</span>            return true;<a name="line.158"></a>
+<span class="sourceLineNo">159</span>        }<a name="line.159"></a>
+<span class="sourceLineNo">160</span>        return false;<a name="line.160"></a>
+<span class="sourceLineNo">161</span>    }<a name="line.161"></a>
+<span class="sourceLineNo">162</span> <a name="line.162"></a>
+<span class="sourceLineNo">163</span>    /** Returns a hash code for this object, consistent with structural equality. */<a name="line.163"></a>
+<span class="sourceLineNo">164</span>    public int equivHashCode()<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    {<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        return getMethod().equivHashCode();<a name="line.166"></a>
+<span class="sourceLineNo">167</span>    }<a name="line.167"></a>
+<span class="sourceLineNo">168</span>}<a name="line.168"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

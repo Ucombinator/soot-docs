@@ -1,0 +1,233 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>// <a name="line.1"></a>
+<span class="sourceLineNo">002</span>// (c) 2012 University of Luxembourg - Interdisciplinary Centre for <a name="line.2"></a>
+<span class="sourceLineNo">003</span>// Security Reliability and Trust (SnT) - All rights reserved<a name="line.3"></a>
+<span class="sourceLineNo">004</span>//<a name="line.4"></a>
+<span class="sourceLineNo">005</span>// Author: Alexandre Bartel<a name="line.5"></a>
+<span class="sourceLineNo">006</span>//<a name="line.6"></a>
+<span class="sourceLineNo">007</span>// This program is free software: you can redistribute it and/or modify<a name="line.7"></a>
+<span class="sourceLineNo">008</span>// it under the terms of the GNU Lesser General Public License as published by<a name="line.8"></a>
+<span class="sourceLineNo">009</span>// the Free Software Foundation, either version 2.1 of the License, or<a name="line.9"></a>
+<span class="sourceLineNo">010</span>// (at your option) any later version.<a name="line.10"></a>
+<span class="sourceLineNo">011</span>//<a name="line.11"></a>
+<span class="sourceLineNo">012</span>// This program is distributed in the hope that it will be useful,<a name="line.12"></a>
+<span class="sourceLineNo">013</span>// but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.13"></a>
+<span class="sourceLineNo">014</span>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the<a name="line.14"></a>
+<span class="sourceLineNo">015</span>// GNU Lesser General Public License for more details.<a name="line.15"></a>
+<span class="sourceLineNo">016</span>//<a name="line.16"></a>
+<span class="sourceLineNo">017</span>// You should have received a copy of the GNU Lesser General Public License<a name="line.17"></a>
+<span class="sourceLineNo">018</span>// along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;. <a name="line.18"></a>
+<span class="sourceLineNo">019</span>//<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>package soot.dexpler;<a name="line.21"></a>
+<span class="sourceLineNo">022</span><a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.Collections;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.Iterator;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.util.List;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.util.Map;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.Body;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import soot.BodyTransformer;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.Local;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import soot.RefType;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.Scene;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.SootMethodRef;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.Type;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.Unit;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.Value;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.jimple.AssignStmt;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.jimple.DefinitionStmt;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.jimple.IntConstant;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.jimple.Jimple;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.jimple.LengthExpr;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.jimple.NullConstant;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.jimple.Stmt;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.jimple.StringConstant;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.jimple.toolkits.scalar.LocalCreation;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import soot.jimple.toolkits.scalar.UnreachableCodeEliminator;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import soot.toolkits.graph.ExceptionalUnitGraph;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import soot.toolkits.scalar.LocalDefs;<a name="line.48"></a>
+<span class="sourceLineNo">049</span><a name="line.49"></a>
+<span class="sourceLineNo">050</span>/**<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * If Dalvik bytecode contains statements using a base array which is always<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * null, Soot's fast type resolver will fail with the following exception:<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * "Exception in thread "<a name="line.53"></a>
+<span class="sourceLineNo">054</span> * main" java.lang.RuntimeException: Base of array reference is not an array!"<a name="line.54"></a>
+<span class="sourceLineNo">055</span> * <a name="line.55"></a>
+<span class="sourceLineNo">056</span> * Those statements are replaced by a throw statement (this is what will happen<a name="line.56"></a>
+<span class="sourceLineNo">057</span> * in practice if the code is executed).<a name="line.57"></a>
+<span class="sourceLineNo">058</span> * <a name="line.58"></a>
+<span class="sourceLineNo">059</span> * @author alex<a name="line.59"></a>
+<span class="sourceLineNo">060</span> * @author Steven Arzt<a name="line.60"></a>
+<span class="sourceLineNo">061</span> *<a name="line.61"></a>
+<span class="sourceLineNo">062</span> */<a name="line.62"></a>
+<span class="sourceLineNo">063</span>public class DexNullArrayRefTransformer extends BodyTransformer {<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        <a name="line.64"></a>
+<span class="sourceLineNo">065</span>        public static DexNullArrayRefTransformer v() {<a name="line.65"></a>
+<span class="sourceLineNo">066</span>                return new DexNullArrayRefTransformer();<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        }<a name="line.67"></a>
+<span class="sourceLineNo">068</span><a name="line.68"></a>
+<span class="sourceLineNo">069</span>        protected void internalTransform(final Body body, String phaseName, Map&lt;String, String&gt; options) {                <a name="line.69"></a>
+<span class="sourceLineNo">070</span>                final ExceptionalUnitGraph g = new ExceptionalUnitGraph(body, DalvikThrowAnalysis.v());<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                final LocalDefs defs = LocalDefs.Factory.newLocalDefs(g);<a name="line.71"></a>
+<span class="sourceLineNo">072</span>                final LocalCreation lc = new LocalCreation(body.getLocals(), "ex");<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                <a name="line.73"></a>
+<span class="sourceLineNo">074</span>                boolean changed = false;<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                for (Iterator&lt;Unit&gt; unitIt = body.getUnits().snapshotIterator(); unitIt.hasNext(); ) {<a name="line.75"></a>
+<span class="sourceLineNo">076</span>                        Stmt s = (Stmt) unitIt.next();<a name="line.76"></a>
+<span class="sourceLineNo">077</span>                        <a name="line.77"></a>
+<span class="sourceLineNo">078</span>                        if (s.containsArrayRef()) {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>                                // Check array reference<a name="line.79"></a>
+<span class="sourceLineNo">080</span>                                Value base = s.getArrayRef().getBase();<a name="line.80"></a>
+<span class="sourceLineNo">081</span>                                if (isAlwaysNullBefore(s, (Local) base, defs)) {<a name="line.81"></a>
+<span class="sourceLineNo">082</span>                                        createThrowStmt(body, s, lc);<a name="line.82"></a>
+<span class="sourceLineNo">083</span>                                        changed = true;<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                                }<a name="line.84"></a>
+<span class="sourceLineNo">085</span>                        } else if (s instanceof AssignStmt) {<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                                AssignStmt ass = (AssignStmt) s;<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                                Value rightOp = ass.getRightOp();<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                                if (rightOp instanceof LengthExpr) {<a name="line.88"></a>
+<span class="sourceLineNo">089</span>                                        // Check lengthof expression<a name="line.89"></a>
+<span class="sourceLineNo">090</span>                                        LengthExpr l = (LengthExpr) ass.getRightOp();<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                                        Value base = l.getOp();<a name="line.91"></a>
+<span class="sourceLineNo">092</span>                                        if (base instanceof IntConstant) {<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                                                IntConstant ic = (IntConstant) base;<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                                                if (ic.value == 0) {<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                                                        createThrowStmt(body, s, lc);<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                                                        changed = true;<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                                                }<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                                        }<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                                        else if (base == NullConstant.v()<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                                                        || isAlwaysNullBefore(s, (Local) base, defs)) {<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                                                createThrowStmt(body, s, lc);<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                                                changed = true;<a name="line.102"></a>
+<span class="sourceLineNo">103</span>                                        }<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                                }<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                        }<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                }<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                <a name="line.107"></a>
+<span class="sourceLineNo">108</span>                if (changed)<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                        UnreachableCodeEliminator.v().transform(body);<a name="line.109"></a>
+<span class="sourceLineNo">110</span>        }<a name="line.110"></a>
+<span class="sourceLineNo">111</span>        <a name="line.111"></a>
+<span class="sourceLineNo">112</span>        /**<a name="line.112"></a>
+<span class="sourceLineNo">113</span>         * Checks whether the given local is guaranteed to be always null at the<a name="line.113"></a>
+<span class="sourceLineNo">114</span>         * given statement<a name="line.114"></a>
+<span class="sourceLineNo">115</span>         * @param s The statement at which to check the local<a name="line.115"></a>
+<span class="sourceLineNo">116</span>         * @param base The local to check<a name="line.116"></a>
+<span class="sourceLineNo">117</span>         * @param defs The definition analysis object to use for the check<a name="line.117"></a>
+<span class="sourceLineNo">118</span>         * @return True if the given local is guaranteed to always be null at the<a name="line.118"></a>
+<span class="sourceLineNo">119</span>         * given statement, otherwise false<a name="line.119"></a>
+<span class="sourceLineNo">120</span>         */<a name="line.120"></a>
+<span class="sourceLineNo">121</span>        private boolean isAlwaysNullBefore(Stmt s, Local base, LocalDefs defs) {<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                List&lt;Unit&gt; baseDefs = defs.getDefsOfAt(base, s);<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                if (baseDefs.isEmpty())<a name="line.123"></a>
+<span class="sourceLineNo">124</span>                        return true;<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                <a name="line.125"></a>
+<span class="sourceLineNo">126</span>                for (Unit u : baseDefs) {<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                        if (!(u instanceof DefinitionStmt))<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                                return false;<a name="line.128"></a>
+<span class="sourceLineNo">129</span>                        DefinitionStmt defStmt = (DefinitionStmt) u;<a name="line.129"></a>
+<span class="sourceLineNo">130</span>                        if (defStmt.getRightOp() != NullConstant.v())<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                                return false;<a name="line.131"></a>
+<span class="sourceLineNo">132</span>                }<a name="line.132"></a>
+<span class="sourceLineNo">133</span>                return true;<a name="line.133"></a>
+<span class="sourceLineNo">134</span>        }<a name="line.134"></a>
+<span class="sourceLineNo">135</span><a name="line.135"></a>
+<span class="sourceLineNo">136</span>        /**<a name="line.136"></a>
+<span class="sourceLineNo">137</span>         * Creates a new statement that throws a NullPointerException<a name="line.137"></a>
+<span class="sourceLineNo">138</span>         * @param body The body in which to create the statement<a name="line.138"></a>
+<span class="sourceLineNo">139</span>         * @param oldStmt The old faulty statement that shall be replaced with the<a name="line.139"></a>
+<span class="sourceLineNo">140</span>         * exception<a name="line.140"></a>
+<span class="sourceLineNo">141</span>         * @param lc The object for creating new locals<a name="line.141"></a>
+<span class="sourceLineNo">142</span>         */<a name="line.142"></a>
+<span class="sourceLineNo">143</span>        private void createThrowStmt(Body body, Unit oldStmt, LocalCreation lc) {<a name="line.143"></a>
+<span class="sourceLineNo">144</span>                RefType tp = RefType.v("java.lang.NullPointerException");<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                Local lcEx = lc.newLocal(tp);<a name="line.145"></a>
+<span class="sourceLineNo">146</span>                <a name="line.146"></a>
+<span class="sourceLineNo">147</span>                SootMethodRef constructorRef = Scene.v().makeConstructorRef(tp.getSootClass(),<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                                Collections.singletonList((Type) RefType.v("java.lang.String")));<a name="line.148"></a>
+<span class="sourceLineNo">149</span>                <a name="line.149"></a>
+<span class="sourceLineNo">150</span>                // Create the exception instance<a name="line.150"></a>
+<span class="sourceLineNo">151</span>                Stmt newExStmt = Jimple.v().newAssignStmt(lcEx, Jimple.v().newNewExpr(tp));<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                body.getUnits().insertBefore(newExStmt, oldStmt);<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                Stmt invConsStmt = Jimple.v().newInvokeStmt(Jimple.v().newSpecialInvokeExpr(lcEx,<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                                constructorRef, Collections.singletonList(StringConstant.v(<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                                                "Invalid array reference replaced by Soot"))));<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                body.getUnits().insertBefore(invConsStmt, oldStmt);<a name="line.156"></a>
+<span class="sourceLineNo">157</span>                <a name="line.157"></a>
+<span class="sourceLineNo">158</span>                // Throw the exception<a name="line.158"></a>
+<span class="sourceLineNo">159</span>                body.getUnits().swapWith(oldStmt, Jimple.v().newThrowStmt(lcEx));<a name="line.159"></a>
+<span class="sourceLineNo">160</span>        }<a name="line.160"></a>
+<span class="sourceLineNo">161</span>}<a name="line.161"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

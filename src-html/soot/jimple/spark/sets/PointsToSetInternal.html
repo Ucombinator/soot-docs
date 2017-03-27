@@ -1,0 +1,323 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2002 Ondrej Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.jimple.spark.sets;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import soot.jimple.ClassConstant;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.jimple.spark.internal.TypeManager;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.jimple.spark.pag.*;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.util.BitVector;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import soot.*;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.util.*;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>/** Abstract base class for implementations of points-to sets.<a name="line.28"></a>
+<span class="sourceLineNo">029</span> * @author Ondrej Lhotak<a name="line.29"></a>
+<span class="sourceLineNo">030</span> */<a name="line.30"></a>
+<span class="sourceLineNo">031</span>public abstract class PointsToSetInternal implements PointsToSet, EqualsSupportingPointsToSet {<a name="line.31"></a>
+<span class="sourceLineNo">032</span>    /** Adds contents of other minus the contents of exclude into this set;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>     * returns true if this set changed. */<a name="line.33"></a>
+<span class="sourceLineNo">034</span>    public boolean addAll( PointsToSetInternal other,<a name="line.34"></a>
+<span class="sourceLineNo">035</span>            final PointsToSetInternal exclude ) {<a name="line.35"></a>
+<span class="sourceLineNo">036</span>        if( other instanceof DoublePointsToSet ) {<a name="line.36"></a>
+<span class="sourceLineNo">037</span>            return addAll( other.getNewSet(), exclude )<a name="line.37"></a>
+<span class="sourceLineNo">038</span>                | addAll( other.getOldSet(), exclude );<a name="line.38"></a>
+<span class="sourceLineNo">039</span>        } else if( other instanceof EmptyPointsToSet ) {<a name="line.39"></a>
+<span class="sourceLineNo">040</span>            return false;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>        } else if( exclude instanceof EmptyPointsToSet ) { <a name="line.41"></a>
+<span class="sourceLineNo">042</span>            return addAll( other, null );<a name="line.42"></a>
+<span class="sourceLineNo">043</span>        }<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        if( !G.v().PointsToSetInternal_warnedAlready ) {<a name="line.44"></a>
+<span class="sourceLineNo">045</span>            G.v().out.println( "Warning: using default implementation of addAll. You should implement a faster specialized implementation." );<a name="line.45"></a>
+<span class="sourceLineNo">046</span>            G.v().out.println( "this is of type "+getClass().getName() );<a name="line.46"></a>
+<span class="sourceLineNo">047</span>            G.v().out.println( "other is of type "+other.getClass().getName() );<a name="line.47"></a>
+<span class="sourceLineNo">048</span>            if( exclude == null ) {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>                G.v().out.println( "exclude is null" );<a name="line.49"></a>
+<span class="sourceLineNo">050</span>            } else {<a name="line.50"></a>
+<span class="sourceLineNo">051</span>                G.v().out.println( "exclude is of type "+<a name="line.51"></a>
+<span class="sourceLineNo">052</span>                        exclude.getClass().getName() );<a name="line.52"></a>
+<span class="sourceLineNo">053</span>            }<a name="line.53"></a>
+<span class="sourceLineNo">054</span>            G.v().PointsToSetInternal_warnedAlready = true;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>        }<a name="line.55"></a>
+<span class="sourceLineNo">056</span>        return other.forall( new P2SetVisitor() {<a name="line.56"></a>
+<span class="sourceLineNo">057</span>        public final void visit( Node n ) {<a name="line.57"></a>
+<span class="sourceLineNo">058</span>                if( exclude == null || !exclude.contains( n ) )<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                    returnValue = add( n ) | returnValue;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>            }<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        } );<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    }<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    /** Calls v's visit method on all nodes in this set. */<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    public abstract boolean forall( P2SetVisitor v );<a name="line.64"></a>
+<span class="sourceLineNo">065</span>    /** Adds n to this set, returns true if n was not already in this set. */<a name="line.65"></a>
+<span class="sourceLineNo">066</span>    public abstract boolean add( Node n );<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    /** Returns set of newly-added nodes since last call to flushNew. */<a name="line.67"></a>
+<span class="sourceLineNo">068</span>    public PointsToSetInternal getNewSet() { return this; }<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    /** Returns set of nodes already present before last call to flushNew. */<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    public PointsToSetInternal getOldSet() { return EmptyPointsToSet.v(); }<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    /** Sets all newly-added nodes to old nodes. */<a name="line.71"></a>
+<span class="sourceLineNo">072</span>    public void flushNew() {}<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    /** Sets all nodes to newly-added nodes. */<a name="line.73"></a>
+<span class="sourceLineNo">074</span>    public void unFlushNew() {}<a name="line.74"></a>
+<span class="sourceLineNo">075</span>    /** Merges other into this set. */<a name="line.75"></a>
+<span class="sourceLineNo">076</span>    public void mergeWith( PointsToSetInternal other ) <a name="line.76"></a>
+<span class="sourceLineNo">077</span>    { addAll( other, null ); }<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    /** Returns true iff the set contains n. */<a name="line.78"></a>
+<span class="sourceLineNo">079</span>    public abstract boolean contains( Node n );<a name="line.79"></a>
+<span class="sourceLineNo">080</span><a name="line.80"></a>
+<span class="sourceLineNo">081</span>    public PointsToSetInternal( Type type ) { this.type = type; }<a name="line.81"></a>
+<span class="sourceLineNo">082</span><a name="line.82"></a>
+<span class="sourceLineNo">083</span>    public boolean hasNonEmptyIntersection( PointsToSet other ) {<a name="line.83"></a>
+<span class="sourceLineNo">084</span>        final PointsToSetInternal o = (PointsToSetInternal) other;<a name="line.84"></a>
+<span class="sourceLineNo">085</span>        return forall( new P2SetVisitor() {<a name="line.85"></a>
+<span class="sourceLineNo">086</span>            public void visit( Node n ) {<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                if( o.contains( n ) ) returnValue = true;<a name="line.87"></a>
+<span class="sourceLineNo">088</span>            }<a name="line.88"></a>
+<span class="sourceLineNo">089</span>        } );<a name="line.89"></a>
+<span class="sourceLineNo">090</span>    }<a name="line.90"></a>
+<span class="sourceLineNo">091</span>    public Set&lt;Type&gt; possibleTypes() {<a name="line.91"></a>
+<span class="sourceLineNo">092</span>        final HashSet&lt;Type&gt; ret = new HashSet&lt;Type&gt;();<a name="line.92"></a>
+<span class="sourceLineNo">093</span>        forall( new P2SetVisitor() {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>            public void visit( Node n ) {<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                Type t = n.getType();<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                if( t instanceof RefType ) {<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                    RefType rt = (RefType) t;<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                    if( rt.getSootClass().isAbstract() ) return;<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                }<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                ret.add( t );<a name="line.100"></a>
+<span class="sourceLineNo">101</span>            }<a name="line.101"></a>
+<span class="sourceLineNo">102</span>        } );<a name="line.102"></a>
+<span class="sourceLineNo">103</span>        return ret;<a name="line.103"></a>
+<span class="sourceLineNo">104</span>    }<a name="line.104"></a>
+<span class="sourceLineNo">105</span>    public Type getType() {<a name="line.105"></a>
+<span class="sourceLineNo">106</span>        return type;<a name="line.106"></a>
+<span class="sourceLineNo">107</span>    }<a name="line.107"></a>
+<span class="sourceLineNo">108</span>    public void setType( Type type ) {<a name="line.108"></a>
+<span class="sourceLineNo">109</span>        this.type = type;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>    }<a name="line.110"></a>
+<span class="sourceLineNo">111</span>    public int size() {<a name="line.111"></a>
+<span class="sourceLineNo">112</span>        final int[] ret = new int[1];<a name="line.112"></a>
+<span class="sourceLineNo">113</span>        forall( new P2SetVisitor() {<a name="line.113"></a>
+<span class="sourceLineNo">114</span>            public void visit( Node n ) {<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                ret[0]++;<a name="line.115"></a>
+<span class="sourceLineNo">116</span>            }<a name="line.116"></a>
+<span class="sourceLineNo">117</span>        } );<a name="line.117"></a>
+<span class="sourceLineNo">118</span>        return ret[0];<a name="line.118"></a>
+<span class="sourceLineNo">119</span>    }<a name="line.119"></a>
+<span class="sourceLineNo">120</span>    public String toString() {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>        final StringBuffer ret = new StringBuffer();<a name="line.121"></a>
+<span class="sourceLineNo">122</span>        this.forall( new P2SetVisitor() {<a name="line.122"></a>
+<span class="sourceLineNo">123</span>        public final void visit( Node n ) {<a name="line.123"></a>
+<span class="sourceLineNo">124</span>            ret.append( ""+n+"," );<a name="line.124"></a>
+<span class="sourceLineNo">125</span>        }} );<a name="line.125"></a>
+<span class="sourceLineNo">126</span>        return ret.toString();<a name="line.126"></a>
+<span class="sourceLineNo">127</span>    }<a name="line.127"></a>
+<span class="sourceLineNo">128</span><a name="line.128"></a>
+<span class="sourceLineNo">129</span>    public Set&lt;String&gt; possibleStringConstants() { <a name="line.129"></a>
+<span class="sourceLineNo">130</span>        final HashSet&lt;String&gt; ret = new HashSet&lt;String&gt;();<a name="line.130"></a>
+<span class="sourceLineNo">131</span>        return this.forall( new P2SetVisitor() {<a name="line.131"></a>
+<span class="sourceLineNo">132</span>        public final void visit( Node n ) {<a name="line.132"></a>
+<span class="sourceLineNo">133</span>            if( n instanceof StringConstantNode ) {<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                ret.add( ((StringConstantNode)n).getString() );<a name="line.134"></a>
+<span class="sourceLineNo">135</span>            } else {<a name="line.135"></a>
+<span class="sourceLineNo">136</span>                returnValue = true;<a name="line.136"></a>
+<span class="sourceLineNo">137</span>            }<a name="line.137"></a>
+<span class="sourceLineNo">138</span>        }} ) ? null : ret;<a name="line.138"></a>
+<span class="sourceLineNo">139</span>    }<a name="line.139"></a>
+<span class="sourceLineNo">140</span>    public Set&lt;ClassConstant&gt; possibleClassConstants() { <a name="line.140"></a>
+<span class="sourceLineNo">141</span>        final HashSet&lt;ClassConstant&gt; ret = new HashSet&lt;ClassConstant&gt;();<a name="line.141"></a>
+<span class="sourceLineNo">142</span>        return this.forall( new P2SetVisitor() {<a name="line.142"></a>
+<span class="sourceLineNo">143</span>        public final void visit( Node n ) {<a name="line.143"></a>
+<span class="sourceLineNo">144</span>            if( n instanceof ClassConstantNode ) {<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                ret.add( ((ClassConstantNode)n).getClassConstant() );<a name="line.145"></a>
+<span class="sourceLineNo">146</span>            } else {<a name="line.146"></a>
+<span class="sourceLineNo">147</span>                returnValue = true;<a name="line.147"></a>
+<span class="sourceLineNo">148</span>            }<a name="line.148"></a>
+<span class="sourceLineNo">149</span>        }} ) ? null : ret;<a name="line.149"></a>
+<span class="sourceLineNo">150</span>    }<a name="line.150"></a>
+<span class="sourceLineNo">151</span><a name="line.151"></a>
+<span class="sourceLineNo">152</span>    /* End of public methods. */<a name="line.152"></a>
+<span class="sourceLineNo">153</span>    /* End of package methods. */<a name="line.153"></a>
+<span class="sourceLineNo">154</span><a name="line.154"></a>
+<span class="sourceLineNo">155</span>    protected Type type;<a name="line.155"></a>
+<span class="sourceLineNo">156</span>    <a name="line.156"></a>
+<span class="sourceLineNo">157</span>    //Added by Adam Richard<a name="line.157"></a>
+<span class="sourceLineNo">158</span>    protected BitVector getBitMask(PointsToSetInternal other, PAG pag)<a name="line.158"></a>
+<span class="sourceLineNo">159</span>    {<a name="line.159"></a>
+<span class="sourceLineNo">160</span>                /*Prevents propogating points-to sets of inappropriate type.<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                 *E.g. if you have in the code being analyzed:<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                 *Shape s = (Circle)c;<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                 *then the points-to set of s is only the elements in the points-to set<a name="line.163"></a>
+<span class="sourceLineNo">164</span>                 *of c that have type Circle.<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                 */<a name="line.165"></a>
+<span class="sourceLineNo">166</span>                //Code ripped from BitPointsToSet<a name="line.166"></a>
+<span class="sourceLineNo">167</span><a name="line.167"></a>
+<span class="sourceLineNo">168</span>        BitVector mask = null;<a name="line.168"></a>
+<span class="sourceLineNo">169</span>        TypeManager typeManager = pag.getTypeManager();<a name="line.169"></a>
+<span class="sourceLineNo">170</span>        if( !typeManager.castNeverFails( other.getType(), this.getType() ) ) {<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                mask = typeManager.get( this.getType() );<a name="line.171"></a>
+<span class="sourceLineNo">172</span>        }<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        return mask;<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    }<a name="line.174"></a>
+<span class="sourceLineNo">175</span>    <a name="line.175"></a>
+<span class="sourceLineNo">176</span>        /**<a name="line.176"></a>
+<span class="sourceLineNo">177</span>     * {@inheritDoc}<a name="line.177"></a>
+<span class="sourceLineNo">178</span>     */<a name="line.178"></a>
+<span class="sourceLineNo">179</span>        public int pointsToSetHashCode() {<a name="line.179"></a>
+<span class="sourceLineNo">180</span>                P2SetVisitorInt visitor = new P2SetVisitorInt(1) {<a name="line.180"></a>
+<span class="sourceLineNo">181</span><a name="line.181"></a>
+<span class="sourceLineNo">182</span>                        final int PRIME = 31;<a name="line.182"></a>
+<span class="sourceLineNo">183</span>                        <a name="line.183"></a>
+<span class="sourceLineNo">184</span>                        public void visit(Node n) {<a name="line.184"></a>
+<span class="sourceLineNo">185</span>                                intValue = PRIME * intValue + n.hashCode(); <a name="line.185"></a>
+<span class="sourceLineNo">186</span>                        }<a name="line.186"></a>
+<span class="sourceLineNo">187</span>                        <a name="line.187"></a>
+<span class="sourceLineNo">188</span>                };<a name="line.188"></a>
+<span class="sourceLineNo">189</span>                this.forall(visitor);<a name="line.189"></a>
+<span class="sourceLineNo">190</span>                return visitor.intValue;<a name="line.190"></a>
+<span class="sourceLineNo">191</span>        }<a name="line.191"></a>
+<span class="sourceLineNo">192</span>        <a name="line.192"></a>
+<span class="sourceLineNo">193</span>        /**<a name="line.193"></a>
+<span class="sourceLineNo">194</span>     * {@inheritDoc}<a name="line.194"></a>
+<span class="sourceLineNo">195</span>     */<a name="line.195"></a>
+<span class="sourceLineNo">196</span>    public boolean pointsToSetEquals(Object other) {<a name="line.196"></a>
+<span class="sourceLineNo">197</span>        if(this==other) {<a name="line.197"></a>
+<span class="sourceLineNo">198</span>                return true;<a name="line.198"></a>
+<span class="sourceLineNo">199</span>        }<a name="line.199"></a>
+<span class="sourceLineNo">200</span>        if(!(other instanceof PointsToSetInternal)) {<a name="line.200"></a>
+<span class="sourceLineNo">201</span>                return false;<a name="line.201"></a>
+<span class="sourceLineNo">202</span>        }<a name="line.202"></a>
+<span class="sourceLineNo">203</span>        PointsToSetInternal otherPts = (PointsToSetInternal) other;<a name="line.203"></a>
+<span class="sourceLineNo">204</span>        <a name="line.204"></a>
+<span class="sourceLineNo">205</span>        //both sets are equal if they are supersets of each other <a name="line.205"></a>
+<span class="sourceLineNo">206</span>        return superSetOf(otherPts, this) &amp;&amp; superSetOf(this, otherPts);        <a name="line.206"></a>
+<span class="sourceLineNo">207</span>    }<a name="line.207"></a>
+<span class="sourceLineNo">208</span>    <a name="line.208"></a>
+<span class="sourceLineNo">209</span>        /**<a name="line.209"></a>
+<span class="sourceLineNo">210</span>         * Returns &lt;code&gt;true&lt;/code&gt; if &lt;code&gt;onePts&lt;/code&gt; is a (non-strict) superset of &lt;code&gt;otherPts&lt;/code&gt;.<a name="line.210"></a>
+<span class="sourceLineNo">211</span>         */<a name="line.211"></a>
+<span class="sourceLineNo">212</span>        private boolean superSetOf(PointsToSetInternal onePts, final PointsToSetInternal otherPts) {<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                return onePts.forall(<a name="line.213"></a>
+<span class="sourceLineNo">214</span>                new P2SetVisitorDefaultTrue() {<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                        <a name="line.215"></a>
+<span class="sourceLineNo">216</span>                        public final void visit( Node n ) {<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                    returnValue = returnValue &amp;&amp; otherPts.contains(n);<a name="line.217"></a>
+<span class="sourceLineNo">218</span>                }<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                        <a name="line.219"></a>
+<span class="sourceLineNo">220</span>            }<a name="line.220"></a>
+<span class="sourceLineNo">221</span>        );<a name="line.221"></a>
+<span class="sourceLineNo">222</span>        }<a name="line.222"></a>
+<span class="sourceLineNo">223</span><a name="line.223"></a>
+<span class="sourceLineNo">224</span>        /**<a name="line.224"></a>
+<span class="sourceLineNo">225</span>         * A P2SetVisitor with a default return value of &lt;code&gt;true&lt;/code&gt;.<a name="line.225"></a>
+<span class="sourceLineNo">226</span>         *<a name="line.226"></a>
+<span class="sourceLineNo">227</span>         * @author Eric Bodden<a name="line.227"></a>
+<span class="sourceLineNo">228</span>         */<a name="line.228"></a>
+<span class="sourceLineNo">229</span>        public static abstract class P2SetVisitorDefaultTrue extends P2SetVisitor {<a name="line.229"></a>
+<span class="sourceLineNo">230</span>                <a name="line.230"></a>
+<span class="sourceLineNo">231</span>                public P2SetVisitorDefaultTrue() {<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                        returnValue = true;<a name="line.232"></a>
+<span class="sourceLineNo">233</span>                }<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                <a name="line.234"></a>
+<span class="sourceLineNo">235</span>        }<a name="line.235"></a>
+<span class="sourceLineNo">236</span>        <a name="line.236"></a>
+<span class="sourceLineNo">237</span>        /**<a name="line.237"></a>
+<span class="sourceLineNo">238</span>         * A P2SetVisitor with an int value.<a name="line.238"></a>
+<span class="sourceLineNo">239</span>         *<a name="line.239"></a>
+<span class="sourceLineNo">240</span>         * @author Eric Bodden<a name="line.240"></a>
+<span class="sourceLineNo">241</span>         */<a name="line.241"></a>
+<span class="sourceLineNo">242</span>        public static abstract class P2SetVisitorInt extends P2SetVisitor {<a name="line.242"></a>
+<span class="sourceLineNo">243</span>                <a name="line.243"></a>
+<span class="sourceLineNo">244</span>                protected int intValue;<a name="line.244"></a>
+<span class="sourceLineNo">245</span>                <a name="line.245"></a>
+<span class="sourceLineNo">246</span>                public P2SetVisitorInt(int i) {<a name="line.246"></a>
+<span class="sourceLineNo">247</span>                        intValue = 1;<a name="line.247"></a>
+<span class="sourceLineNo">248</span>                }<a name="line.248"></a>
+<span class="sourceLineNo">249</span>                <a name="line.249"></a>
+<span class="sourceLineNo">250</span>        }<a name="line.250"></a>
+<span class="sourceLineNo">251</span>}<a name="line.251"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

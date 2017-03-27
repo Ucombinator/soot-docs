@@ -1,0 +1,315 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2005 Nomair A. Naeem<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.dava.toolkits.base.AST.transformations;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.*;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.jimple.*;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.dava.internal.SET.*;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import soot.dava.internal.AST.*;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import soot.dava.internal.asg.*;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import soot.dava.internal.javaRep.*;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>public class StrengthenByIf {<a name="line.29"></a>
+<span class="sourceLineNo">030</span>        /*<a name="line.30"></a>
+<span class="sourceLineNo">031</span>         * We know this method is called when there is a while node which has a body<a name="line.31"></a>
+<span class="sourceLineNo">032</span>         * consisting entirely of one ASTIfNode<a name="line.32"></a>
+<span class="sourceLineNo">033</span>         */<a name="line.33"></a>
+<span class="sourceLineNo">034</span>        public static List&lt;ASTNode&gt; getNewNode(ASTNode loopNode, ASTIfNode ifNode) {<a name="line.34"></a>
+<span class="sourceLineNo">035</span>                List&lt;Object&gt; ifBody = ifNode.getIfBody();<a name="line.35"></a>
+<span class="sourceLineNo">036</span>                String label = isItOnlyBreak(ifBody);<a name="line.36"></a>
+<span class="sourceLineNo">037</span>                if (label != null) {<a name="line.37"></a>
+<span class="sourceLineNo">038</span>                        // only one break statement and it is breaking some label<a name="line.38"></a>
+<span class="sourceLineNo">039</span><a name="line.39"></a>
+<span class="sourceLineNo">040</span>                        // make sure its breaking the label on the loop<a name="line.40"></a>
+<span class="sourceLineNo">041</span>                        if (((ASTLabeledNode) loopNode).get_Label().toString() != null) {<a name="line.41"></a>
+<span class="sourceLineNo">042</span><a name="line.42"></a>
+<span class="sourceLineNo">043</span>                                if (((ASTLabeledNode) loopNode).get_Label().toString()<a name="line.43"></a>
+<span class="sourceLineNo">044</span>                                                .compareTo(label) == 0) {<a name="line.44"></a>
+<span class="sourceLineNo">045</span>                                        // the if has a single break breaking the loop<a name="line.45"></a>
+<span class="sourceLineNo">046</span>                                        // pattern 1 matched<a name="line.46"></a>
+<span class="sourceLineNo">047</span><a name="line.47"></a>
+<span class="sourceLineNo">048</span>                                        if (loopNode instanceof ASTWhileNode) {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>                                                ASTCondition outerCond = ((ASTWhileNode) loopNode)<a name="line.49"></a>
+<span class="sourceLineNo">050</span>                                                                .get_Condition();<a name="line.50"></a>
+<span class="sourceLineNo">051</span>                                                // flip the inner condition<a name="line.51"></a>
+<span class="sourceLineNo">052</span>                                                ASTCondition innerCond = ifNode.get_Condition();<a name="line.52"></a>
+<span class="sourceLineNo">053</span>                                                innerCond.flip();<a name="line.53"></a>
+<span class="sourceLineNo">054</span>                                                // aggregate the two conditions<a name="line.54"></a>
+<span class="sourceLineNo">055</span>                                                ASTCondition newCond = new ASTAndCondition(outerCond,<a name="line.55"></a>
+<span class="sourceLineNo">056</span>                                                                innerCond);<a name="line.56"></a>
+<span class="sourceLineNo">057</span>                                                // make empty body<a name="line.57"></a>
+<span class="sourceLineNo">058</span>                                                List&lt;Object&gt; newWhileBody = new ArrayList&lt;Object&gt;();<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                                                // SETNodeLabel newLabel =<a name="line.59"></a>
+<span class="sourceLineNo">060</span>                                                // ((ASTWhileNode)loopNode).get_Label();<a name="line.60"></a>
+<span class="sourceLineNo">061</span><a name="line.61"></a>
+<span class="sourceLineNo">062</span>                                                // dont need any label name since the body of the while<a name="line.62"></a>
+<span class="sourceLineNo">063</span>                                                // is empty<a name="line.63"></a>
+<span class="sourceLineNo">064</span>                                                SETNodeLabel newLabel = new SETNodeLabel();<a name="line.64"></a>
+<span class="sourceLineNo">065</span><a name="line.65"></a>
+<span class="sourceLineNo">066</span>                                                // make new ASTWhileNode<a name="line.66"></a>
+<span class="sourceLineNo">067</span>                                                List&lt;ASTNode&gt; toReturn = new ArrayList&lt;ASTNode&gt;();<a name="line.67"></a>
+<span class="sourceLineNo">068</span>                                                toReturn.add(new ASTWhileNode(newLabel, newCond,<a name="line.68"></a>
+<span class="sourceLineNo">069</span>                                                                newWhileBody));<a name="line.69"></a>
+<span class="sourceLineNo">070</span>                                                return toReturn;<a name="line.70"></a>
+<span class="sourceLineNo">071</span><a name="line.71"></a>
+<span class="sourceLineNo">072</span>                                        } else if (loopNode instanceof ASTDoWhileNode) {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                                                /*<a name="line.73"></a>
+<span class="sourceLineNo">074</span>                                                 * What to do when the ASTDoWhileNode only has one body<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                                                 * which is a break of the whileNode???<a name="line.75"></a>
+<span class="sourceLineNo">076</span>                                                 */<a name="line.76"></a>
+<span class="sourceLineNo">077</span>                                                return null;<a name="line.77"></a>
+<span class="sourceLineNo">078</span>                                        } else if (loopNode instanceof ASTUnconditionalLoopNode) {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>                                                /*<a name="line.79"></a>
+<span class="sourceLineNo">080</span>                                                 * An UnconditionalLoopNode has a single If Condition<a name="line.80"></a>
+<span class="sourceLineNo">081</span>                                                 * which breaks the loop In this case Create an<a name="line.81"></a>
+<span class="sourceLineNo">082</span>                                                 * ASTWhileLoop Node with the flipped Condition of the<a name="line.82"></a>
+<span class="sourceLineNo">083</span>                                                 * If statement<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                                                 */<a name="line.84"></a>
+<span class="sourceLineNo">085</span><a name="line.85"></a>
+<span class="sourceLineNo">086</span>                                                // flip the inner condition<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                                                ASTCondition innerCond = ifNode.get_Condition();<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                                                innerCond.flip();<a name="line.88"></a>
+<span class="sourceLineNo">089</span><a name="line.89"></a>
+<span class="sourceLineNo">090</span>                                                // make empty body<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                                                List&lt;Object&gt; newWhileBody = new ArrayList&lt;Object&gt;();<a name="line.91"></a>
+<span class="sourceLineNo">092</span>                                                // SETNodeLabel newLabel =<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                                                // ((ASTUnconditionalLoopNode)loopNode).get_Label();<a name="line.93"></a>
+<span class="sourceLineNo">094</span><a name="line.94"></a>
+<span class="sourceLineNo">095</span>                                                // dont need any label name since the body of the while<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                                                // is empty<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                                                SETNodeLabel newLabel = new SETNodeLabel();<a name="line.97"></a>
+<span class="sourceLineNo">098</span><a name="line.98"></a>
+<span class="sourceLineNo">099</span>                                                // make new ASTWhileNode<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                                                List&lt;ASTNode&gt; toReturn = new ArrayList&lt;ASTNode&gt;();<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                                                toReturn.add(new ASTWhileNode(newLabel, innerCond,<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                                                                newWhileBody));<a name="line.102"></a>
+<span class="sourceLineNo">103</span>                                                return toReturn;<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                                        }<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                                }// if the labels match<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                        }<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                }// the first Pattern was a match<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                else if (loopNode instanceof ASTUnconditionalLoopNode<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                                &amp;&amp; ifBody.size() == 1) {<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                        // try the UnconditionalLoopNode pattern<a name="line.110"></a>
+<span class="sourceLineNo">111</span><a name="line.111"></a>
+<span class="sourceLineNo">112</span>                        // we need one stmtSeq Node<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                        ASTNode tempNode = (ASTNode) ifBody.get(0);<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                        if (tempNode instanceof ASTStatementSequenceNode) {<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                                // a stmtSeq<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                                List&lt;AugmentedStmt&gt; statements = ((ASTStatementSequenceNode) tempNode)<a name="line.116"></a>
+<span class="sourceLineNo">117</span>                                                .getStatements();<a name="line.117"></a>
+<span class="sourceLineNo">118</span>                                Iterator&lt;AugmentedStmt&gt; stIt = statements.iterator();<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                                while (stIt.hasNext()) {<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                                        AugmentedStmt as = stIt.next();<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                                        Stmt stmt = as.get_Stmt();<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                                        if (stmt instanceof DAbruptStmt &amp;&amp; !(stIt.hasNext())) {<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                                                // this is an abrupt stmt and the last stmt<a name="line.123"></a>
+<span class="sourceLineNo">124</span>                                                DAbruptStmt abStmt = (DAbruptStmt) stmt;<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                                                if (abStmt.is_Break()) {<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                                                        // last statement and that too a break<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                                                        String loopLabel = ((ASTLabeledNode) loopNode)<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                                                                        .get_Label().toString();<a name="line.128"></a>
+<span class="sourceLineNo">129</span>                                                        String breakLabel = abStmt.getLabel().toString();<a name="line.129"></a>
+<span class="sourceLineNo">130</span>                                                        if (loopLabel != null &amp;&amp; breakLabel != null) {<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                                                                if (loopLabel.compareTo(breakLabel) == 0) {<a name="line.131"></a>
+<span class="sourceLineNo">132</span><a name="line.132"></a>
+<span class="sourceLineNo">133</span>                                                                        // pattern matched<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                                                                        // flip the inner condition<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                                                                        ASTCondition innerCond = ifNode<a name="line.135"></a>
+<span class="sourceLineNo">136</span>                                                                                        .get_Condition();<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                                                                        innerCond.flip();<a name="line.137"></a>
+<span class="sourceLineNo">138</span><a name="line.138"></a>
+<span class="sourceLineNo">139</span>                                                                        // make empty body<a name="line.139"></a>
+<span class="sourceLineNo">140</span>                                                                        List&lt;Object&gt; newWhileBody = new ArrayList&lt;Object&gt;();<a name="line.140"></a>
+<span class="sourceLineNo">141</span>                                                                        SETNodeLabel newLabel = ((ASTUnconditionalLoopNode) loopNode)<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                                                                                        .get_Label();<a name="line.142"></a>
+<span class="sourceLineNo">143</span><a name="line.143"></a>
+<span class="sourceLineNo">144</span>                                                                        // make new ASTWhileNode<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                                                                        List&lt;ASTNode&gt; toReturn = new ArrayList&lt;ASTNode&gt;();<a name="line.145"></a>
+<span class="sourceLineNo">146</span>                                                                        toReturn.add(new ASTWhileNode(newLabel,<a name="line.146"></a>
+<span class="sourceLineNo">147</span>                                                                                        innerCond, newWhileBody));<a name="line.147"></a>
+<span class="sourceLineNo">148</span><a name="line.148"></a>
+<span class="sourceLineNo">149</span>                                                                        // Add the statementSequenceNode AFTER the<a name="line.149"></a>
+<span class="sourceLineNo">150</span>                                                                        // whileNode except for the laststmt<a name="line.150"></a>
+<span class="sourceLineNo">151</span>                                                                        Iterator&lt;AugmentedStmt&gt; tempIt = statements<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                                                                                        .iterator();<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                                                                        List&lt;AugmentedStmt&gt; newStmts = new ArrayList&lt;AugmentedStmt&gt;();<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                                                                        while (tempIt.hasNext()) {<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                                                                                AugmentedStmt tempStmt = tempIt.next();<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                                                                                if (tempIt.hasNext()) {<a name="line.156"></a>
+<span class="sourceLineNo">157</span>                                                                                        newStmts.add(tempStmt);<a name="line.157"></a>
+<span class="sourceLineNo">158</span>                                                                                }<a name="line.158"></a>
+<span class="sourceLineNo">159</span>                                                                        }<a name="line.159"></a>
+<span class="sourceLineNo">160</span>                                                                        toReturn.add(new ASTStatementSequenceNode(<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                                                                                        newStmts));<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                                                                        return toReturn;<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                                                                }// labels are the same<a name="line.163"></a>
+<span class="sourceLineNo">164</span>                                                        }// labels are non null<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                                                }// is a break stmt<a name="line.165"></a>
+<span class="sourceLineNo">166</span>                                        } else if (stmt instanceof ReturnStmt<a name="line.166"></a>
+<span class="sourceLineNo">167</span>                                                        || stmt instanceof ReturnVoidStmt) {<a name="line.167"></a>
+<span class="sourceLineNo">168</span>                                                if (!(stIt.hasNext())) {<a name="line.168"></a>
+<span class="sourceLineNo">169</span>                                                        // return obj/return;<a name="line.169"></a>
+<span class="sourceLineNo">170</span>                                                        // flip cond<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                                                        ASTCondition innerCond = ifNode.get_Condition();<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                                                        innerCond.flip();<a name="line.172"></a>
+<span class="sourceLineNo">173</span><a name="line.173"></a>
+<span class="sourceLineNo">174</span>                                                        // make empty body<a name="line.174"></a>
+<span class="sourceLineNo">175</span>                                                        List&lt;Object&gt; newWhileBody = new ArrayList&lt;Object&gt;();<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                                                        // SETNodeLabel newLabel =<a name="line.176"></a>
+<span class="sourceLineNo">177</span>                                                        // ((ASTUnconditionalLoopNode)loopNode).get_Label();<a name="line.177"></a>
+<span class="sourceLineNo">178</span><a name="line.178"></a>
+<span class="sourceLineNo">179</span>                                                        // dont need any label name since the body of the<a name="line.179"></a>
+<span class="sourceLineNo">180</span>                                                        // while is empty<a name="line.180"></a>
+<span class="sourceLineNo">181</span>                                                        SETNodeLabel newLabel = new SETNodeLabel();<a name="line.181"></a>
+<span class="sourceLineNo">182</span><a name="line.182"></a>
+<span class="sourceLineNo">183</span>                                                        // make new ASTWhileNode<a name="line.183"></a>
+<span class="sourceLineNo">184</span>                                                        List&lt;ASTNode&gt; toReturn = new ArrayList&lt;ASTNode&gt;();<a name="line.184"></a>
+<span class="sourceLineNo">185</span>                                                        toReturn.add(new ASTWhileNode(newLabel, innerCond,<a name="line.185"></a>
+<span class="sourceLineNo">186</span>                                                                        newWhileBody));<a name="line.186"></a>
+<span class="sourceLineNo">187</span><a name="line.187"></a>
+<span class="sourceLineNo">188</span>                                                        // Add the statementSequenceNode AFTER the whileNode<a name="line.188"></a>
+<span class="sourceLineNo">189</span>                                                        // except for the laststmt<a name="line.189"></a>
+<span class="sourceLineNo">190</span>                                                        Iterator&lt;AugmentedStmt&gt; tempIt = statements.iterator();<a name="line.190"></a>
+<span class="sourceLineNo">191</span>                                                        List&lt;AugmentedStmt&gt; newStmts = new ArrayList&lt;AugmentedStmt&gt;();<a name="line.191"></a>
+<span class="sourceLineNo">192</span>                                                        while (tempIt.hasNext()) {<a name="line.192"></a>
+<span class="sourceLineNo">193</span>                                                                newStmts.add(tempIt.next());<a name="line.193"></a>
+<span class="sourceLineNo">194</span>                                                        }<a name="line.194"></a>
+<span class="sourceLineNo">195</span>                                                        toReturn.add(new ASTStatementSequenceNode(newStmts));<a name="line.195"></a>
+<span class="sourceLineNo">196</span>                                                        return toReturn;<a name="line.196"></a>
+<span class="sourceLineNo">197</span>                                                }<a name="line.197"></a>
+<span class="sourceLineNo">198</span>                                        }<a name="line.198"></a>
+<span class="sourceLineNo">199</span>                                }// end of going through statements<a name="line.199"></a>
+<span class="sourceLineNo">200</span>                        }// end of stmtSEq node<a name="line.200"></a>
+<span class="sourceLineNo">201</span>                }// end of else if<a name="line.201"></a>
+<span class="sourceLineNo">202</span>                return null;<a name="line.202"></a>
+<span class="sourceLineNo">203</span>        }// end of method<a name="line.203"></a>
+<span class="sourceLineNo">204</span><a name="line.204"></a>
+<span class="sourceLineNo">205</span>        /*<a name="line.205"></a>
+<span class="sourceLineNo">206</span>         * Given a body of a node the method checks for the following: 1, the body<a name="line.206"></a>
+<span class="sourceLineNo">207</span>         * has only one node 2, the node is a statementSequenceNode 3, There is only<a name="line.207"></a>
+<span class="sourceLineNo">208</span>         * one statement in the stmt seq node 4, the stmt is a break stmt<a name="line.208"></a>
+<span class="sourceLineNo">209</span>         * <a name="line.209"></a>
+<span class="sourceLineNo">210</span>         * If the conditions are true the label of the break stmt is returned<a name="line.210"></a>
+<span class="sourceLineNo">211</span>         * otherwise null is returned<a name="line.211"></a>
+<span class="sourceLineNo">212</span>         */<a name="line.212"></a>
+<span class="sourceLineNo">213</span>        private static String isItOnlyBreak(List&lt;Object&gt; body) {<a name="line.213"></a>
+<span class="sourceLineNo">214</span>                if (body.size() != 1) {<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                        // this is more than one we need one stmtSeq Node<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                        return null;<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                }<a name="line.217"></a>
+<span class="sourceLineNo">218</span>                ASTNode tempNode = (ASTNode) body.get(0);<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                if (!(tempNode instanceof ASTStatementSequenceNode)) {<a name="line.219"></a>
+<span class="sourceLineNo">220</span>                        // not a stmtSeq<a name="line.220"></a>
+<span class="sourceLineNo">221</span>                        return null;<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                }<a name="line.222"></a>
+<span class="sourceLineNo">223</span><a name="line.223"></a>
+<span class="sourceLineNo">224</span>                List&lt;AugmentedStmt&gt; statements = ((ASTStatementSequenceNode) tempNode)<a name="line.224"></a>
+<span class="sourceLineNo">225</span>                                .getStatements();<a name="line.225"></a>
+<span class="sourceLineNo">226</span>                if (statements.size() != 1) {<a name="line.226"></a>
+<span class="sourceLineNo">227</span>                        // we need one break<a name="line.227"></a>
+<span class="sourceLineNo">228</span>                        return null;<a name="line.228"></a>
+<span class="sourceLineNo">229</span>                }<a name="line.229"></a>
+<span class="sourceLineNo">230</span>                AugmentedStmt as = statements.get(0);<a name="line.230"></a>
+<span class="sourceLineNo">231</span>                Stmt stmt = as.get_Stmt();<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                if (!(stmt instanceof DAbruptStmt)) {<a name="line.232"></a>
+<span class="sourceLineNo">233</span>                        // this is not a break stmt<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                        return null;<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                }<a name="line.235"></a>
+<span class="sourceLineNo">236</span>                DAbruptStmt abStmt = (DAbruptStmt) stmt;<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                if (!(abStmt.is_Break())) {<a name="line.237"></a>
+<span class="sourceLineNo">238</span>                        // we need a break<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                        return null;<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                }<a name="line.240"></a>
+<span class="sourceLineNo">241</span>                return abStmt.getLabel().toString();<a name="line.241"></a>
+<span class="sourceLineNo">242</span>        }<a name="line.242"></a>
+<span class="sourceLineNo">243</span>}<a name="line.243"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

@@ -1,0 +1,534 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2005 Nomair A. Naeem<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>/**<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * This class is created by the DavaStaticBlockCleaner classes method staticBlockInlining<a name="line.21"></a>
+<span class="sourceLineNo">022</span> * It is only invoked for the bodies of clinit methods<a name="line.22"></a>
+<span class="sourceLineNo">023</span> */<a name="line.23"></a>
+<span class="sourceLineNo">024</span><a name="line.24"></a>
+<span class="sourceLineNo">025</span>package soot.dava;<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>import java.util.ArrayList;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import java.util.Iterator;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.util.List;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.util.Map;<a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.RefType;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.Scene;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.SootClass;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.SootMethod;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.SootMethodRef;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.dava.internal.AST.ASTDoWhileNode;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.dava.internal.AST.ASTForLoopNode;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.dava.internal.AST.ASTIfElseNode;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.dava.internal.AST.ASTIfNode;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.dava.internal.AST.ASTLabeledBlockNode;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.dava.internal.AST.ASTMethodNode;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.dava.internal.AST.ASTNode;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.dava.internal.AST.ASTStatementSequenceNode;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.dava.internal.AST.ASTSwitchNode;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import soot.dava.internal.AST.ASTSynchronizedBlockNode;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import soot.dava.internal.AST.ASTTryNode;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import soot.dava.internal.AST.ASTUnconditionalLoopNode;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import soot.dava.internal.AST.ASTWhileNode;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>import soot.dava.internal.asg.AugmentedStmt;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>import soot.dava.toolkits.base.AST.analysis.DepthFirstAdapter;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>import soot.dava.toolkits.base.AST.traversals.ASTParentNodeFinder;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>import soot.grimp.internal.GNewInvokeExpr;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>import soot.grimp.internal.GThrowStmt;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>import soot.jimple.InvokeExpr;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>import soot.jimple.InvokeStmt;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>import soot.jimple.Stmt;<a name="line.57"></a>
+<span class="sourceLineNo">058</span>import soot.jimple.StringConstant;<a name="line.58"></a>
+<span class="sourceLineNo">059</span><a name="line.59"></a>
+<span class="sourceLineNo">060</span>public class MethodCallFinder extends DepthFirstAdapter {<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        ASTMethodNode underAnalysis;<a name="line.61"></a>
+<span class="sourceLineNo">062</span><a name="line.62"></a>
+<span class="sourceLineNo">063</span>        DavaStaticBlockCleaner cleaner;<a name="line.63"></a>
+<span class="sourceLineNo">064</span><a name="line.64"></a>
+<span class="sourceLineNo">065</span>        public MethodCallFinder(DavaStaticBlockCleaner cleaner) {<a name="line.65"></a>
+<span class="sourceLineNo">066</span>                this.cleaner = cleaner;<a name="line.66"></a>
+<span class="sourceLineNo">067</span>                underAnalysis = null;<a name="line.67"></a>
+<span class="sourceLineNo">068</span>        }<a name="line.68"></a>
+<span class="sourceLineNo">069</span><a name="line.69"></a>
+<span class="sourceLineNo">070</span>        public MethodCallFinder(boolean verbose, DavaStaticBlockCleaner cleaner) {<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                super(verbose);<a name="line.71"></a>
+<span class="sourceLineNo">072</span>                this.cleaner = cleaner;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                underAnalysis = null;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        }<a name="line.74"></a>
+<span class="sourceLineNo">075</span><a name="line.75"></a>
+<span class="sourceLineNo">076</span>        public void inASTMethodNode(ASTMethodNode node) {<a name="line.76"></a>
+<span class="sourceLineNo">077</span>                underAnalysis = node;<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        }<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>        /*<a name="line.80"></a>
+<span class="sourceLineNo">081</span>         * some ASTConstuct{ ASTConstruct{ Some bodies Some Bodies Statement<a name="line.81"></a>
+<span class="sourceLineNo">082</span>         * SequenceNode New Stmt seq node with some stmts some stmts ----------&gt;<a name="line.82"></a>
+<span class="sourceLineNo">083</span>         * Body of method to inline the invoke stmt New Stmt seq node with other<a name="line.83"></a>
+<span class="sourceLineNo">084</span>         * stmts some other stmts Some other bodies Some other bodies End<a name="line.84"></a>
+<span class="sourceLineNo">085</span>         * ASTConstruct End ASTConstruct<a name="line.85"></a>
+<span class="sourceLineNo">086</span>         */<a name="line.86"></a>
+<span class="sourceLineNo">087</span><a name="line.87"></a>
+<span class="sourceLineNo">088</span>        /*<a name="line.88"></a>
+<span class="sourceLineNo">089</span>         * Notice that since this class is only invoked for clinit methods this<a name="line.89"></a>
+<span class="sourceLineNo">090</span>         * invoke statement is some invocation that occured within the clinit method<a name="line.90"></a>
+<span class="sourceLineNo">091</span>         */<a name="line.91"></a>
+<span class="sourceLineNo">092</span>        public void inInvokeStmt(InvokeStmt s) {<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                InvokeExpr invokeExpr = s.getInvokeExpr();<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                SootMethod maybeInline = invokeExpr.getMethod();<a name="line.94"></a>
+<span class="sourceLineNo">095</span><a name="line.95"></a>
+<span class="sourceLineNo">096</span>                // check whether we want to inline<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                ASTMethodNode toInlineASTMethod = cleaner.inline(maybeInline);<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                if (toInlineASTMethod == null) {<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                        // not to inline<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                        return;<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                } else {// yes we want to inline<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                                // we know that the method to be inlined has no declarations.<a name="line.102"></a>
+<span class="sourceLineNo">103</span>                        List&lt;Object&gt; subBodies = toInlineASTMethod.get_SubBodies();<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                        if (subBodies.size() != 1) {<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                                throw new RuntimeException(<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                                                "Found ASTMEthod node with more than one subBodies");<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                        }<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                        List body = (List) subBodies.get(0);<a name="line.108"></a>
+<span class="sourceLineNo">109</span><a name="line.109"></a>
+<span class="sourceLineNo">110</span>                        ASTParentNodeFinder finder = new ASTParentNodeFinder();<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                        underAnalysis.apply(finder);<a name="line.111"></a>
+<span class="sourceLineNo">112</span><a name="line.112"></a>
+<span class="sourceLineNo">113</span>                        List&lt;ASTStatementSequenceNode&gt; newChangedBodyPart = createChangedBodyPart(<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                                        s, body, finder);<a name="line.114"></a>
+<span class="sourceLineNo">115</span><a name="line.115"></a>
+<span class="sourceLineNo">116</span>                        boolean replaced = replaceSubBody(s, newChangedBodyPart, finder);<a name="line.116"></a>
+<span class="sourceLineNo">117</span><a name="line.117"></a>
+<span class="sourceLineNo">118</span>                        if (replaced) {<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                                // so the invoke stmt has been replaced with the body of the<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                                // method invoked<a name="line.120"></a>
+<span class="sourceLineNo">121</span><a name="line.121"></a>
+<span class="sourceLineNo">122</span>                                /*<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                                 * if the inlined method contained an assignment to a static<a name="line.123"></a>
+<span class="sourceLineNo">124</span>                                 * field we want to replace that with a throw stmt<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                                 */<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                                StaticDefinitionFinder defFinder = new StaticDefinitionFinder(<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                                                maybeInline);<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                                toInlineASTMethod.apply(defFinder);<a name="line.128"></a>
+<span class="sourceLineNo">129</span><a name="line.129"></a>
+<span class="sourceLineNo">130</span>                                if (defFinder.anyFinalFieldDefined()) {<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                                        // create throw stmt to be added to inlined method<a name="line.131"></a>
+<span class="sourceLineNo">132</span><a name="line.132"></a>
+<span class="sourceLineNo">133</span>                                        // create a SootMethodRef<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                                        SootClass runtime = Scene.v().loadClassAndSupport(<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                                                        "java.lang.RuntimeException");<a name="line.135"></a>
+<span class="sourceLineNo">136</span>                                        if (runtime.declaresMethod("void &lt;init&gt;(java.lang.String)")) {<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                                                SootMethod sootMethod = runtime<a name="line.137"></a>
+<span class="sourceLineNo">138</span>                                                                .getMethod("void &lt;init&gt;(java.lang.String)");<a name="line.138"></a>
+<span class="sourceLineNo">139</span>                                                SootMethodRef methodRef = sootMethod.makeRef();<a name="line.139"></a>
+<span class="sourceLineNo">140</span>                                                RefType myRefType = RefType.v(runtime);<a name="line.140"></a>
+<span class="sourceLineNo">141</span>                                                StringConstant tempString = StringConstant<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                                                                .v("This method used to have a definition of a final variable. "<a name="line.142"></a>
+<span class="sourceLineNo">143</span>                                                                                + "Dava inlined the definition into the static initializer");<a name="line.143"></a>
+<span class="sourceLineNo">144</span>                                                List list = new ArrayList();<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                                                list.add(tempString);<a name="line.145"></a>
+<span class="sourceLineNo">146</span><a name="line.146"></a>
+<span class="sourceLineNo">147</span>                                                GNewInvokeExpr newInvokeExpr = new GNewInvokeExpr(<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                                                                myRefType, methodRef, list);<a name="line.148"></a>
+<span class="sourceLineNo">149</span><a name="line.149"></a>
+<span class="sourceLineNo">150</span>                                                GThrowStmt throwStmt = new GThrowStmt(newInvokeExpr);<a name="line.150"></a>
+<span class="sourceLineNo">151</span><a name="line.151"></a>
+<span class="sourceLineNo">152</span>                                                AugmentedStmt augStmt = new AugmentedStmt(throwStmt);<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                                                List&lt;AugmentedStmt&gt; sequence = new ArrayList&lt;AugmentedStmt&gt;();<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                                                sequence.add(augStmt);<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                                                ASTStatementSequenceNode seqNode = new ASTStatementSequenceNode(<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                                                                sequence);<a name="line.156"></a>
+<span class="sourceLineNo">157</span>                                                List&lt;Object&gt; subBody = new ArrayList&lt;Object&gt;();<a name="line.157"></a>
+<span class="sourceLineNo">158</span>                                                subBody.add(seqNode);<a name="line.158"></a>
+<span class="sourceLineNo">159</span><a name="line.159"></a>
+<span class="sourceLineNo">160</span>                                                toInlineASTMethod.replaceBody(subBody);<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                                        }<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                                }<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                        }<a name="line.163"></a>
+<span class="sourceLineNo">164</span><a name="line.164"></a>
+<span class="sourceLineNo">165</span>                }<a name="line.165"></a>
+<span class="sourceLineNo">166</span>        }<a name="line.166"></a>
+<span class="sourceLineNo">167</span><a name="line.167"></a>
+<span class="sourceLineNo">168</span>        public List&lt;Object&gt; getSubBodyFromSingleSubBodyNode(ASTNode node) {<a name="line.168"></a>
+<span class="sourceLineNo">169</span>                List&lt;Object&gt; subBodies = node.get_SubBodies();<a name="line.169"></a>
+<span class="sourceLineNo">170</span>                if (subBodies.size() != 1)<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                        throw new RuntimeException(<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                                        "Found a single subBody node with more than 1 subBodies");<a name="line.172"></a>
+<span class="sourceLineNo">173</span><a name="line.173"></a>
+<span class="sourceLineNo">174</span>                return (List&lt;Object&gt;) subBodies.get(0);<a name="line.174"></a>
+<span class="sourceLineNo">175</span>        }<a name="line.175"></a>
+<span class="sourceLineNo">176</span><a name="line.176"></a>
+<span class="sourceLineNo">177</span>        public List&lt;Object&gt; createNewSubBody(List&lt;Object&gt; orignalBody,<a name="line.177"></a>
+<span class="sourceLineNo">178</span>                        List&lt;ASTStatementSequenceNode&gt; partNewBody, Object stmtSeqNode) {<a name="line.178"></a>
+<span class="sourceLineNo">179</span><a name="line.179"></a>
+<span class="sourceLineNo">180</span>                List&lt;Object&gt; newBody = new ArrayList&lt;Object&gt;();<a name="line.180"></a>
+<span class="sourceLineNo">181</span><a name="line.181"></a>
+<span class="sourceLineNo">182</span>                Iterator&lt;Object&gt; it = orignalBody.iterator();<a name="line.182"></a>
+<span class="sourceLineNo">183</span>                while (it.hasNext()) {<a name="line.183"></a>
+<span class="sourceLineNo">184</span>                        Object temp = it.next();<a name="line.184"></a>
+<span class="sourceLineNo">185</span>                        if (temp != stmtSeqNode)<a name="line.185"></a>
+<span class="sourceLineNo">186</span>                                newBody.add(temp);<a name="line.186"></a>
+<span class="sourceLineNo">187</span>                        else {<a name="line.187"></a>
+<span class="sourceLineNo">188</span>                                // breaks out of the loop as soon as stmtSeqNode is reached<a name="line.188"></a>
+<span class="sourceLineNo">189</span>                                break;<a name="line.189"></a>
+<span class="sourceLineNo">190</span>                        }<a name="line.190"></a>
+<span class="sourceLineNo">191</span>                }<a name="line.191"></a>
+<span class="sourceLineNo">192</span>                // dont add this stmt sequence node instead add the modified stmt seq<a name="line.192"></a>
+<span class="sourceLineNo">193</span>                // nodes and the to be inline method<a name="line.193"></a>
+<span class="sourceLineNo">194</span>                newBody.addAll(partNewBody);<a name="line.194"></a>
+<span class="sourceLineNo">195</span><a name="line.195"></a>
+<span class="sourceLineNo">196</span>                // add remaining stuff drom the orignalBody<a name="line.196"></a>
+<span class="sourceLineNo">197</span>                while (it.hasNext()) {<a name="line.197"></a>
+<span class="sourceLineNo">198</span>                        newBody.add(it.next());<a name="line.198"></a>
+<span class="sourceLineNo">199</span>                }<a name="line.199"></a>
+<span class="sourceLineNo">200</span><a name="line.200"></a>
+<span class="sourceLineNo">201</span>                return newBody;<a name="line.201"></a>
+<span class="sourceLineNo">202</span>        }<a name="line.202"></a>
+<span class="sourceLineNo">203</span><a name="line.203"></a>
+<span class="sourceLineNo">204</span>        public boolean replaceSubBody(InvokeStmt s,<a name="line.204"></a>
+<span class="sourceLineNo">205</span>                        List&lt;ASTStatementSequenceNode&gt; newChangedBodyPart,<a name="line.205"></a>
+<span class="sourceLineNo">206</span>                        ASTParentNodeFinder finder) {<a name="line.206"></a>
+<span class="sourceLineNo">207</span><a name="line.207"></a>
+<span class="sourceLineNo">208</span>                // get the stmt seq node of invoke stmt<a name="line.208"></a>
+<span class="sourceLineNo">209</span>                Object stmtSeqNode = finder.getParentOf(s);<a name="line.209"></a>
+<span class="sourceLineNo">210</span><a name="line.210"></a>
+<span class="sourceLineNo">211</span>                // find the parent node of the stmt seq node<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                Object ParentOfStmtSeq = finder.getParentOf(stmtSeqNode);<a name="line.212"></a>
+<span class="sourceLineNo">213</span><a name="line.213"></a>
+<span class="sourceLineNo">214</span>                if (ParentOfStmtSeq == null) {<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                        throw new RuntimeException(<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                                        "MethodCall FInder: parent of stmt seq node not found");<a name="line.216"></a>
+<span class="sourceLineNo">217</span>                }<a name="line.217"></a>
+<span class="sourceLineNo">218</span><a name="line.218"></a>
+<span class="sourceLineNo">219</span>                ASTNode node = (ASTNode) ParentOfStmtSeq;<a name="line.219"></a>
+<span class="sourceLineNo">220</span><a name="line.220"></a>
+<span class="sourceLineNo">221</span>                // the decision what to replace and how to replace depends on the type<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                // of ASTNode<a name="line.222"></a>
+<span class="sourceLineNo">223</span><a name="line.223"></a>
+<span class="sourceLineNo">224</span>                if (node instanceof ASTMethodNode) {<a name="line.224"></a>
+<span class="sourceLineNo">225</span>                        // get the subBody to replace<a name="line.225"></a>
+<span class="sourceLineNo">226</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.226"></a>
+<span class="sourceLineNo">227</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.227"></a>
+<span class="sourceLineNo">228</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.228"></a>
+<span class="sourceLineNo">229</span>                        ((ASTMethodNode) node).replaceBody(newBody);<a name="line.229"></a>
+<span class="sourceLineNo">230</span>                        return true;<a name="line.230"></a>
+<span class="sourceLineNo">231</span>                } else if (node instanceof ASTSynchronizedBlockNode) {<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                        // get the subBody to replace<a name="line.232"></a>
+<span class="sourceLineNo">233</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.235"></a>
+<span class="sourceLineNo">236</span>                        ((ASTSynchronizedBlockNode) node).replaceBody(newBody);<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                        return true;<a name="line.237"></a>
+<span class="sourceLineNo">238</span>                } else if (node instanceof ASTLabeledBlockNode) {<a name="line.238"></a>
+<span class="sourceLineNo">239</span>                        // get the subBody to replace<a name="line.239"></a>
+<span class="sourceLineNo">240</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.240"></a>
+<span class="sourceLineNo">241</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.241"></a>
+<span class="sourceLineNo">242</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.242"></a>
+<span class="sourceLineNo">243</span>                        ((ASTLabeledBlockNode) node).replaceBody(newBody);<a name="line.243"></a>
+<span class="sourceLineNo">244</span>                        return true;<a name="line.244"></a>
+<span class="sourceLineNo">245</span>                } else if (node instanceof ASTUnconditionalLoopNode) {<a name="line.245"></a>
+<span class="sourceLineNo">246</span>                        // get the subBody to replace<a name="line.246"></a>
+<span class="sourceLineNo">247</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.247"></a>
+<span class="sourceLineNo">248</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.248"></a>
+<span class="sourceLineNo">249</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.249"></a>
+<span class="sourceLineNo">250</span>                        ((ASTUnconditionalLoopNode) node).replaceBody(newBody);<a name="line.250"></a>
+<span class="sourceLineNo">251</span>                        return true;<a name="line.251"></a>
+<span class="sourceLineNo">252</span>                } else if (node instanceof ASTIfNode) {<a name="line.252"></a>
+<span class="sourceLineNo">253</span>                        // get the subBody to replace<a name="line.253"></a>
+<span class="sourceLineNo">254</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.254"></a>
+<span class="sourceLineNo">255</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.255"></a>
+<span class="sourceLineNo">256</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.256"></a>
+<span class="sourceLineNo">257</span>                        ((ASTIfNode) node).replaceBody(newBody);<a name="line.257"></a>
+<span class="sourceLineNo">258</span>                        return true;<a name="line.258"></a>
+<span class="sourceLineNo">259</span>                } else if (node instanceof ASTWhileNode) {<a name="line.259"></a>
+<span class="sourceLineNo">260</span>                        // get the subBody to replace<a name="line.260"></a>
+<span class="sourceLineNo">261</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.261"></a>
+<span class="sourceLineNo">262</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.262"></a>
+<span class="sourceLineNo">263</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.263"></a>
+<span class="sourceLineNo">264</span>                        ((ASTWhileNode) node).replaceBody(newBody);<a name="line.264"></a>
+<span class="sourceLineNo">265</span>                        return true;<a name="line.265"></a>
+<span class="sourceLineNo">266</span>                } else if (node instanceof ASTDoWhileNode) {<a name="line.266"></a>
+<span class="sourceLineNo">267</span>                        // get the subBody to replace<a name="line.267"></a>
+<span class="sourceLineNo">268</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.268"></a>
+<span class="sourceLineNo">269</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.269"></a>
+<span class="sourceLineNo">270</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.270"></a>
+<span class="sourceLineNo">271</span>                        ((ASTDoWhileNode) node).replaceBody(newBody);<a name="line.271"></a>
+<span class="sourceLineNo">272</span>                        return true;<a name="line.272"></a>
+<span class="sourceLineNo">273</span>                } else if (node instanceof ASTForLoopNode) {<a name="line.273"></a>
+<span class="sourceLineNo">274</span>                        // get the subBody to replace<a name="line.274"></a>
+<span class="sourceLineNo">275</span>                        List&lt;Object&gt; subBodyToReplace = getSubBodyFromSingleSubBodyNode(node);<a name="line.275"></a>
+<span class="sourceLineNo">276</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.276"></a>
+<span class="sourceLineNo">277</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.277"></a>
+<span class="sourceLineNo">278</span>                        ((ASTForLoopNode) node).replaceBody(newBody);<a name="line.278"></a>
+<span class="sourceLineNo">279</span>                        return true;<a name="line.279"></a>
+<span class="sourceLineNo">280</span>                } else if (node instanceof ASTIfElseNode) {<a name="line.280"></a>
+<span class="sourceLineNo">281</span>                        List&lt;Object&gt; subBodies = node.get_SubBodies();<a name="line.281"></a>
+<span class="sourceLineNo">282</span>                        if (subBodies.size() != 2)<a name="line.282"></a>
+<span class="sourceLineNo">283</span>                                throw new RuntimeException(<a name="line.283"></a>
+<span class="sourceLineNo">284</span>                                                "Found an ifelse ASTNode which does not have two bodies");<a name="line.284"></a>
+<span class="sourceLineNo">285</span>                        List&lt;Object&gt; ifBody = (List&lt;Object&gt;) subBodies.get(0);<a name="line.285"></a>
+<span class="sourceLineNo">286</span>                        List&lt;Object&gt; elseBody = (List&lt;Object&gt;) subBodies.get(1);<a name="line.286"></a>
+<span class="sourceLineNo">287</span><a name="line.287"></a>
+<span class="sourceLineNo">288</span>                        // find out which of these bodies has the stmt seq node with the<a name="line.288"></a>
+<span class="sourceLineNo">289</span>                        // invoke stmt<a name="line.289"></a>
+<span class="sourceLineNo">290</span>                        int subBodyNumber = -1;<a name="line.290"></a>
+<span class="sourceLineNo">291</span>                        Iterator&lt;Object&gt; it = ifBody.iterator();<a name="line.291"></a>
+<span class="sourceLineNo">292</span>                        while (it.hasNext()) {<a name="line.292"></a>
+<span class="sourceLineNo">293</span>                                Object temp = it.next();<a name="line.293"></a>
+<span class="sourceLineNo">294</span>                                if (temp == stmtSeqNode) {<a name="line.294"></a>
+<span class="sourceLineNo">295</span>                                        subBodyNumber = 0;<a name="line.295"></a>
+<span class="sourceLineNo">296</span>                                        break;<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                                }<a name="line.297"></a>
+<span class="sourceLineNo">298</span>                        }<a name="line.298"></a>
+<span class="sourceLineNo">299</span>                        if (subBodyNumber != 0) {<a name="line.299"></a>
+<span class="sourceLineNo">300</span>                                it = elseBody.iterator();<a name="line.300"></a>
+<span class="sourceLineNo">301</span>                                while (it.hasNext()) {<a name="line.301"></a>
+<span class="sourceLineNo">302</span>                                        Object temp = it.next();<a name="line.302"></a>
+<span class="sourceLineNo">303</span>                                        if (temp == stmtSeqNode) {<a name="line.303"></a>
+<span class="sourceLineNo">304</span>                                                subBodyNumber = 1;<a name="line.304"></a>
+<span class="sourceLineNo">305</span>                                                break;<a name="line.305"></a>
+<span class="sourceLineNo">306</span>                                        }<a name="line.306"></a>
+<span class="sourceLineNo">307</span>                                }<a name="line.307"></a>
+<span class="sourceLineNo">308</span>                        }<a name="line.308"></a>
+<span class="sourceLineNo">309</span><a name="line.309"></a>
+<span class="sourceLineNo">310</span>                        List&lt;Object&gt; subBodyToReplace = null;<a name="line.310"></a>
+<span class="sourceLineNo">311</span>                        if (subBodyNumber == 0)<a name="line.311"></a>
+<span class="sourceLineNo">312</span>                                subBodyToReplace = ifBody;<a name="line.312"></a>
+<span class="sourceLineNo">313</span>                        else if (subBodyNumber == 1)<a name="line.313"></a>
+<span class="sourceLineNo">314</span>                                subBodyToReplace = elseBody;<a name="line.314"></a>
+<span class="sourceLineNo">315</span>                        else<a name="line.315"></a>
+<span class="sourceLineNo">316</span>                                throw new RuntimeException(<a name="line.316"></a>
+<span class="sourceLineNo">317</span>                                                "Could not find the related ASTNode in the method");<a name="line.317"></a>
+<span class="sourceLineNo">318</span><a name="line.318"></a>
+<span class="sourceLineNo">319</span>                        List&lt;Object&gt; newBody = createNewSubBody(subBodyToReplace,<a name="line.319"></a>
+<span class="sourceLineNo">320</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.320"></a>
+<span class="sourceLineNo">321</span><a name="line.321"></a>
+<span class="sourceLineNo">322</span>                        if (subBodyNumber == 0) {<a name="line.322"></a>
+<span class="sourceLineNo">323</span>                                ((ASTIfElseNode) node).replaceBody(newBody, elseBody);<a name="line.323"></a>
+<span class="sourceLineNo">324</span>                                return true;<a name="line.324"></a>
+<span class="sourceLineNo">325</span>                        } else if (subBodyNumber == 1) {<a name="line.325"></a>
+<span class="sourceLineNo">326</span>                                ((ASTIfElseNode) node).replaceBody(ifBody, newBody);<a name="line.326"></a>
+<span class="sourceLineNo">327</span>                                return true;<a name="line.327"></a>
+<span class="sourceLineNo">328</span>                        }<a name="line.328"></a>
+<span class="sourceLineNo">329</span>                } else if (node instanceof ASTTryNode) {<a name="line.329"></a>
+<span class="sourceLineNo">330</span><a name="line.330"></a>
+<span class="sourceLineNo">331</span>                        // NOTE THAT method INLINING Is currently only done in the tryBody<a name="line.331"></a>
+<span class="sourceLineNo">332</span>                        // and not the catchBody<a name="line.332"></a>
+<span class="sourceLineNo">333</span>                        // THe only reason for this being that mostly method calls are made<a name="line.333"></a>
+<span class="sourceLineNo">334</span>                        // in the try and not the catch<a name="line.334"></a>
+<span class="sourceLineNo">335</span><a name="line.335"></a>
+<span class="sourceLineNo">336</span>                        // get try body<a name="line.336"></a>
+<span class="sourceLineNo">337</span>                        List&lt;Object&gt; tryBody = ((ASTTryNode) node).get_TryBody();<a name="line.337"></a>
+<span class="sourceLineNo">338</span>                        Iterator&lt;Object&gt; it = tryBody.iterator();<a name="line.338"></a>
+<span class="sourceLineNo">339</span><a name="line.339"></a>
+<span class="sourceLineNo">340</span>                        // find whether stmtSeqNode is in the tryBody<a name="line.340"></a>
+<span class="sourceLineNo">341</span>                        boolean inTryBody = false;<a name="line.341"></a>
+<span class="sourceLineNo">342</span>                        while (it.hasNext()) {<a name="line.342"></a>
+<span class="sourceLineNo">343</span>                                ASTNode temp = (ASTNode) it.next();<a name="line.343"></a>
+<span class="sourceLineNo">344</span>                                if (temp == stmtSeqNode) {<a name="line.344"></a>
+<span class="sourceLineNo">345</span>                                        inTryBody = true;<a name="line.345"></a>
+<span class="sourceLineNo">346</span>                                        break;<a name="line.346"></a>
+<span class="sourceLineNo">347</span>                                }<a name="line.347"></a>
+<span class="sourceLineNo">348</span>                        }<a name="line.348"></a>
+<span class="sourceLineNo">349</span>                        if (!inTryBody) {<a name="line.349"></a>
+<span class="sourceLineNo">350</span>                                // return without making any changes<a name="line.350"></a>
+<span class="sourceLineNo">351</span>                                return false;<a name="line.351"></a>
+<span class="sourceLineNo">352</span>                        }<a name="line.352"></a>
+<span class="sourceLineNo">353</span><a name="line.353"></a>
+<span class="sourceLineNo">354</span>                        List&lt;Object&gt; newBody = createNewSubBody(tryBody,<a name="line.354"></a>
+<span class="sourceLineNo">355</span>                                        newChangedBodyPart, stmtSeqNode);<a name="line.355"></a>
+<span class="sourceLineNo">356</span>                        ((ASTTryNode) node).replaceTryBody(newBody);<a name="line.356"></a>
+<span class="sourceLineNo">357</span>                        return true;<a name="line.357"></a>
+<span class="sourceLineNo">358</span>                } else if (node instanceof ASTSwitchNode) {<a name="line.358"></a>
+<span class="sourceLineNo">359</span><a name="line.359"></a>
+<span class="sourceLineNo">360</span>                        List&lt;Object&gt; indexList = ((ASTSwitchNode) node).getIndexList();<a name="line.360"></a>
+<span class="sourceLineNo">361</span>                        Map&lt;Object, List&lt;Object&gt;&gt; index2BodyList = ((ASTSwitchNode) node)<a name="line.361"></a>
+<span class="sourceLineNo">362</span>                                        .getIndex2BodyList();<a name="line.362"></a>
+<span class="sourceLineNo">363</span><a name="line.363"></a>
+<span class="sourceLineNo">364</span>                        Iterator&lt;Object&gt; it = indexList.iterator();<a name="line.364"></a>
+<span class="sourceLineNo">365</span>                        while (it.hasNext()) {// going through all the cases of the switch<a name="line.365"></a>
+<span class="sourceLineNo">366</span>                                                                        // statement<a name="line.366"></a>
+<span class="sourceLineNo">367</span>                                Object currentIndex = it.next();<a name="line.367"></a>
+<span class="sourceLineNo">368</span>                                List&lt;Object&gt; body = index2BodyList.get(currentIndex);<a name="line.368"></a>
+<span class="sourceLineNo">369</span><a name="line.369"></a>
+<span class="sourceLineNo">370</span>                                if (body != null) {<a name="line.370"></a>
+<span class="sourceLineNo">371</span>                                        // this body is a list of ASTNodes<a name="line.371"></a>
+<span class="sourceLineNo">372</span><a name="line.372"></a>
+<span class="sourceLineNo">373</span>                                        // see if it contains stmtSeqNode<a name="line.373"></a>
+<span class="sourceLineNo">374</span>                                        boolean found = false;<a name="line.374"></a>
+<span class="sourceLineNo">375</span>                                        Iterator&lt;Object&gt; itBody = body.iterator();<a name="line.375"></a>
+<span class="sourceLineNo">376</span>                                        while (itBody.hasNext()) {<a name="line.376"></a>
+<span class="sourceLineNo">377</span>                                                ASTNode temp = (ASTNode) itBody.next();<a name="line.377"></a>
+<span class="sourceLineNo">378</span>                                                if (temp == stmtSeqNode) {<a name="line.378"></a>
+<span class="sourceLineNo">379</span>                                                        found = true;<a name="line.379"></a>
+<span class="sourceLineNo">380</span>                                                        break;<a name="line.380"></a>
+<span class="sourceLineNo">381</span>                                                }<a name="line.381"></a>
+<span class="sourceLineNo">382</span>                                        }<a name="line.382"></a>
+<span class="sourceLineNo">383</span>                                        if (found) {<a name="line.383"></a>
+<span class="sourceLineNo">384</span>                                                // this is the body which has the stmt seq node<a name="line.384"></a>
+<span class="sourceLineNo">385</span>                                                List&lt;Object&gt; newBody = createNewSubBody(body,<a name="line.385"></a>
+<span class="sourceLineNo">386</span>                                                                newChangedBodyPart, stmtSeqNode);<a name="line.386"></a>
+<span class="sourceLineNo">387</span><a name="line.387"></a>
+<span class="sourceLineNo">388</span>                                                // put this body in the Map<a name="line.388"></a>
+<span class="sourceLineNo">389</span>                                                index2BodyList.put(currentIndex, newBody);<a name="line.389"></a>
+<span class="sourceLineNo">390</span>                                                // replace in actual switchNode<a name="line.390"></a>
+<span class="sourceLineNo">391</span>                                                ((ASTSwitchNode) node)<a name="line.391"></a>
+<span class="sourceLineNo">392</span>                                                                .replaceIndex2BodyList(index2BodyList);<a name="line.392"></a>
+<span class="sourceLineNo">393</span>                                                return true;<a name="line.393"></a>
+<span class="sourceLineNo">394</span>                                        }<a name="line.394"></a>
+<span class="sourceLineNo">395</span>                                }// if body not null<a name="line.395"></a>
+<span class="sourceLineNo">396</span>                        }// going through all cases<a name="line.396"></a>
+<span class="sourceLineNo">397</span>                }<a name="line.397"></a>
+<span class="sourceLineNo">398</span>                return false;<a name="line.398"></a>
+<span class="sourceLineNo">399</span>        }<a name="line.399"></a>
+<span class="sourceLineNo">400</span><a name="line.400"></a>
+<span class="sourceLineNo">401</span>        /*<a name="line.401"></a>
+<span class="sourceLineNo">402</span>         * Given an invoke stmt this method finds the parent of this stmt which<a name="line.402"></a>
+<span class="sourceLineNo">403</span>         * should always be a StatementSequenceNode Then the sequence is broken into<a name="line.403"></a>
+<span class="sourceLineNo">404</span>         * three parts. The first part contains stmts till above the invoke stmt.<a name="line.404"></a>
+<span class="sourceLineNo">405</span>         * The second part contains the body argument which is the body of the<a name="line.405"></a>
+<span class="sourceLineNo">406</span>         * inlined method and the third part are the stmts below the invoke stmt<a name="line.406"></a>
+<span class="sourceLineNo">407</span>         */<a name="line.407"></a>
+<span class="sourceLineNo">408</span><a name="line.408"></a>
+<span class="sourceLineNo">409</span>        public List&lt;ASTStatementSequenceNode&gt; createChangedBodyPart(InvokeStmt s,<a name="line.409"></a>
+<span class="sourceLineNo">410</span>                        List body, ASTParentNodeFinder finder) {<a name="line.410"></a>
+<span class="sourceLineNo">411</span>                // get parent node of invoke stmt<a name="line.411"></a>
+<span class="sourceLineNo">412</span>                Object parent = finder.getParentOf(s);<a name="line.412"></a>
+<span class="sourceLineNo">413</span>                if (parent == null) {<a name="line.413"></a>
+<span class="sourceLineNo">414</span>                        throw new RuntimeException(<a name="line.414"></a>
+<span class="sourceLineNo">415</span>                                        "MethodCall FInder: parent of invoke stmt not found");<a name="line.415"></a>
+<span class="sourceLineNo">416</span>                }<a name="line.416"></a>
+<span class="sourceLineNo">417</span><a name="line.417"></a>
+<span class="sourceLineNo">418</span>                ASTNode parentNode = (ASTNode) parent;<a name="line.418"></a>
+<span class="sourceLineNo">419</span>                if (!(parentNode instanceof ASTStatementSequenceNode)) {<a name="line.419"></a>
+<span class="sourceLineNo">420</span>                        throw new RuntimeException(<a name="line.420"></a>
+<span class="sourceLineNo">421</span>                                        "MethodCall FInder: parent node not a stmt seq node");<a name="line.421"></a>
+<span class="sourceLineNo">422</span>                }<a name="line.422"></a>
+<span class="sourceLineNo">423</span><a name="line.423"></a>
+<span class="sourceLineNo">424</span>                ASTStatementSequenceNode orignal = (ASTStatementSequenceNode) parentNode;<a name="line.424"></a>
+<span class="sourceLineNo">425</span><a name="line.425"></a>
+<span class="sourceLineNo">426</span>                // copying the stmts till above the inoke stmt into one stmt sequence<a name="line.426"></a>
+<span class="sourceLineNo">427</span>                // node<a name="line.427"></a>
+<span class="sourceLineNo">428</span>                List&lt;AugmentedStmt&gt; newInitialNode = new ArrayList&lt;AugmentedStmt&gt;();<a name="line.428"></a>
+<span class="sourceLineNo">429</span>                Iterator&lt;AugmentedStmt&gt; it = orignal.getStatements().iterator();<a name="line.429"></a>
+<span class="sourceLineNo">430</span>                while (it.hasNext()) {<a name="line.430"></a>
+<span class="sourceLineNo">431</span>                        AugmentedStmt as = it.next();<a name="line.431"></a>
+<span class="sourceLineNo">432</span>                        Stmt tempStmt = as.get_Stmt();<a name="line.432"></a>
+<span class="sourceLineNo">433</span>                        if (tempStmt != s) {<a name="line.433"></a>
+<span class="sourceLineNo">434</span>                                newInitialNode.add(as);<a name="line.434"></a>
+<span class="sourceLineNo">435</span>                        } else {<a name="line.435"></a>
+<span class="sourceLineNo">436</span>                                // the first time we get to a stmt which points to the invoke<a name="line.436"></a>
+<span class="sourceLineNo">437</span>                                // stmt we break<a name="line.437"></a>
+<span class="sourceLineNo">438</span>                                break;<a name="line.438"></a>
+<span class="sourceLineNo">439</span>                        }<a name="line.439"></a>
+<span class="sourceLineNo">440</span>                }<a name="line.440"></a>
+<span class="sourceLineNo">441</span><a name="line.441"></a>
+<span class="sourceLineNo">442</span>                // copy remaining stmts into the AFTER stmt sequence node<a name="line.442"></a>
+<span class="sourceLineNo">443</span>                List&lt;AugmentedStmt&gt; newSecondNode = new ArrayList&lt;AugmentedStmt&gt;();<a name="line.443"></a>
+<span class="sourceLineNo">444</span>                while (it.hasNext()) {<a name="line.444"></a>
+<span class="sourceLineNo">445</span>                        newSecondNode.add(it.next());<a name="line.445"></a>
+<span class="sourceLineNo">446</span>                }<a name="line.446"></a>
+<span class="sourceLineNo">447</span><a name="line.447"></a>
+<span class="sourceLineNo">448</span>                List&lt;ASTStatementSequenceNode&gt; toReturn = new ArrayList&lt;ASTStatementSequenceNode&gt;();<a name="line.448"></a>
+<span class="sourceLineNo">449</span><a name="line.449"></a>
+<span class="sourceLineNo">450</span>                if (newInitialNode.size() != 0)<a name="line.450"></a>
+<span class="sourceLineNo">451</span>                        toReturn.add(new ASTStatementSequenceNode(newInitialNode));<a name="line.451"></a>
+<span class="sourceLineNo">452</span><a name="line.452"></a>
+<span class="sourceLineNo">453</span>                // add inline methods body<a name="line.453"></a>
+<span class="sourceLineNo">454</span>                toReturn.addAll(body);<a name="line.454"></a>
+<span class="sourceLineNo">455</span><a name="line.455"></a>
+<span class="sourceLineNo">456</span>                if (newSecondNode.size() != 0)<a name="line.456"></a>
+<span class="sourceLineNo">457</span>                        toReturn.add(new ASTStatementSequenceNode(newSecondNode));<a name="line.457"></a>
+<span class="sourceLineNo">458</span><a name="line.458"></a>
+<span class="sourceLineNo">459</span>                return toReturn;<a name="line.459"></a>
+<span class="sourceLineNo">460</span>        }<a name="line.460"></a>
+<span class="sourceLineNo">461</span><a name="line.461"></a>
+<span class="sourceLineNo">462</span>}<a name="line.462"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

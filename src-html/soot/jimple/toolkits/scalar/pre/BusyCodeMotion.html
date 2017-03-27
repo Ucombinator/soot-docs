@@ -1,0 +1,253 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2002 Florian Loitsch<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>/*<a name="line.20"></a>
+<span class="sourceLineNo">021</span> * Modified by the Sable Research Group and others 1997-1999.  <a name="line.21"></a>
+<span class="sourceLineNo">022</span> * See the 'credits' file distributed with Soot for the complete list of<a name="line.22"></a>
+<span class="sourceLineNo">023</span> * contributors.  (Soot is distributed at http://www.sable.mcgill.ca/soot)<a name="line.23"></a>
+<span class="sourceLineNo">024</span> */<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>package soot.jimple.toolkits.scalar.pre;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>import java.util.HashMap;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.util.Iterator;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.util.Map;<a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.Body;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.BodyTransformer;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.EquivalentValue;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.G;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.Local;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.Scene;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.SideEffectTester;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.Singletons;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.Unit;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.Value;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.jimple.AssignStmt;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.jimple.IdentityStmt;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.jimple.Jimple;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.jimple.NaiveSideEffectTester;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import soot.jimple.toolkits.graph.CriticalEdgeRemover;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import soot.jimple.toolkits.pointer.PASideEffectTester;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import soot.jimple.toolkits.scalar.LocalCreation;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import soot.options.BCMOptions;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>import soot.options.Options;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>import soot.toolkits.graph.BriefUnitGraph;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>import soot.toolkits.graph.UnitGraph;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>import soot.util.Chain;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>import soot.util.UnitMap;<a name="line.54"></a>
+<span class="sourceLineNo">055</span><a name="line.55"></a>
+<span class="sourceLineNo">056</span>/**<a name="line.56"></a>
+<span class="sourceLineNo">057</span> * Performs a partial redundancy elimination (= code motion). This is done, by<a name="line.57"></a>
+<span class="sourceLineNo">058</span> * moving &lt;b&gt;every&lt;/b&gt;computation as high as possible (it is easy to show, that<a name="line.58"></a>
+<span class="sourceLineNo">059</span> * they are computationally optimal), and then replacing the original<a name="line.59"></a>
+<span class="sourceLineNo">060</span> * computation by a reference to this new high computation. This implies, that<a name="line.60"></a>
+<span class="sourceLineNo">061</span> * we introduce &lt;b&gt;many&lt;/b&gt; new helper-variables (that can easily be eliminated<a name="line.61"></a>
+<span class="sourceLineNo">062</span> * afterwards).&lt;br&gt;<a name="line.62"></a>
+<span class="sourceLineNo">063</span> * In order to catch every redundant expression, this transformation must be<a name="line.63"></a>
+<span class="sourceLineNo">064</span> * done on a graph without critical edges. Therefore the first thing we do, is<a name="line.64"></a>
+<span class="sourceLineNo">065</span> * removing them. A subsequent pass can then easily remove the synthetic nodes<a name="line.65"></a>
+<span class="sourceLineNo">066</span> * we have introduced.&lt;br&gt;<a name="line.66"></a>
+<span class="sourceLineNo">067</span> * The term "busy" refers to the fact, that we &lt;b&gt;always&lt;/b&gt; move computations<a name="line.67"></a>
+<span class="sourceLineNo">068</span> * as high as possible. Even, if this is not necessary.<a name="line.68"></a>
+<span class="sourceLineNo">069</span> *<a name="line.69"></a>
+<span class="sourceLineNo">070</span> * @see soot.jimple.toolkits.graph.CriticalEdgeRemover<a name="line.70"></a>
+<span class="sourceLineNo">071</span> */<a name="line.71"></a>
+<span class="sourceLineNo">072</span>public class BusyCodeMotion extends BodyTransformer {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>        public BusyCodeMotion(Singletons.Global g) {<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        }<a name="line.74"></a>
+<span class="sourceLineNo">075</span><a name="line.75"></a>
+<span class="sourceLineNo">076</span>        public static BusyCodeMotion v() {<a name="line.76"></a>
+<span class="sourceLineNo">077</span>                return G.v().soot_jimple_toolkits_scalar_pre_BusyCodeMotion();<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        }<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>        private static final String PREFIX = "$bcm";<a name="line.80"></a>
+<span class="sourceLineNo">081</span><a name="line.81"></a>
+<span class="sourceLineNo">082</span>        /**<a name="line.82"></a>
+<span class="sourceLineNo">083</span>         * performs the busy code motion.<a name="line.83"></a>
+<span class="sourceLineNo">084</span>         */<a name="line.84"></a>
+<span class="sourceLineNo">085</span>        protected void internalTransform(Body b, String phaseName, Map&lt;String, String&gt; opts) {<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                BCMOptions options = new BCMOptions(opts);<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                HashMap&lt;EquivalentValue, Local&gt; expToHelper = new HashMap&lt;EquivalentValue, Local&gt;();<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                Chain&lt;Unit&gt; unitChain = b.getUnits();<a name="line.88"></a>
+<span class="sourceLineNo">089</span><a name="line.89"></a>
+<span class="sourceLineNo">090</span>                if (Options.v().verbose())<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                        G.v().out.println("[" + b.getMethod().getName() + "]     performing Busy Code Motion...");<a name="line.91"></a>
+<span class="sourceLineNo">092</span><a name="line.92"></a>
+<span class="sourceLineNo">093</span>                CriticalEdgeRemover.v().transform(b, phaseName + ".cer");<a name="line.93"></a>
+<span class="sourceLineNo">094</span><a name="line.94"></a>
+<span class="sourceLineNo">095</span>                UnitGraph graph = new BriefUnitGraph(b);<a name="line.95"></a>
+<span class="sourceLineNo">096</span><a name="line.96"></a>
+<span class="sourceLineNo">097</span>                /* map each unit to its RHS. only take binary expressions */<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                Map&lt;Unit, EquivalentValue&gt; unitToEquivRhs = new UnitMap&lt;EquivalentValue&gt;(b, graph.size() + 1, 0.7f) {<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                        protected EquivalentValue mapTo(Unit unit) {<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                                Value tmp = SootFilter.noInvokeRhs(unit);<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                                Value tmp2 = SootFilter.binop(tmp);<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                                if (tmp2 == null)<a name="line.102"></a>
+<span class="sourceLineNo">103</span>                                        tmp2 = SootFilter.concreteRef(tmp);<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                                return SootFilter.equiVal(tmp2);<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                        }<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                };<a name="line.106"></a>
+<span class="sourceLineNo">107</span><a name="line.107"></a>
+<span class="sourceLineNo">108</span>                /* same as before, but without exception-throwing expressions */<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                Map&lt;Unit, EquivalentValue&gt; unitToNoExceptionEquivRhs = new UnitMap&lt;EquivalentValue&gt;(b, graph.size() + 1, 0.7f) {<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                        protected EquivalentValue mapTo(Unit unit) {<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                                Value tmp = SootFilter.binopRhs(unit);<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                                tmp = SootFilter.noExceptionThrowing(tmp);<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                                return SootFilter.equiVal(tmp);<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                        }<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                };<a name="line.115"></a>
+<span class="sourceLineNo">116</span><a name="line.116"></a>
+<span class="sourceLineNo">117</span>                /* if a more precise sideeffect-tester comes out, please change it here! */<a name="line.117"></a>
+<span class="sourceLineNo">118</span>                SideEffectTester sideEffect;<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                if (Scene.v().hasCallGraph() &amp;&amp; !options.naive_side_effect()) {<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                        sideEffect = new PASideEffectTester();<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                } else {<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                        sideEffect = new NaiveSideEffectTester();<a name="line.122"></a>
+<span class="sourceLineNo">123</span>                }<a name="line.123"></a>
+<span class="sourceLineNo">124</span>                sideEffect.newMethod(b.getMethod());<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                UpSafetyAnalysis upSafe = new UpSafetyAnalysis(graph, unitToEquivRhs, sideEffect);<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                DownSafetyAnalysis downSafe = new DownSafetyAnalysis(graph, unitToNoExceptionEquivRhs, sideEffect);<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                EarliestnessComputation earliest = new EarliestnessComputation(graph, upSafe, downSafe, sideEffect);<a name="line.127"></a>
+<span class="sourceLineNo">128</span><a name="line.128"></a>
+<span class="sourceLineNo">129</span>                LocalCreation localCreation = new LocalCreation(b.getLocals(), PREFIX);<a name="line.129"></a>
+<span class="sourceLineNo">130</span><a name="line.130"></a>
+<span class="sourceLineNo">131</span>                Iterator&lt;Unit&gt; unitIt = unitChain.snapshotIterator();<a name="line.131"></a>
+<span class="sourceLineNo">132</span><a name="line.132"></a>
+<span class="sourceLineNo">133</span>                { /* insert the computations at the earliest positions */<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                        while (unitIt.hasNext()) {<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                                Unit currentUnit = unitIt.next();                               <a name="line.135"></a>
+<span class="sourceLineNo">136</span>                                for (EquivalentValue equiVal : earliest.getFlowBefore(currentUnit)) {<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                                        // Value exp = equiVal.getValue();<a name="line.137"></a>
+<span class="sourceLineNo">138</span>                                        /* get the unic helper-name for this expression */<a name="line.138"></a>
+<span class="sourceLineNo">139</span>                                        Local helper = expToHelper.get(equiVal);<a name="line.139"></a>
+<span class="sourceLineNo">140</span>                                        <a name="line.140"></a>
+<span class="sourceLineNo">141</span>                                        // Make sure not to place any stuff inside the identity block at<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                                        // the beginning of the method<a name="line.142"></a>
+<span class="sourceLineNo">143</span>                                        if (currentUnit instanceof IdentityStmt)<a name="line.143"></a>
+<span class="sourceLineNo">144</span>                                                currentUnit = getFirstNonIdentityStmt(b);<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                                        <a name="line.145"></a>
+<span class="sourceLineNo">146</span>                                        if (helper == null) {<a name="line.146"></a>
+<span class="sourceLineNo">147</span>                                                helper = localCreation.newLocal(equiVal.getType());<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                                                expToHelper.put(equiVal, helper);<a name="line.148"></a>
+<span class="sourceLineNo">149</span>                                        }<a name="line.149"></a>
+<span class="sourceLineNo">150</span><a name="line.150"></a>
+<span class="sourceLineNo">151</span>                                        /* insert a new Assignment-stmt before the currentUnit */<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                                        Value insertValue = Jimple.cloneIfNecessary(equiVal.getValue());<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                                        Unit firstComp = Jimple.v().newAssignStmt(helper, insertValue);<a name="line.153"></a>
+<span class="sourceLineNo">154</span>                                        unitChain.insertBefore(firstComp, currentUnit);<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                                }<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                        }<a name="line.156"></a>
+<span class="sourceLineNo">157</span>                }<a name="line.157"></a>
+<span class="sourceLineNo">158</span><a name="line.158"></a>
+<span class="sourceLineNo">159</span>                { /* replace old computations by the helper-vars */<a name="line.159"></a>
+<span class="sourceLineNo">160</span>                        unitIt = unitChain.iterator();<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                        while (unitIt.hasNext()) {<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                                Unit currentUnit = unitIt.next();<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                                EquivalentValue rhs = unitToEquivRhs.get(currentUnit);<a name="line.163"></a>
+<span class="sourceLineNo">164</span>                                if (rhs != null) {<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                                        Local helper = expToHelper.get(rhs);<a name="line.165"></a>
+<span class="sourceLineNo">166</span>                                        if (helper != null)<a name="line.166"></a>
+<span class="sourceLineNo">167</span>                                                ((AssignStmt) currentUnit).setRightOp(helper);<a name="line.167"></a>
+<span class="sourceLineNo">168</span>                                }<a name="line.168"></a>
+<span class="sourceLineNo">169</span>                        }<a name="line.169"></a>
+<span class="sourceLineNo">170</span>                }<a name="line.170"></a>
+<span class="sourceLineNo">171</span>                if (Options.v().verbose())<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                        G.v().out.println("[" + b.getMethod().getName() + "]     Busy Code Motion done!");<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        }<a name="line.173"></a>
+<span class="sourceLineNo">174</span><a name="line.174"></a>
+<span class="sourceLineNo">175</span>        private Unit getFirstNonIdentityStmt(Body b) {<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                for (Unit u : b.getUnits())<a name="line.176"></a>
+<span class="sourceLineNo">177</span>                        if (!(u instanceof IdentityStmt))<a name="line.177"></a>
+<span class="sourceLineNo">178</span>                                return u;<a name="line.178"></a>
+<span class="sourceLineNo">179</span>                return null;<a name="line.179"></a>
+<span class="sourceLineNo">180</span>        }<a name="line.180"></a>
+<span class="sourceLineNo">181</span>}<a name="line.181"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

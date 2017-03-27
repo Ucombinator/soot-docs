@@ -1,0 +1,336 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>package soot.dava.toolkits.base.AST.transformations;<a name="line.1"></a>
+<span class="sourceLineNo">002</span><a name="line.2"></a>
+<span class="sourceLineNo">003</span>import java.util.Iterator;<a name="line.3"></a>
+<span class="sourceLineNo">004</span>import java.util.List;<a name="line.4"></a>
+<span class="sourceLineNo">005</span><a name="line.5"></a>
+<span class="sourceLineNo">006</span>import soot.G;<a name="line.6"></a>
+<span class="sourceLineNo">007</span>import soot.dava.DecompilationException;<a name="line.7"></a>
+<span class="sourceLineNo">008</span>import soot.dava.internal.AST.ASTCondition;<a name="line.8"></a>
+<span class="sourceLineNo">009</span>import soot.dava.internal.AST.ASTIfElseNode;<a name="line.9"></a>
+<span class="sourceLineNo">010</span>import soot.dava.internal.AST.ASTIfNode;<a name="line.10"></a>
+<span class="sourceLineNo">011</span>import soot.dava.internal.AST.ASTMethodNode;<a name="line.11"></a>
+<span class="sourceLineNo">012</span>import soot.dava.internal.AST.ASTNode;<a name="line.12"></a>
+<span class="sourceLineNo">013</span>import soot.dava.internal.AST.ASTStatementSequenceNode;<a name="line.13"></a>
+<span class="sourceLineNo">014</span>import soot.dava.internal.AST.ASTTryNode;<a name="line.14"></a>
+<span class="sourceLineNo">015</span>import soot.dava.internal.SET.SETNodeLabel;<a name="line.15"></a>
+<span class="sourceLineNo">016</span>import soot.dava.internal.asg.AugmentedStmt;<a name="line.16"></a>
+<span class="sourceLineNo">017</span>import soot.dava.internal.javaRep.DAbruptStmt;<a name="line.17"></a>
+<span class="sourceLineNo">018</span>import soot.dava.toolkits.base.AST.analysis.DepthFirstAdapter;<a name="line.18"></a>
+<span class="sourceLineNo">019</span>import soot.dava.toolkits.base.AST.traversals.ASTParentNodeFinder;<a name="line.19"></a>
+<span class="sourceLineNo">020</span>import soot.jimple.ReturnStmt;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import soot.jimple.ReturnVoidStmt;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.jimple.Stmt;<a name="line.22"></a>
+<span class="sourceLineNo">023</span><a name="line.23"></a>
+<span class="sourceLineNo">024</span>/*<a name="line.24"></a>
+<span class="sourceLineNo">025</span> *  look for patterns of the form<a name="line.25"></a>
+<span class="sourceLineNo">026</span> *   if(cond1){                  if(cond1){<a name="line.26"></a>
+<span class="sourceLineNo">027</span> *      BodyA                        BodyA<a name="line.27"></a>
+<span class="sourceLineNo">028</span> *      abrupt       ----&gt;           abrupt<a name="line.28"></a>
+<span class="sourceLineNo">029</span> *   }                           }<a name="line.29"></a>
+<span class="sourceLineNo">030</span> *   else{                       BodyB<a name="line.30"></a>
+<span class="sourceLineNo">031</span> *      BodyB<a name="line.31"></a>
+<span class="sourceLineNo">032</span> *   }<a name="line.32"></a>
+<span class="sourceLineNo">033</span> *   <a name="line.33"></a>
+<span class="sourceLineNo">034</span> *   Things to ensure:<a name="line.34"></a>
+<span class="sourceLineNo">035</span> *       If abrupt then check BodyA does not target a label on the ifelse<a name="line.35"></a>
+<span class="sourceLineNo">036</span> *       <a name="line.36"></a>
+<span class="sourceLineNo">037</span> * ALWAYS  Make sure BodyB does not target a label on the ifelse<a name="line.37"></a>
+<span class="sourceLineNo">038</span> *       <a name="line.38"></a>
+<span class="sourceLineNo">039</span> *    If the pattern is NOT matched check the reverse i.e. maybe BodyB<a name="line.39"></a>
+<span class="sourceLineNo">040</span> *    has the abrupt statement in that case we just negated the condition<a name="line.40"></a>
+<span class="sourceLineNo">041</span> */<a name="line.41"></a>
+<span class="sourceLineNo">042</span>public class IfElseSplitter extends DepthFirstAdapter {<a name="line.42"></a>
+<span class="sourceLineNo">043</span>        public static boolean DEBUG=false;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>        boolean targeted=false;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>        ASTMethodNode methodNode;<a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span>        <a name="line.47"></a>
+<span class="sourceLineNo">048</span>        ASTNode parent;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>        ASTIfElseNode toReplace;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>        ASTIfNode toInsert;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>        List&lt;Object&gt; bodyAfterInsert;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>        boolean transform=false;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>        <a name="line.53"></a>
+<span class="sourceLineNo">054</span>        public IfElseSplitter(){<a name="line.54"></a>
+<span class="sourceLineNo">055</span>                <a name="line.55"></a>
+<span class="sourceLineNo">056</span>        }<a name="line.56"></a>
+<span class="sourceLineNo">057</span>        <a name="line.57"></a>
+<span class="sourceLineNo">058</span>        public IfElseSplitter(boolean verbose){<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                super(verbose);<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        }<a name="line.60"></a>
+<span class="sourceLineNo">061</span>        <a name="line.61"></a>
+<span class="sourceLineNo">062</span>        public void inASTMethodNode(ASTMethodNode node){<a name="line.62"></a>
+<span class="sourceLineNo">063</span>                methodNode = node;<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        }<a name="line.64"></a>
+<span class="sourceLineNo">065</span>        <a name="line.65"></a>
+<span class="sourceLineNo">066</span>        <a name="line.66"></a>
+<span class="sourceLineNo">067</span>        public void outASTMethodNode(ASTMethodNode a){<a name="line.67"></a>
+<span class="sourceLineNo">068</span>                if(!transform)<a name="line.68"></a>
+<span class="sourceLineNo">069</span>                        return;<a name="line.69"></a>
+<span class="sourceLineNo">070</span>                <a name="line.70"></a>
+<span class="sourceLineNo">071</span>                List&lt;Object&gt; parentBodies = parent.get_SubBodies();<a name="line.71"></a>
+<span class="sourceLineNo">072</span>                Iterator&lt;Object&gt; it = parentBodies.iterator();<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                while(it.hasNext()){<a name="line.73"></a>
+<span class="sourceLineNo">074</span>                        List&lt;Object&gt; subBody = null;<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                    if (parent instanceof ASTTryNode)<a name="line.75"></a>
+<span class="sourceLineNo">076</span>                        subBody = (List&lt;Object&gt;) ((ASTTryNode.container) it.next()).o;<a name="line.76"></a>
+<span class="sourceLineNo">077</span>                    else<a name="line.77"></a>
+<span class="sourceLineNo">078</span>                        subBody = (List&lt;Object&gt;)it.next();<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span><a name="line.80"></a>
+<span class="sourceLineNo">081</span>                    if(subBody.indexOf(toReplace)&gt;-1){<a name="line.81"></a>
+<span class="sourceLineNo">082</span>                        //in the subBody list the node is present<a name="line.82"></a>
+<span class="sourceLineNo">083</span>                        subBody.add(subBody.indexOf(toReplace),toInsert);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                        subBody.addAll(subBody.indexOf(toReplace),bodyAfterInsert);<a name="line.84"></a>
+<span class="sourceLineNo">085</span>                        subBody.remove(toReplace);<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                        G.v().ASTTransformations_modified=true;<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                    }<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                }<a name="line.88"></a>
+<span class="sourceLineNo">089</span>        <a name="line.89"></a>
+<span class="sourceLineNo">090</span>        }<a name="line.90"></a>
+<span class="sourceLineNo">091</span>        <a name="line.91"></a>
+<span class="sourceLineNo">092</span>        <a name="line.92"></a>
+<span class="sourceLineNo">093</span>        <a name="line.93"></a>
+<span class="sourceLineNo">094</span>        public void outASTIfElseNode(ASTIfElseNode node){<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                //if some pattern has already matched cant do another one in this go<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                if(transform)<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                        return;<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                <a name="line.98"></a>
+<span class="sourceLineNo">099</span>                List&lt;Object&gt; subBodies = node.get_SubBodies();<a name="line.99"></a>
+<span class="sourceLineNo">100</span>                if(subBodies.size()!=2)<a name="line.100"></a>
+<span class="sourceLineNo">101</span>                        throw new DecompilationException("IfelseNode without two subBodies. report to developer");<a name="line.101"></a>
+<span class="sourceLineNo">102</span>                <a name="line.102"></a>
+<span class="sourceLineNo">103</span>                List&lt;Object&gt; ifBody = (List&lt;Object&gt;)subBodies.get(0);<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                List&lt;Object&gt; elseBody = (List&lt;Object&gt;)subBodies.get(1);<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                <a name="line.105"></a>
+<span class="sourceLineNo">106</span>                boolean patternMatched = tryBodyPattern(ifBody,node.get_Label(),elseBody);<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                List&lt;Object&gt; newIfBody = null;<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                List&lt;Object&gt; outerScopeBody = null;<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                boolean negateIfCondition=false;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                <a name="line.110"></a>
+<span class="sourceLineNo">111</span>                if(patternMatched){<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                        if(DEBUG)<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                                System.out.println("First pattern matched");<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                        newIfBody = ifBody;<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                        outerScopeBody=elseBody;<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                        negateIfCondition=false;<a name="line.116"></a>
+<span class="sourceLineNo">117</span>                }<a name="line.117"></a>
+<span class="sourceLineNo">118</span>                else{<a name="line.118"></a>
+<span class="sourceLineNo">119</span>                        patternMatched = tryBodyPattern(elseBody,node.get_Label(),ifBody);<a name="line.119"></a>
+<span class="sourceLineNo">120</span>                        if(patternMatched){<a name="line.120"></a>
+<span class="sourceLineNo">121</span>                                if(DEBUG)<a name="line.121"></a>
+<span class="sourceLineNo">122</span>                                        System.out.println("Second pattern matched");<a name="line.122"></a>
+<span class="sourceLineNo">123</span><a name="line.123"></a>
+<span class="sourceLineNo">124</span>                                newIfBody = elseBody;<a name="line.124"></a>
+<span class="sourceLineNo">125</span>                                outerScopeBody = ifBody;<a name="line.125"></a>
+<span class="sourceLineNo">126</span>                                negateIfCondition=true;<a name="line.126"></a>
+<span class="sourceLineNo">127</span>                        }<a name="line.127"></a>
+<span class="sourceLineNo">128</span>                }<a name="line.128"></a>
+<span class="sourceLineNo">129</span>        <a name="line.129"></a>
+<span class="sourceLineNo">130</span>                //if at this point newIfBody and outerScopeBody are non null we got ourselves a transformation :)<a name="line.130"></a>
+<span class="sourceLineNo">131</span>                if(newIfBody!= null &amp;&amp; outerScopeBody!= null){<a name="line.131"></a>
+<span class="sourceLineNo">132</span>                        ASTCondition cond = node.get_Condition();<a name="line.132"></a>
+<span class="sourceLineNo">133</span>                        if(negateIfCondition)<a name="line.133"></a>
+<span class="sourceLineNo">134</span>                                cond.flip();<a name="line.134"></a>
+<span class="sourceLineNo">135</span>                        <a name="line.135"></a>
+<span class="sourceLineNo">136</span>                        ASTIfNode newNode = new ASTIfNode(node.get_Label(),cond,newIfBody);<a name="line.136"></a>
+<span class="sourceLineNo">137</span>                        if(DEBUG){<a name="line.137"></a>
+<span class="sourceLineNo">138</span>                                System.out.println("New IF Node is: "+newNode.toString());<a name="line.138"></a>
+<span class="sourceLineNo">139</span>                                System.out.println("Outer scope body list is:\n");<a name="line.139"></a>
+<span class="sourceLineNo">140</span>                                for(int i=0;i&lt;outerScopeBody.size();i++)<a name="line.140"></a>
+<span class="sourceLineNo">141</span>                                        System.out.println("\n\n "+outerScopeBody.get(i).toString());<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                        }<a name="line.142"></a>
+<span class="sourceLineNo">143</span>                        <a name="line.143"></a>
+<span class="sourceLineNo">144</span>                        <a name="line.144"></a>
+<span class="sourceLineNo">145</span><a name="line.145"></a>
+<span class="sourceLineNo">146</span>                        ASTParentNodeFinder finder = new ASTParentNodeFinder();<a name="line.146"></a>
+<span class="sourceLineNo">147</span>                        methodNode.apply(finder);<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                        Object returned = finder.getParentOf(node);<a name="line.148"></a>
+<span class="sourceLineNo">149</span>                        if(returned == null){<a name="line.149"></a>
+<span class="sourceLineNo">150</span>                                //coundnt find parent so cant do anything<a name="line.150"></a>
+<span class="sourceLineNo">151</span>                                return;<a name="line.151"></a>
+<span class="sourceLineNo">152</span>                        }<a name="line.152"></a>
+<span class="sourceLineNo">153</span>                        <a name="line.153"></a>
+<span class="sourceLineNo">154</span>                        /*<a name="line.154"></a>
+<span class="sourceLineNo">155</span>                         * Setting globals since everything is ready for transformation<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                         * BECAUSE we cant modify the parent here we are going to do some <a name="line.156"></a>
+<span class="sourceLineNo">157</span>                         * bad coding style<a name="line.157"></a>
+<span class="sourceLineNo">158</span>                         * store the information needed for this into globals<a name="line.158"></a>
+<span class="sourceLineNo">159</span>                         * set a flag<a name="line.159"></a>
+<span class="sourceLineNo">160</span>                         * and the outASTMethod checks for this<a name="line.160"></a>
+<span class="sourceLineNo">161</span>                         */<a name="line.161"></a>
+<span class="sourceLineNo">162</span>                        parent = (ASTNode)returned;<a name="line.162"></a>
+<span class="sourceLineNo">163</span>                        toReplace=node;<a name="line.163"></a>
+<span class="sourceLineNo">164</span>                        toInsert = newNode;<a name="line.164"></a>
+<span class="sourceLineNo">165</span>                        bodyAfterInsert = outerScopeBody;<a name="line.165"></a>
+<span class="sourceLineNo">166</span>                        transform=true;                 <a name="line.166"></a>
+<span class="sourceLineNo">167</span>                        <a name="line.167"></a>
+<span class="sourceLineNo">168</span>                }<a name="line.168"></a>
+<span class="sourceLineNo">169</span>        }<a name="line.169"></a>
+<span class="sourceLineNo">170</span>        <a name="line.170"></a>
+<span class="sourceLineNo">171</span>        public boolean tryBodyPattern(List&lt;Object&gt; body,SETNodeLabel label, List&lt;Object&gt; otherBody){<a name="line.171"></a>
+<span class="sourceLineNo">172</span>                Stmt lastStmt = getLastStmt(body);<a name="line.172"></a>
+<span class="sourceLineNo">173</span>                if(lastStmt == null){<a name="line.173"></a>
+<span class="sourceLineNo">174</span>                        //dont have a last stmt so cant match pattern<a name="line.174"></a>
+<span class="sourceLineNo">175</span>                        return false;<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                }<a name="line.176"></a>
+<span class="sourceLineNo">177</span>                        <a name="line.177"></a>
+<span class="sourceLineNo">178</span>                if(! (lastStmt instanceof ReturnStmt || lastStmt instanceof ReturnVoidStmt || lastStmt instanceof DAbruptStmt)){<a name="line.178"></a>
+<span class="sourceLineNo">179</span>                        //lastStmt is not an abrupt stmt<a name="line.179"></a>
+<span class="sourceLineNo">180</span>                        return false;<a name="line.180"></a>
+<span class="sourceLineNo">181</span>                }<a name="line.181"></a>
+<span class="sourceLineNo">182</span><a name="line.182"></a>
+<span class="sourceLineNo">183</span>                if(bodyTargetsLabel(label,body) || bodyTargetsLabel(label,otherBody)){<a name="line.183"></a>
+<span class="sourceLineNo">184</span>                        //one of the bodies targets the label on the ifelse cant match pattern<a name="line.184"></a>
+<span class="sourceLineNo">185</span>                        return false;<a name="line.185"></a>
+<span class="sourceLineNo">186</span>                }<a name="line.186"></a>
+<span class="sourceLineNo">187</span><a name="line.187"></a>
+<span class="sourceLineNo">188</span>                //pattern matched<a name="line.188"></a>
+<span class="sourceLineNo">189</span>                return true;<a name="line.189"></a>
+<span class="sourceLineNo">190</span>        }<a name="line.190"></a>
+<span class="sourceLineNo">191</span>        <a name="line.191"></a>
+<span class="sourceLineNo">192</span><a name="line.192"></a>
+<span class="sourceLineNo">193</span>        <a name="line.193"></a>
+<span class="sourceLineNo">194</span>        <a name="line.194"></a>
+<span class="sourceLineNo">195</span>        /*<a name="line.195"></a>
+<span class="sourceLineNo">196</span>         * Check that label is non null and the string inside is non null... if yes return false<a name="line.196"></a>
+<span class="sourceLineNo">197</span>         * Check that the given list (sequeneof ASTNodes have no abrupt edge targeting the label.<a name="line.197"></a>
+<span class="sourceLineNo">198</span>         *<a name="line.198"></a>
+<span class="sourceLineNo">199</span>         */<a name="line.199"></a>
+<span class="sourceLineNo">200</span>        public boolean bodyTargetsLabel(SETNodeLabel label, List&lt;Object&gt; body){<a name="line.200"></a>
+<span class="sourceLineNo">201</span>                //no SETNodeLabel is good<a name="line.201"></a>
+<span class="sourceLineNo">202</span>                if(label == null)<a name="line.202"></a>
+<span class="sourceLineNo">203</span>                        return false;<a name="line.203"></a>
+<span class="sourceLineNo">204</span>                <a name="line.204"></a>
+<span class="sourceLineNo">205</span>                //SETNodeLabel but with no string is also good<a name="line.205"></a>
+<span class="sourceLineNo">206</span>                if(label.toString() == null)<a name="line.206"></a>
+<span class="sourceLineNo">207</span>                        return false;<a name="line.207"></a>
+<span class="sourceLineNo">208</span>                <a name="line.208"></a>
+<span class="sourceLineNo">209</span>                final String strLabel = label.toString();<a name="line.209"></a>
+<span class="sourceLineNo">210</span>                <a name="line.210"></a>
+<span class="sourceLineNo">211</span>                //go through the body use traversal to find whether there is an abrupt stmt targeting this<a name="line.211"></a>
+<span class="sourceLineNo">212</span>                Iterator&lt;Object&gt; it = body.iterator();<a name="line.212"></a>
+<span class="sourceLineNo">213</span>                <a name="line.213"></a>
+<span class="sourceLineNo">214</span>                targeted=false;<a name="line.214"></a>
+<span class="sourceLineNo">215</span>                while (it.hasNext()) {<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                        ASTNode temp = (ASTNode) it.next();<a name="line.216"></a>
+<span class="sourceLineNo">217</span><a name="line.217"></a>
+<span class="sourceLineNo">218</span>                        temp.apply( new DepthFirstAdapter(){<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                                //set targeted to true if DAbruptStmt targets it<a name="line.219"></a>
+<span class="sourceLineNo">220</span>                                public void inStmt(Stmt s){<a name="line.220"></a>
+<span class="sourceLineNo">221</span>                                        //only interested in abrupt stmts<a name="line.221"></a>
+<span class="sourceLineNo">222</span>                                        if(!(s instanceof DAbruptStmt))<a name="line.222"></a>
+<span class="sourceLineNo">223</span>                                                return;<a name="line.223"></a>
+<span class="sourceLineNo">224</span>                                        <a name="line.224"></a>
+<span class="sourceLineNo">225</span>                                        DAbruptStmt abrupt = (DAbruptStmt)s;<a name="line.225"></a>
+<span class="sourceLineNo">226</span>                                        SETNodeLabel label = abrupt.getLabel();<a name="line.226"></a>
+<span class="sourceLineNo">227</span>                                        if(label != null &amp;&amp; label.toString()!= null &amp;&amp; label.toString().equals(strLabel)){<a name="line.227"></a>
+<span class="sourceLineNo">228</span>                                                targeted=true;<a name="line.228"></a>
+<span class="sourceLineNo">229</span>                                                <a name="line.229"></a>
+<span class="sourceLineNo">230</span>                                        }<a name="line.230"></a>
+<span class="sourceLineNo">231</span>                                }<a name="line.231"></a>
+<span class="sourceLineNo">232</span>                        });<a name="line.232"></a>
+<span class="sourceLineNo">233</span>                                        <a name="line.233"></a>
+<span class="sourceLineNo">234</span>                        if(targeted)<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                                break;<a name="line.235"></a>
+<span class="sourceLineNo">236</span>                }<a name="line.236"></a>
+<span class="sourceLineNo">237</span>                return targeted;                <a name="line.237"></a>
+<span class="sourceLineNo">238</span>        }<a name="line.238"></a>
+<span class="sourceLineNo">239</span>        <a name="line.239"></a>
+<span class="sourceLineNo">240</span>        <a name="line.240"></a>
+<span class="sourceLineNo">241</span>        <a name="line.241"></a>
+<span class="sourceLineNo">242</span>        <a name="line.242"></a>
+<span class="sourceLineNo">243</span>        /*<a name="line.243"></a>
+<span class="sourceLineNo">244</span>         * Given a list of ASTNodes see if the last astnode is a StatementSequenceNode<a name="line.244"></a>
+<span class="sourceLineNo">245</span>         * if not return null<a name="line.245"></a>
+<span class="sourceLineNo">246</span>         * else, return the last statement in this node<a name="line.246"></a>
+<span class="sourceLineNo">247</span>         */<a name="line.247"></a>
+<span class="sourceLineNo">248</span>        public Stmt getLastStmt(List&lt;Object&gt; body){<a name="line.248"></a>
+<span class="sourceLineNo">249</span>                if(body.size()==0)<a name="line.249"></a>
+<span class="sourceLineNo">250</span>                        return null;<a name="line.250"></a>
+<span class="sourceLineNo">251</span>                <a name="line.251"></a>
+<span class="sourceLineNo">252</span>                ASTNode lastNode = (ASTNode)body.get(body.size()-1);<a name="line.252"></a>
+<span class="sourceLineNo">253</span>                if(!(lastNode instanceof ASTStatementSequenceNode))<a name="line.253"></a>
+<span class="sourceLineNo">254</span>                        return null;<a name="line.254"></a>
+<span class="sourceLineNo">255</span>                <a name="line.255"></a>
+<span class="sourceLineNo">256</span>                ASTStatementSequenceNode stmtNode = (ASTStatementSequenceNode)lastNode;<a name="line.256"></a>
+<span class="sourceLineNo">257</span>                List&lt;AugmentedStmt&gt; stmts = stmtNode.getStatements();<a name="line.257"></a>
+<span class="sourceLineNo">258</span>                if(stmts.size()==0)<a name="line.258"></a>
+<span class="sourceLineNo">259</span>                        return null;<a name="line.259"></a>
+<span class="sourceLineNo">260</span>                <a name="line.260"></a>
+<span class="sourceLineNo">261</span>                AugmentedStmt lastStmt = stmts.get(stmts.size()-1);<a name="line.261"></a>
+<span class="sourceLineNo">262</span>                return lastStmt.get_Stmt();                                             <a name="line.262"></a>
+<span class="sourceLineNo">263</span>        }<a name="line.263"></a>
+<span class="sourceLineNo">264</span>}<a name="line.264"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

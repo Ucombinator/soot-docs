@@ -1,0 +1,333 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2002 Ondrej Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.jimple.spark.internal;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.util.Collection;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.Collections;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.HashMap;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.LinkedList;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.util.List;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.util.Map;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.AnySubType;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import soot.ArrayType;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.FastHierarchy;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import soot.G;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import soot.NullType;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import soot.RefLikeType;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import soot.RefType;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import soot.Scene;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import soot.SootClass;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import soot.Type;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import soot.TypeSwitch;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import soot.jimple.spark.pag.AllocNode;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import soot.jimple.spark.pag.Node;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import soot.jimple.spark.pag.PAG;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import soot.util.ArrayNumberer;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import soot.util.BitVector;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import soot.util.LargeNumberedMap;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import soot.util.queue.QueueReader;<a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span>/** A map of bit-vectors representing subtype relationships.<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * @author Ondrej Lhotak<a name="line.48"></a>
+<span class="sourceLineNo">049</span> * <a name="line.49"></a>
+<span class="sourceLineNo">050</span> *  @author Hamid A. Toussi (hamid2c@gmail.com):<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * Making TypeManager faster by making type masks during a<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * depth-first-traversal on the class hierarchy. First, type-masks of the<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * leaves of Class Hierarchy are created and then the type mask of each<a name="line.53"></a>
+<span class="sourceLineNo">054</span> * type T is obtained by ORing type maks of Types sub-types and setting the<a name="line.54"></a>
+<span class="sourceLineNo">055</span> * bit-numbers associated with Allocation Nodes of type T. The type-mask<a name="line.55"></a>
+<span class="sourceLineNo">056</span> * of each interface is achieved by ORing the type-masks of its top-level<a name="line.56"></a>
+<span class="sourceLineNo">057</span> * concrete implementers. In fact, Reference types are visited in<a name="line.57"></a>
+<span class="sourceLineNo">058</span> * reversed-topological-order.<a name="line.58"></a>
+<span class="sourceLineNo">059</span> */<a name="line.59"></a>
+<span class="sourceLineNo">060</span>public final class TypeManager {<a name="line.60"></a>
+<span class="sourceLineNo">061</span>    private Map&lt;SootClass, List&lt;AllocNode&gt;&gt; class2allocs = <a name="line.61"></a>
+<span class="sourceLineNo">062</span>        new HashMap&lt;SootClass, List&lt;AllocNode&gt;&gt;(1024);<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    private List&lt;AllocNode&gt; anySubtypeAllocs = new LinkedList&lt;AllocNode&gt;();<a name="line.63"></a>
+<span class="sourceLineNo">064</span><a name="line.64"></a>
+<span class="sourceLineNo">065</span>    public TypeManager( PAG pag ) {<a name="line.65"></a>
+<span class="sourceLineNo">066</span>        this.pag = pag;<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    }<a name="line.67"></a>
+<span class="sourceLineNo">068</span>    public static boolean isUnresolved(Type type) {<a name="line.68"></a>
+<span class="sourceLineNo">069</span>        if(type instanceof ArrayType) {<a name="line.69"></a>
+<span class="sourceLineNo">070</span>                        ArrayType at = (ArrayType) type;<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                type = at.getArrayElementType();<a name="line.71"></a>
+<span class="sourceLineNo">072</span>        }<a name="line.72"></a>
+<span class="sourceLineNo">073</span>        if( !(type instanceof RefType) ) return false;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>        RefType rt = (RefType) type;<a name="line.74"></a>
+<span class="sourceLineNo">075</span>        if( !rt.hasSootClass() ) return true;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        SootClass cl = rt.getSootClass();<a name="line.76"></a>
+<span class="sourceLineNo">077</span>        return cl.resolvingLevel() &lt; SootClass.HIERARCHY;<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    }<a name="line.78"></a>
+<span class="sourceLineNo">079</span>    final public BitVector get( Type type ) {<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        if( type == null ) return null;<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        while(allocNodeListener.hasNext()) {<a name="line.81"></a>
+<span class="sourceLineNo">082</span>            AllocNode n = allocNodeListener.next();<a name="line.82"></a>
+<span class="sourceLineNo">083</span>            for( final Type t : Scene.v().getTypeNumberer()) {<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                if( !(t instanceof RefLikeType) ) continue;<a name="line.84"></a>
+<span class="sourceLineNo">085</span>                if( t instanceof AnySubType ) continue;<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                if( isUnresolved(t) ) continue;<a name="line.86"></a>
+<span class="sourceLineNo">087</span>                if( castNeverFails( n.getType(), t ) ) {<a name="line.87"></a>
+<span class="sourceLineNo">088</span>                    BitVector mask = typeMask.get( t );<a name="line.88"></a>
+<span class="sourceLineNo">089</span>                    if( mask == null ) {<a name="line.89"></a>
+<span class="sourceLineNo">090</span>                        typeMask.put( t, mask = new BitVector() );<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                        for( final AllocNode an : pag.getAllocNodeNumberer()) {<a name="line.91"></a>
+<span class="sourceLineNo">092</span>                            if( castNeverFails( an.getType(), t ) ) {<a name="line.92"></a>
+<span class="sourceLineNo">093</span>                                mask.set( an.getNumber() );<a name="line.93"></a>
+<span class="sourceLineNo">094</span>                            }<a name="line.94"></a>
+<span class="sourceLineNo">095</span>                        }<a name="line.95"></a>
+<span class="sourceLineNo">096</span>                        continue;<a name="line.96"></a>
+<span class="sourceLineNo">097</span>                    }<a name="line.97"></a>
+<span class="sourceLineNo">098</span>                    mask.set( n.getNumber() );<a name="line.98"></a>
+<span class="sourceLineNo">099</span>                }<a name="line.99"></a>
+<span class="sourceLineNo">100</span>            }<a name="line.100"></a>
+<span class="sourceLineNo">101</span>        }<a name="line.101"></a>
+<span class="sourceLineNo">102</span>        BitVector ret = (BitVector) typeMask.get( type );<a name="line.102"></a>
+<span class="sourceLineNo">103</span>        if( ret == null &amp;&amp; fh != null ) {<a name="line.103"></a>
+<span class="sourceLineNo">104</span>                // If we have a phantom class and have no type mask, we assume that<a name="line.104"></a>
+<span class="sourceLineNo">105</span>                // it is not cast-compatible to anything<a name="line.105"></a>
+<span class="sourceLineNo">106</span>                SootClass curClass = ((RefType) type).getSootClass();<a name="line.106"></a>
+<span class="sourceLineNo">107</span>                if (type instanceof RefType &amp;&amp; curClass.isPhantom())<a name="line.107"></a>
+<span class="sourceLineNo">108</span>                        return new BitVector();<a name="line.108"></a>
+<span class="sourceLineNo">109</span>                else {<a name="line.109"></a>
+<span class="sourceLineNo">110</span>                        // Scan through the hierarchy. We might have a phantom class higher up<a name="line.110"></a>
+<span class="sourceLineNo">111</span>                        while (curClass.hasSuperclass()) {<a name="line.111"></a>
+<span class="sourceLineNo">112</span>                                curClass = curClass.getSuperclass();<a name="line.112"></a>
+<span class="sourceLineNo">113</span>                        if (type instanceof RefType &amp;&amp; curClass.isPhantom())<a name="line.113"></a>
+<span class="sourceLineNo">114</span>                                return new BitVector();<a name="line.114"></a>
+<span class="sourceLineNo">115</span>                        }<a name="line.115"></a>
+<span class="sourceLineNo">116</span>                        <a name="line.116"></a>
+<span class="sourceLineNo">117</span>                        throw new RuntimeException( "Type mask not found for type "+type );<a name="line.117"></a>
+<span class="sourceLineNo">118</span>                }<a name="line.118"></a>
+<span class="sourceLineNo">119</span>        }<a name="line.119"></a>
+<span class="sourceLineNo">120</span>        return ret;<a name="line.120"></a>
+<span class="sourceLineNo">121</span>    }<a name="line.121"></a>
+<span class="sourceLineNo">122</span>    final public void clearTypeMask() {<a name="line.122"></a>
+<span class="sourceLineNo">123</span>        typeMask = null;<a name="line.123"></a>
+<span class="sourceLineNo">124</span>    }<a name="line.124"></a>
+<span class="sourceLineNo">125</span>    final public void makeTypeMask() {<a name="line.125"></a>
+<span class="sourceLineNo">126</span>        RefType.v( "java.lang.Class" );<a name="line.126"></a>
+<span class="sourceLineNo">127</span>        typeMask = new LargeNumberedMap&lt;Type, BitVector&gt;( Scene.v().getTypeNumberer() );<a name="line.127"></a>
+<span class="sourceLineNo">128</span>        if( fh == null ) return;<a name="line.128"></a>
+<span class="sourceLineNo">129</span><a name="line.129"></a>
+<span class="sourceLineNo">130</span>        int numTypes = Scene.v().getTypeNumberer().size();<a name="line.130"></a>
+<span class="sourceLineNo">131</span>        if( pag.getOpts().verbose() )<a name="line.131"></a>
+<span class="sourceLineNo">132</span>            G.v().out.println( "Total types: "+numTypes );<a name="line.132"></a>
+<span class="sourceLineNo">133</span>        // **<a name="line.133"></a>
+<span class="sourceLineNo">134</span>        initClass2allocs();<a name="line.134"></a>
+<span class="sourceLineNo">135</span>        makeClassTypeMask(Scene.v().getSootClass("java.lang.Object"));<a name="line.135"></a>
+<span class="sourceLineNo">136</span>        // **<a name="line.136"></a>
+<span class="sourceLineNo">137</span>        ArrayNumberer&lt;AllocNode&gt; allocNodes = pag.getAllocNodeNumberer();<a name="line.137"></a>
+<span class="sourceLineNo">138</span>        for( Type t : Scene.v().getTypeNumberer()) {<a name="line.138"></a>
+<span class="sourceLineNo">139</span>            if( !(t instanceof RefLikeType) ) continue;<a name="line.139"></a>
+<span class="sourceLineNo">140</span>            if( t instanceof AnySubType ) continue;<a name="line.140"></a>
+<span class="sourceLineNo">141</span>            if( isUnresolved(t) ) continue;<a name="line.141"></a>
+<span class="sourceLineNo">142</span>            // **<a name="line.142"></a>
+<span class="sourceLineNo">143</span>            if (t instanceof RefType &amp;&amp; !t.equals(RefType.v("java.lang.Object"))<a name="line.143"></a>
+<span class="sourceLineNo">144</span>                    &amp;&amp; !t.equals(RefType.v("java.io.Serializable"))<a name="line.144"></a>
+<span class="sourceLineNo">145</span>                    &amp;&amp; !t.equals(RefType.v("java.lang.Cloneable"))) {<a name="line.145"></a>
+<span class="sourceLineNo">146</span>                <a name="line.146"></a>
+<span class="sourceLineNo">147</span>                SootClass sc = ((RefType)t).getSootClass();<a name="line.147"></a>
+<span class="sourceLineNo">148</span>                if (sc.isInterface()) {<a name="line.148"></a>
+<span class="sourceLineNo">149</span>                    makeMaskOfInterface(sc);<a name="line.149"></a>
+<span class="sourceLineNo">150</span>                }<a name="line.150"></a>
+<span class="sourceLineNo">151</span>                continue;<a name="line.151"></a>
+<span class="sourceLineNo">152</span>            }<a name="line.152"></a>
+<span class="sourceLineNo">153</span>            // **<a name="line.153"></a>
+<span class="sourceLineNo">154</span>            BitVector mask = new BitVector( allocNodes.size() );<a name="line.154"></a>
+<span class="sourceLineNo">155</span>            for( Node n : allocNodes) {<a name="line.155"></a>
+<span class="sourceLineNo">156</span>                if( castNeverFails( n.getType(), t ) ) {<a name="line.156"></a>
+<span class="sourceLineNo">157</span>                    mask.set( n.getNumber() );<a name="line.157"></a>
+<span class="sourceLineNo">158</span>                }<a name="line.158"></a>
+<span class="sourceLineNo">159</span>            }<a name="line.159"></a>
+<span class="sourceLineNo">160</span>            typeMask.put( t, mask );<a name="line.160"></a>
+<span class="sourceLineNo">161</span>        }<a name="line.161"></a>
+<span class="sourceLineNo">162</span><a name="line.162"></a>
+<span class="sourceLineNo">163</span>        allocNodeListener = pag.allocNodeListener();<a name="line.163"></a>
+<span class="sourceLineNo">164</span>    }<a name="line.164"></a>
+<span class="sourceLineNo">165</span><a name="line.165"></a>
+<span class="sourceLineNo">166</span>    private LargeNumberedMap&lt;Type, BitVector&gt; typeMask = null;<a name="line.166"></a>
+<span class="sourceLineNo">167</span>    final public boolean castNeverFails( Type src, Type dst ) {<a name="line.167"></a>
+<span class="sourceLineNo">168</span>        if( fh == null ) return true;<a name="line.168"></a>
+<span class="sourceLineNo">169</span>        if( dst == null ) return true;<a name="line.169"></a>
+<span class="sourceLineNo">170</span>        if( dst == src ) return true;<a name="line.170"></a>
+<span class="sourceLineNo">171</span>        if( src == null ) return false;<a name="line.171"></a>
+<span class="sourceLineNo">172</span>        if( dst.equals( src ) ) return true;<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        if( src instanceof NullType ) return true;<a name="line.173"></a>
+<span class="sourceLineNo">174</span>        if( src instanceof AnySubType ) return true;<a name="line.174"></a>
+<span class="sourceLineNo">175</span>        if( dst instanceof NullType ) return false;<a name="line.175"></a>
+<span class="sourceLineNo">176</span>        if( dst instanceof AnySubType ) throw new RuntimeException( "oops src="+src+" dst="+dst );<a name="line.176"></a>
+<span class="sourceLineNo">177</span>        return fh.canStoreType( src, dst );<a name="line.177"></a>
+<span class="sourceLineNo">178</span>    }<a name="line.178"></a>
+<span class="sourceLineNo">179</span>    public void setFastHierarchy( FastHierarchy fh ) { this.fh = fh; }<a name="line.179"></a>
+<span class="sourceLineNo">180</span>    public FastHierarchy getFastHierarchy() { return fh; }<a name="line.180"></a>
+<span class="sourceLineNo">181</span><a name="line.181"></a>
+<span class="sourceLineNo">182</span>    protected FastHierarchy fh = null;<a name="line.182"></a>
+<span class="sourceLineNo">183</span>    protected PAG pag;<a name="line.183"></a>
+<span class="sourceLineNo">184</span>    protected QueueReader&lt;AllocNode&gt; allocNodeListener = null;<a name="line.184"></a>
+<span class="sourceLineNo">185</span>    // ** new methods<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    private void initClass2allocs() {<a name="line.186"></a>
+<span class="sourceLineNo">187</span>        for ( AllocNode an : pag.getAllocNodeNumberer() ) {<a name="line.187"></a>
+<span class="sourceLineNo">188</span>            addAllocNode(an);<a name="line.188"></a>
+<span class="sourceLineNo">189</span>        }<a name="line.189"></a>
+<span class="sourceLineNo">190</span>    }<a name="line.190"></a>
+<span class="sourceLineNo">191</span>     <a name="line.191"></a>
+<span class="sourceLineNo">192</span>    final private void addAllocNode(final AllocNode alloc) {<a name="line.192"></a>
+<span class="sourceLineNo">193</span>        alloc.getType().apply(new TypeSwitch() {<a name="line.193"></a>
+<span class="sourceLineNo">194</span>            final public void caseRefType(RefType t) {              <a name="line.194"></a>
+<span class="sourceLineNo">195</span>                SootClass cl = t.getSootClass();<a name="line.195"></a>
+<span class="sourceLineNo">196</span>                List&lt;AllocNode&gt; list ;<a name="line.196"></a>
+<span class="sourceLineNo">197</span>                if ((list = class2allocs.get(cl)) == null) {<a name="line.197"></a>
+<span class="sourceLineNo">198</span>                    list = new LinkedList&lt;AllocNode&gt;();<a name="line.198"></a>
+<span class="sourceLineNo">199</span>                    class2allocs.put(cl, list);<a name="line.199"></a>
+<span class="sourceLineNo">200</span>                }<a name="line.200"></a>
+<span class="sourceLineNo">201</span>                list.add(alloc);<a name="line.201"></a>
+<span class="sourceLineNo">202</span>            }<a name="line.202"></a>
+<span class="sourceLineNo">203</span>            final public void caseAnySubType(AnySubType t) {<a name="line.203"></a>
+<span class="sourceLineNo">204</span>                anySubtypeAllocs.add(alloc);<a name="line.204"></a>
+<span class="sourceLineNo">205</span>            } <a name="line.205"></a>
+<span class="sourceLineNo">206</span>        });<a name="line.206"></a>
+<span class="sourceLineNo">207</span>    }<a name="line.207"></a>
+<span class="sourceLineNo">208</span><a name="line.208"></a>
+<span class="sourceLineNo">209</span>    final private BitVector makeClassTypeMask(SootClass clazz) {<a name="line.209"></a>
+<span class="sourceLineNo">210</span>        int nBits = pag.getAllocNodeNumberer().size();<a name="line.210"></a>
+<span class="sourceLineNo">211</span>        final BitVector mask = new BitVector(nBits);<a name="line.211"></a>
+<span class="sourceLineNo">212</span>        <a name="line.212"></a>
+<span class="sourceLineNo">213</span>        List&lt;AllocNode&gt; allocs = null;<a name="line.213"></a>
+<span class="sourceLineNo">214</span>        if (clazz.isConcrete()) {<a name="line.214"></a>
+<span class="sourceLineNo">215</span>            allocs = class2allocs.get(clazz);<a name="line.215"></a>
+<span class="sourceLineNo">216</span>        }<a name="line.216"></a>
+<span class="sourceLineNo">217</span>        if (allocs != null){<a name="line.217"></a>
+<span class="sourceLineNo">218</span>            for (AllocNode an : allocs) {<a name="line.218"></a>
+<span class="sourceLineNo">219</span>                mask.set(an.getNumber());<a name="line.219"></a>
+<span class="sourceLineNo">220</span>            }<a name="line.220"></a>
+<span class="sourceLineNo">221</span>        }<a name="line.221"></a>
+<span class="sourceLineNo">222</span><a name="line.222"></a>
+<span class="sourceLineNo">223</span>        Collection&lt;SootClass&gt; subclasses = fh.getSubclassesOf(clazz);<a name="line.223"></a>
+<span class="sourceLineNo">224</span>        if (subclasses == Collections.EMPTY_LIST) {<a name="line.224"></a>
+<span class="sourceLineNo">225</span>            for (AllocNode an : anySubtypeAllocs) {<a name="line.225"></a>
+<span class="sourceLineNo">226</span>                mask.set(an.getNumber());<a name="line.226"></a>
+<span class="sourceLineNo">227</span>            }<a name="line.227"></a>
+<span class="sourceLineNo">228</span>            typeMask.put(clazz.getType(), mask);<a name="line.228"></a>
+<span class="sourceLineNo">229</span>            return mask;<a name="line.229"></a>
+<span class="sourceLineNo">230</span>        }<a name="line.230"></a>
+<span class="sourceLineNo">231</span>        <a name="line.231"></a>
+<span class="sourceLineNo">232</span>        for (SootClass subcl : subclasses) {<a name="line.232"></a>
+<span class="sourceLineNo">233</span>            mask.or(makeClassTypeMask(subcl));<a name="line.233"></a>
+<span class="sourceLineNo">234</span>        }<a name="line.234"></a>
+<span class="sourceLineNo">235</span>        <a name="line.235"></a>
+<span class="sourceLineNo">236</span>        typeMask.put(clazz.getType(), mask);<a name="line.236"></a>
+<span class="sourceLineNo">237</span>        return mask;<a name="line.237"></a>
+<span class="sourceLineNo">238</span>    }<a name="line.238"></a>
+<span class="sourceLineNo">239</span>    <a name="line.239"></a>
+<span class="sourceLineNo">240</span>    final private BitVector makeMaskOfInterface(SootClass interf) {<a name="line.240"></a>
+<span class="sourceLineNo">241</span>        if (!(interf.isInterface())) throw new RuntimeException();<a name="line.241"></a>
+<span class="sourceLineNo">242</span>        <a name="line.242"></a>
+<span class="sourceLineNo">243</span>        BitVector ret = new BitVector(pag.getAllocNodeNumberer().size());<a name="line.243"></a>
+<span class="sourceLineNo">244</span>        typeMask.put(interf.getType(), ret);<a name="line.244"></a>
+<span class="sourceLineNo">245</span>        Collection&lt;SootClass&gt; implementers = fh.getAllImplementersOfInterface(interf);<a name="line.245"></a>
+<span class="sourceLineNo">246</span>            <a name="line.246"></a>
+<span class="sourceLineNo">247</span>        for (SootClass impl : implementers) {<a name="line.247"></a>
+<span class="sourceLineNo">248</span>            BitVector other = (BitVector)typeMask.get(impl.getType());<a name="line.248"></a>
+<span class="sourceLineNo">249</span>            if (other == null) other = makeClassTypeMask(impl);<a name="line.249"></a>
+<span class="sourceLineNo">250</span>            ret.or(other);          <a name="line.250"></a>
+<span class="sourceLineNo">251</span>        }<a name="line.251"></a>
+<span class="sourceLineNo">252</span>        // I think, the following can be eliminated. It is added to make<a name="line.252"></a>
+<span class="sourceLineNo">253</span>        // type-masks exactly the same as the original type-masks<a name="line.253"></a>
+<span class="sourceLineNo">254</span>        if (implementers.size() == 0) {<a name="line.254"></a>
+<span class="sourceLineNo">255</span>            for (AllocNode an : anySubtypeAllocs) ret.set(an.getNumber());<a name="line.255"></a>
+<span class="sourceLineNo">256</span>        }<a name="line.256"></a>
+<span class="sourceLineNo">257</span>        return ret;<a name="line.257"></a>
+<span class="sourceLineNo">258</span>    }<a name="line.258"></a>
+<span class="sourceLineNo">259</span>    <a name="line.259"></a>
+<span class="sourceLineNo">260</span>}<a name="line.260"></a>
+<span class="sourceLineNo">261</span><a name="line.261"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

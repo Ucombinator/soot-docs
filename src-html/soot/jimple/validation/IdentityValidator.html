@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 1997-1999 Raja Vallee-Rai<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.jimple.validation;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.List;<a name="line.22"></a>
+<span class="sourceLineNo">023</span><a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.Body;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import soot.Unit;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import soot.jimple.IdentityStmt;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import soot.jimple.ParameterRef;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.jimple.ThisRef;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import soot.validation.BodyValidator;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.validation.ValidationException;<a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>/**<a name="line.32"></a>
+<span class="sourceLineNo">033</span> * This validator checks whether each ParameterRef and ThisRef is used exactly once.<a name="line.33"></a>
+<span class="sourceLineNo">034</span> * <a name="line.34"></a>
+<span class="sourceLineNo">035</span> * @author Marc Miltenberger<a name="line.35"></a>
+<span class="sourceLineNo">036</span> */<a name="line.36"></a>
+<span class="sourceLineNo">037</span>public enum IdentityValidator implements BodyValidator {<a name="line.37"></a>
+<span class="sourceLineNo">038</span>        INSTANCE;<a name="line.38"></a>
+<span class="sourceLineNo">039</span><a name="line.39"></a>
+<span class="sourceLineNo">040</span>        public static IdentityValidator v() {<a name="line.40"></a>
+<span class="sourceLineNo">041</span>                return INSTANCE;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>        }<a name="line.42"></a>
+<span class="sourceLineNo">043</span><a name="line.43"></a>
+<span class="sourceLineNo">044</span>        @Override<a name="line.44"></a>
+<span class="sourceLineNo">045</span>        /**<a name="line.45"></a>
+<span class="sourceLineNo">046</span>         * Checks whether each ParameterRef and ThisRef is used exactly once.<a name="line.46"></a>
+<span class="sourceLineNo">047</span>         */<a name="line.47"></a>
+<span class="sourceLineNo">048</span>        public void validate(Body body, List&lt;ValidationException&gt; exception) {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>                boolean hasThisLocal = false;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>                int paramCount = body.getMethod().getParameterCount();<a name="line.50"></a>
+<span class="sourceLineNo">051</span>                boolean[] parameterRefs = new boolean[paramCount];<a name="line.51"></a>
+<span class="sourceLineNo">052</span>                <a name="line.52"></a>
+<span class="sourceLineNo">053</span>                for (Unit u : body.getUnits()) {<a name="line.53"></a>
+<span class="sourceLineNo">054</span>                        if (u instanceof IdentityStmt) {<a name="line.54"></a>
+<span class="sourceLineNo">055</span>                                IdentityStmt id = (IdentityStmt) u;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>                                if (id.getRightOp() instanceof ThisRef) {<a name="line.56"></a>
+<span class="sourceLineNo">057</span>                                        hasThisLocal = true;<a name="line.57"></a>
+<span class="sourceLineNo">058</span>                                }<a name="line.58"></a>
+<span class="sourceLineNo">059</span>                                if (id.getRightOp() instanceof ParameterRef) {<a name="line.59"></a>
+<span class="sourceLineNo">060</span>                                        ParameterRef ref = (ParameterRef) id.getRightOp();<a name="line.60"></a>
+<span class="sourceLineNo">061</span>                                        if (ref.getIndex() &lt; 0 || ref.getIndex() &gt;= paramCount)<a name="line.61"></a>
+<span class="sourceLineNo">062</span>                                        {<a name="line.62"></a>
+<span class="sourceLineNo">063</span>                                                if (paramCount == 0)<a name="line.63"></a>
+<span class="sourceLineNo">064</span>                                                        exception.add(new ValidationException(id, "This method has no parameters, so no parameter reference is allowed"));<a name="line.64"></a>
+<span class="sourceLineNo">065</span>                                                else<a name="line.65"></a>
+<span class="sourceLineNo">066</span>                                                        exception.add(new ValidationException(id, String.format("Parameter reference index must be between 0 and %d (inclusive)", paramCount - 1)));<a name="line.66"></a>
+<span class="sourceLineNo">067</span>                                                return;<a name="line.67"></a>
+<span class="sourceLineNo">068</span>                                        }<a name="line.68"></a>
+<span class="sourceLineNo">069</span>                                        if (parameterRefs[ref.getIndex()]) {<a name="line.69"></a>
+<span class="sourceLineNo">070</span>                                                exception.add(new ValidationException(id, String.format("Only one local for parameter %d is allowed", ref.getIndex())));<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                                        }<a name="line.71"></a>
+<span class="sourceLineNo">072</span>                                        parameterRefs[ref.getIndex()] = true;<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                                }<a name="line.73"></a>
+<span class="sourceLineNo">074</span>                        }<a name="line.74"></a>
+<span class="sourceLineNo">075</span>                }<a name="line.75"></a>
+<span class="sourceLineNo">076</span>                <a name="line.76"></a>
+<span class="sourceLineNo">077</span>                if (!body.getMethod().isStatic() &amp;&amp; !hasThisLocal) {<a name="line.77"></a>
+<span class="sourceLineNo">078</span>                        exception.add(new ValidationException(body, String.format("The method %s is not static, but does not have a this local", body.getMethod().getSignature())));<a name="line.78"></a>
+<span class="sourceLineNo">079</span>                }<a name="line.79"></a>
+<span class="sourceLineNo">080</span>                <a name="line.80"></a>
+<span class="sourceLineNo">081</span>                for (int i = 0; i &lt; paramCount; i++) {<a name="line.81"></a>
+<span class="sourceLineNo">082</span>                        if (!parameterRefs[i])<a name="line.82"></a>
+<span class="sourceLineNo">083</span>                        {<a name="line.83"></a>
+<span class="sourceLineNo">084</span>                                exception.add(new ValidationException(body, String.format("There is no parameter local for parameter number %d", i)));<a name="line.84"></a>
+<span class="sourceLineNo">085</span>                        }<a name="line.85"></a>
+<span class="sourceLineNo">086</span>                }<a name="line.86"></a>
+<span class="sourceLineNo">087</span>        }<a name="line.87"></a>
+<span class="sourceLineNo">088</span><a name="line.88"></a>
+<span class="sourceLineNo">089</span>        @Override<a name="line.89"></a>
+<span class="sourceLineNo">090</span>        public boolean isBasicValidator() {<a name="line.90"></a>
+<span class="sourceLineNo">091</span>                return true;<a name="line.91"></a>
+<span class="sourceLineNo">092</span>        }<a name="line.92"></a>
+<span class="sourceLineNo">093</span>}<a name="line.93"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

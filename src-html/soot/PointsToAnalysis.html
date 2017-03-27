@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2002 Ondrej Lhotak<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Lesser General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2.1 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Lesser General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Lesser General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>/** A generic interface to any type of pointer analysis.<a name="line.22"></a>
+<span class="sourceLineNo">023</span> * @author Ondrej Lhotak<a name="line.23"></a>
+<span class="sourceLineNo">024</span> */<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>public interface PointsToAnalysis {<a name="line.26"></a>
+<span class="sourceLineNo">027</span>    /** Returns the set of objects pointed to by variable l. */<a name="line.27"></a>
+<span class="sourceLineNo">028</span>    public PointsToSet reachingObjects( Local l );<a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span>    /** Returns the set of objects pointed to by variable l in context c. */<a name="line.30"></a>
+<span class="sourceLineNo">031</span>    public PointsToSet reachingObjects( Context c, Local l );<a name="line.31"></a>
+<span class="sourceLineNo">032</span><a name="line.32"></a>
+<span class="sourceLineNo">033</span>    /** Returns the set of objects pointed to by static field f. */<a name="line.33"></a>
+<span class="sourceLineNo">034</span>    public PointsToSet reachingObjects( SootField f );<a name="line.34"></a>
+<span class="sourceLineNo">035</span><a name="line.35"></a>
+<span class="sourceLineNo">036</span>    /** Returns the set of objects pointed to by instance field f<a name="line.36"></a>
+<span class="sourceLineNo">037</span>     * of the objects in the PointsToSet s. */<a name="line.37"></a>
+<span class="sourceLineNo">038</span>    public PointsToSet reachingObjects( PointsToSet s, SootField f );<a name="line.38"></a>
+<span class="sourceLineNo">039</span><a name="line.39"></a>
+<span class="sourceLineNo">040</span>    /** Returns the set of objects pointed to by instance field f<a name="line.40"></a>
+<span class="sourceLineNo">041</span>     * of the objects pointed to by l. */<a name="line.41"></a>
+<span class="sourceLineNo">042</span>    public PointsToSet reachingObjects( Local l, SootField f );<a name="line.42"></a>
+<span class="sourceLineNo">043</span><a name="line.43"></a>
+<span class="sourceLineNo">044</span>    /** Returns the set of objects pointed to by instance field f<a name="line.44"></a>
+<span class="sourceLineNo">045</span>     * of the objects pointed to by l in context c. */<a name="line.45"></a>
+<span class="sourceLineNo">046</span>    public PointsToSet reachingObjects( Context c, Local l, SootField f );<a name="line.46"></a>
+<span class="sourceLineNo">047</span><a name="line.47"></a>
+<span class="sourceLineNo">048</span>    /** Returns the set of objects pointed to by elements of the arrays<a name="line.48"></a>
+<span class="sourceLineNo">049</span>     * in the PointsToSet s. */<a name="line.49"></a>
+<span class="sourceLineNo">050</span>    public PointsToSet reachingObjectsOfArrayElement( PointsToSet s );<a name="line.50"></a>
+<span class="sourceLineNo">051</span><a name="line.51"></a>
+<span class="sourceLineNo">052</span>    public static final String THIS_NODE = "THIS_NODE";<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    public static final int RETURN_NODE = -2;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    public static final String THROW_NODE = "THROW_NODE";<a name="line.54"></a>
+<span class="sourceLineNo">055</span>    public static final String ARRAY_ELEMENTS_NODE = "ARRAY_ELEMENTS_NODE";<a name="line.55"></a>
+<span class="sourceLineNo">056</span>    public static final String CAST_NODE = "CAST_NODE";<a name="line.56"></a>
+<span class="sourceLineNo">057</span>    public static final String STRING_ARRAY_NODE = "STRING_ARRAY_NODE";<a name="line.57"></a>
+<span class="sourceLineNo">058</span>    public static final String STRING_NODE = "STRING_NODE";<a name="line.58"></a>
+<span class="sourceLineNo">059</span>    public static final String STRING_NODE_LOCAL = "STRING_NODE_LOCAL";<a name="line.59"></a>
+<span class="sourceLineNo">060</span>    public static final String EXCEPTION_NODE = "EXCEPTION_NODE";<a name="line.60"></a>
+<span class="sourceLineNo">061</span>    public static final String RETURN_STRING_CONSTANT_NODE = "RETURN_STRING_CONSTANT_NODE";<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    public static final String STRING_ARRAY_NODE_LOCAL = "STRING_ARRAY_NODE_LOCAL";<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    public static final String MAIN_THREAD_NODE = "MAIN_THREAD_NODE";<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    public static final String MAIN_THREAD_NODE_LOCAL = "MAIN_THREAD_NODE_LOCAL";<a name="line.64"></a>
+<span class="sourceLineNo">065</span>    public static final String MAIN_THREAD_GROUP_NODE = "MAIN_THREAD_GROUP_NODE";<a name="line.65"></a>
+<span class="sourceLineNo">066</span>    public static final String MAIN_THREAD_GROUP_NODE_LOCAL = "MAIN_THREAD_GROUP_NODE_LOCAL";<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    public static final String MAIN_CLASS_NAME_STRING = "MAIN_CLASS_NAME_STRING";<a name="line.67"></a>
+<span class="sourceLineNo">068</span>    public static final String MAIN_CLASS_NAME_STRING_LOCAL = "MAIN_CLASS_NAME_STRING_LOCAL";<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    public static final String DEFAULT_CLASS_LOADER = "DEFAULT_CLASS_LOADER";<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    public static final String DEFAULT_CLASS_LOADER_LOCAL = "DEFAULT_CLASS_LOADER_LOCAL";<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    public static final String FINALIZE_QUEUE = "FINALIZE_QUEUE";<a name="line.71"></a>
+<span class="sourceLineNo">072</span>    public static final String CANONICAL_PATH = "CANONICAL_PATH";<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    public static final String CANONICAL_PATH_LOCAL = "CANONICAL_PATH_LOCAL";<a name="line.73"></a>
+<span class="sourceLineNo">074</span>    public static final String PRIVILEGED_ACTION_EXCEPTION = "PRIVILEGED_ACTION_EXCEPTION";<a name="line.74"></a>
+<span class="sourceLineNo">075</span>    public static final String PRIVILEGED_ACTION_EXCEPTION_LOCAL = "PRIVILEGED_ACTION_EXCEPTION_LOCAL";<a name="line.75"></a>
+<span class="sourceLineNo">076</span>    public static final String PHI_NODE = "PHI_NODE";<a name="line.76"></a>
+<span class="sourceLineNo">077</span>}<a name="line.77"></a>
+<span class="sourceLineNo">078</span><a name="line.78"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

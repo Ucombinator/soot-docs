@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/* Soot - a J*va Optimization Framework<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Copyright (C) 2004 John Jorgensen<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * This library is free software; you can redistribute it and/or<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * modify it under the terms of the GNU Library General Public<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * License as published by the Free Software Foundation; either<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * version 2 of the License, or (at your option) any later version.<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * This library is distributed in the hope that it will be useful,<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * but WITHOUT ANY WARRANTY; without even the implied warranty of<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Library General Public License for more details.<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * You should have received a copy of the GNU Library General Public<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * License along with this library; if not, write to the<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * Free Software Foundation, Inc., 59 Temple Place - Suite 330,<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * Boston, MA 02111-1307, USA.<a name="line.17"></a>
+<span class="sourceLineNo">018</span> */<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>package soot.toolkits.exceptions;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import soot.AnySubType;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import soot.RefType;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import soot.Type;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import soot.Unit;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import soot.UnknownType;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import soot.NullType;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import soot.Value;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import soot.baf.ThrowInst;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import soot.grimp.NewInvokeExpr;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import soot.jimple.ThrowStmt;<a name="line.31"></a>
+<span class="sourceLineNo">032</span><a name="line.32"></a>
+<span class="sourceLineNo">033</span>/**<a name="line.33"></a>
+<span class="sourceLineNo">034</span> * Abstract class implementing parts of the {@link ThrowAnalysis}<a name="line.34"></a>
+<span class="sourceLineNo">035</span> * interface which may be common to multiple concrete<a name="line.35"></a>
+<span class="sourceLineNo">036</span> * &lt;code&gt;ThrowAnalysis&lt;/code&gt; classes.<a name="line.36"></a>
+<span class="sourceLineNo">037</span> * &lt;code&gt;AbstractThrowAnalysis&lt;/code&gt; provides straightforward<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * implementations of {@link mightThrowExplicitly(ThrowInst)} and<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * {@link mightThrowExplicitly(ThrowStmt)}, since concrete<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * implementations of &lt;code&gt;ThrowAnalysis&lt;/code&gt; seem likely to differ<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * mainly in their treatment of implicit exceptions.<a name="line.41"></a>
+<span class="sourceLineNo">042</span> */<a name="line.42"></a>
+<span class="sourceLineNo">043</span>public abstract class AbstractThrowAnalysis implements ThrowAnalysis {<a name="line.43"></a>
+<span class="sourceLineNo">044</span><a name="line.44"></a>
+<span class="sourceLineNo">045</span>    abstract public ThrowableSet mightThrow(Unit u);<a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span><a name="line.47"></a>
+<span class="sourceLineNo">048</span>    public ThrowableSet mightThrowExplicitly(ThrowInst t) {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>        // Deducing the type at the top of the Baf stack is beyond me, so...<a name="line.49"></a>
+<span class="sourceLineNo">050</span>        return ThrowableSet.Manager.v().ALL_THROWABLES;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>    }<a name="line.51"></a>
+<span class="sourceLineNo">052</span><a name="line.52"></a>
+<span class="sourceLineNo">053</span><a name="line.53"></a>
+<span class="sourceLineNo">054</span>    public ThrowableSet mightThrowExplicitly(ThrowStmt t) {<a name="line.54"></a>
+<span class="sourceLineNo">055</span>        Value thrownExpression = t.getOp();<a name="line.55"></a>
+<span class="sourceLineNo">056</span>        Type thrownType = thrownExpression.getType();<a name="line.56"></a>
+<span class="sourceLineNo">057</span>        if (thrownType == null || thrownType instanceof UnknownType) {<a name="line.57"></a>
+<span class="sourceLineNo">058</span>            // We can't identify the type of thrownExpression, so...<a name="line.58"></a>
+<span class="sourceLineNo">059</span>            return ThrowableSet.Manager.v().ALL_THROWABLES;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>        } else if (thrownType instanceof NullType) {<a name="line.60"></a>
+<span class="sourceLineNo">061</span>            ThrowableSet result = ThrowableSet.Manager.v().EMPTY;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>            result = result.add(ThrowableSet.Manager.v().NULL_POINTER_EXCEPTION);<a name="line.62"></a>
+<span class="sourceLineNo">063</span>            return result;<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        } else if (! (thrownType instanceof RefType)) {<a name="line.64"></a>
+<span class="sourceLineNo">065</span>            throw new IllegalStateException("UnitThrowAnalysis StmtSwitch: type of throw argument is not a RefType!");<a name="line.65"></a>
+<span class="sourceLineNo">066</span>        } else {<a name="line.66"></a>
+<span class="sourceLineNo">067</span>            ThrowableSet result = ThrowableSet.Manager.v().EMPTY;<a name="line.67"></a>
+<span class="sourceLineNo">068</span>            if (thrownExpression instanceof NewInvokeExpr) {<a name="line.68"></a>
+<span class="sourceLineNo">069</span>                // In this case, we know the exact type of the <a name="line.69"></a>
+<span class="sourceLineNo">070</span>                // argument exception.<a name="line.70"></a>
+<span class="sourceLineNo">071</span>                result = result.add((RefType) thrownType);<a name="line.71"></a>
+<span class="sourceLineNo">072</span>            } else {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>                result = result.add(AnySubType.v((RefType) thrownType));<a name="line.73"></a>
+<span class="sourceLineNo">074</span>            }<a name="line.74"></a>
+<span class="sourceLineNo">075</span>            return result;<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        }<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    }<a name="line.77"></a>
+<span class="sourceLineNo">078</span><a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>    abstract public ThrowableSet mightThrowImplicitly(ThrowInst t);<a name="line.80"></a>
+<span class="sourceLineNo">081</span>        <a name="line.81"></a>
+<span class="sourceLineNo">082</span>    <a name="line.82"></a>
+<span class="sourceLineNo">083</span>    abstract public ThrowableSet mightThrowImplicitly(ThrowStmt t);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>}<a name="line.84"></a>
+<span class="sourceLineNo">085</span><a name="line.85"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>
